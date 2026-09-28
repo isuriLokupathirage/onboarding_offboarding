@@ -10,7 +10,7 @@ const baseAssignments: AssignmentSeed[] = [
   employeeId: 'emp1',
   formId: 'frm1',
   formName: 'Permanent Employee Onboarding Form',
-  status: 'In Progress',
+  status: 'Sent',
   sentAt: '2026-09-02T09:15:00',
   expiresAt: '2026-10-02T09:15:00',
   submittedAt: null,
@@ -114,6 +114,29 @@ const baseAssignments: AssignmentSeed[] = [
 
 },
 {
+  id: 'asg6',
+  employeeId: 'emp1',
+  formId: 'frm4',
+  formName: 'Document Verification Form',
+  status: 'Sent',
+  sentAt: '2026-09-24T16:02:00',
+  expiresAt: '2026-10-08T16:02:00',
+  submittedAt: null,
+  linkToken: 'lnk-c19e04',
+  draftSaved: false,
+  responses: {},
+  changes: [],
+  activity: [
+  {
+    id: 'ac14',
+    action: 'Sent',
+    detail: 'Document Verification Form',
+    actor: 'Nimal Perera',
+    at: '2026-09-24T16:02:00'
+  }]
+
+},
+{
   id: 'asg4',
   employeeId: 'emp4',
   formId: 'frm3',
@@ -162,7 +185,6 @@ const baseAssignments: AssignmentSeed[] = [
   {
     id: 'ac13',
     action: 'Revoked',
-    detail: 'Sent to the wrong employment type',
     actor: 'Nimal Perera',
     at: '2026-09-05T15:12:00'
   }]

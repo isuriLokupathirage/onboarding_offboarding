@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { CalendarOffIcon, CheckCircle2Icon, LinkIcon, ShieldOffIcon } from 'lucide-react';
+import { CheckCircle2Icon, LinkIcon, UnlinkIcon } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import { PortalShell, type PortalTab } from '../../components/portal/PortalShell';
@@ -12,13 +12,13 @@ import {
 '../../components/forms/CandidateFormRenderer';
 import { useAppData } from '../../contexts/AppDataContext';
 import { useEmployeeData } from '../../contexts/EmployeeDataContext';
-import { formatDate, formatDateTime } from '../../utils/format';
+import { formatDateTime } from '../../utils/format';
 import { useScreenInit } from '../../useScreenInit.js';
 
 export function EmployeeFormLink() {
   const { assignmentId } = useParams();
   const { forms } = useAppData();
-  const { assignments, employees, openAssignment, saveDraft, submitAssignment } = useEmployeeData();
+  const { assignments, employees, saveDraft, submitAssignment } = useEmployeeData();
 
   const assignment = assignments.find((item) => item.id === assignmentId);
   const employee = employees.find((item) => item.id === assignment?.employeeId);
@@ -55,10 +55,6 @@ export function EmployeeFormLink() {
     );
   }, [assignment?.id, employee?.id]);
 
-  useEffect(() => {
-    if (assignmentId) openAssignment(assignmentId);
-  }, [assignmentId]);
-
   const labels = useMemo(() => {
     const map: Record<string, string> = {};
     form?.sections.forEach((section) => {
@@ -86,25 +82,14 @@ export function EmployeeFormLink() {
 
   const employeeName = `${employee.firstName} ${employee.lastName}`;
 
-  if (assignment.status === 'Revoked') {
+  // Revoked and expired links share one neutral screen. It names no employee or form,
+  // because a closed link may have been forwarded to someone else.
+  if (assignment.status === 'Revoked' || assignment.status === 'Expired') {
     return (
       <PortalMessage
-        icon={ShieldOffIcon}
-        tone="red"
-        recipientName={employeeName}
+        icon={UnlinkIcon}
         title="This form is no longer available"
-        body="Your access to this form was withdrawn. A new link can be issued for you." />);
-
-
-  }
-
-  if (assignment.status === 'Expired') {
-    return (
-      <PortalMessage
-        icon={CalendarOffIcon}
-        recipientName={employeeName}
-        title="This form is no longer available"
-        body={`The link expired on ${formatDate(assignment.expiresAt)}. A new link can be issued for you.`} />);
+        body="This link can't be used any more. If you still need to complete this form, contact your HR team and they'll send you a new link." />);
 
 
   }

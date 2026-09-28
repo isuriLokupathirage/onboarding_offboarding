@@ -7,8 +7,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
 import { Tabs } from '../../components/ui/Segmented';
 import { Tooltip } from '../../components/ui/Tooltip';
-import { FormStatusBadge } from '../../components/employees/FormStatusBadge';
-import { FormAccessPanel } from '../../components/employees/FormAccessPanel';
+import { FormAccessPanel, PERMISSION_NOTE } from '../../components/employees/FormAccessPanel';
 import { SendFormDialog } from '../../components/employees/SendFormDialog';
 import { useEmployeeData } from '../../contexts/EmployeeDataContext';
 import { formatDate } from '../../utils/format';
@@ -16,11 +15,9 @@ import { useScreenInit } from '../../useScreenInit.js';
 
 type Tab = 'basic' | 'access';
 
-const PERMISSION_NOTE = 'Requires the Send Employee Forms permission';
-
 export function EmployeeDetail() {
   const { employeeId } = useParams();
-  const { employees, assignmentsFor, latestAssignment, canSendForms } = useEmployeeData();
+  const { employees, assignmentsFor, canSendForms } = useEmployeeData();
   const screenInit = useScreenInit();
   const [tab, setTab] = useState<Tab>(screenInit.tab as Tab ?? 'basic');
   const [sending, setSending] = useState(false);
@@ -31,7 +28,6 @@ export function EmployeeDetail() {
 
   const fullName = `${employee.firstName} ${employee.lastName}`;
   const assignments = assignmentsFor(employee.id);
-  const latest = latestAssignment(employee.id);
 
   return (
     <div>
@@ -73,20 +69,6 @@ export function EmployeeDetail() {
                     {employee.mobile}
                   </span>
                 </div>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <p className="text-[11px] uppercase tracking-wide text-subtle">Employee form</p>
-              <div className="mt-1 flex items-center justify-end gap-2">
-                <FormStatusBadge status={latest?.status ?? 'Not Sent'} />
-                {latest &&
-                <span className="text-[12px] text-muted">
-                    {latest.status === 'Submitted' ?
-                  `Submitted ${formatDate(latest.submittedAt)}` :
-                  `Expires ${formatDate(latest.expiresAt)}`}
-                  </span>
-                }
               </div>
             </div>
           </div>

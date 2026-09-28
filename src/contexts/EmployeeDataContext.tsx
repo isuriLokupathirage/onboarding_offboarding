@@ -11,6 +11,11 @@ import { addDays } from '../utils/format';
 
 export const EXPIRY_DAYS = 14;
 
+/** A link the employee can still use. Only open forms can be revoked. */
+export function isOpenAssignment(assignment: EmployeeFormAssignment): boolean {
+  return assignment.status === 'Sent';
+}
+
 interface EmployeeData {
   currentUser: string;
   canSendForms: boolean;
@@ -19,9 +24,8 @@ interface EmployeeData {
   assignmentsFor: (employeeId: string) => EmployeeFormAssignment[];
   latestAssignment: (employeeId: string) => EmployeeFormAssignment | undefined;
   sendForm: (employeeIds: string[], formId: string, formName: string) => void;
-  resendForm: (assignmentId: string) => void;
-  revokeForm: (assignmentId: string) => void;
-  openAssignment: (assignmentId: string) => void;
+  /** Returns false when the form is no longer open (submitted, expired or already revoked). */
+  revokeForm: (assignmentId: string) => boolean;
   saveDraft: (
   assignmentId: string,
   responses: Record<string, string>,
@@ -104,71 +108,25 @@ export function EmployeeDataProvider({
     [canSendForms, currentUser, log]
   );
 
-  const resendForm = useCallback(
-    (assignmentId: string) => {
-      if (!canSendForms) return;
-      const now = new Date().toISOString();
-      setAssignments((prev) =>
-      prev.map((assignment) =>
-      assignment.id === assignmentId ?
-      {
-        ...assignment,
-        status: 'Sent',
-        sentAt: now,
-        expiresAt: addDays(now, EXPIRY_DAYS),
-        linkToken: newToken(),
-        activity: [
-        ...assignment.activity,
-        log(
-          'Resent',
-          currentUser,
-          assignment.draftSaved ?
-          'New link issued, previous link invalidated, saved draft retained' :
-          'New link issued, previous link invalidated'
-        )]
-
-      } :
-      assignment
-      )
-      );
-    },
-    [canSendForms, currentUser, log]
-  );
-
   const revokeForm = useCallback(
     (assignmentId: string) => {
-      if (!canSendForms) return;
+      if (!canSendForms) return false;
+      const target = assignments.find((assignment) => assignment.id === assignmentId);
+      if (!target || !isOpenAssignment(target)) return false;
       setAssignments((prev) =>
       prev.map((assignment) =>
-      assignment.id === assignmentId ?
+      assignment.id === assignmentId && isOpenAssignment(assignment) ?
       {
         ...assignment,
         status: 'Revoked',
-        activity: [...assignment.activity, log('Revoked', currentUser, 'Link invalidated')]
+        activity: [...assignment.activity, log('Revoked', currentUser)]
       } :
       assignment
       )
       );
+      return true;
     },
-    [canSendForms, currentUser, log]
-  );
-
-  const openAssignment = useCallback(
-    (assignmentId: string) => {
-      setAssignments((prev) =>
-      prev.map((assignment) => {
-        if (assignment.id !== assignmentId || assignment.status !== 'Sent') return assignment;
-        const employee = seedEmployees.find((item) => item.id === assignment.employeeId);
-        const actor = employee ? `${employee.firstName} ${employee.lastName}` : 'Employee';
-        return {
-          ...assignment,
-          status: 'In Progress',
-          activity: [...assignment.activity, log('Opened', actor)]
-        };
-      })
-      );
-    },
-    [log]
+    [assignments, canSendForms, currentUser, log]
   );
 
   const saveDraft = useCallback(
@@ -180,9 +138,9 @@ export function EmployeeDataProvider({
       setAssignments((prev) =>
       prev.map((assignment) => {
         if (assignment.id !== assignmentId) return assignment;
+        if (assignment.status === 'Revoked' || assignment.status === 'Expired') return assignment;
         return {
           ...assignment,
-          status: assignment.status === 'Submitted' ? assignment.status : 'In Progress',
           draftSaved: true,
           responses,
           documentDrafts: documentDrafts ?? assignment.documentDrafts
@@ -197,7 +155,7 @@ export function EmployeeDataProvider({
     (assignmentId: string, responses: Record<string, string>, labels: Record<string, string>) => {
       const now = new Date().toISOString();
       const assignment = assignments.find((item) => item.id === assignmentId);
-      if (!assignment) return;
+      if (!assignment || !isOpenAssignment(assignment)) return;
       const employee = employees.find((item) => item.id === assignment.employeeId);
       const actor = employee ? `${employee.firstName} ${employee.lastName}` : 'Employee';
 
@@ -267,9 +225,7 @@ export function EmployeeDataProvider({
       assignmentsFor,
       latestAssignment,
       sendForm,
-      resendForm,
       revokeForm,
-      openAssignment,
       saveDraft,
       submitAssignment
     }),
@@ -281,9 +237,7 @@ export function EmployeeDataProvider({
     assignmentsFor,
     latestAssignment,
     sendForm,
-    resendForm,
     revokeForm,
-    openAssignment,
     saveDraft,
     submitAssignment]
 
