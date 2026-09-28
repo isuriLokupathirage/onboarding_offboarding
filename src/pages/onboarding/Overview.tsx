@@ -3,18 +3,16 @@ import { Link } from 'react-router-dom';
 import {
   ArrowRightIcon,
   ClipboardListIcon,
-  ClockIcon,
   LayoutTemplateIcon,
   UserMinusIcon,
   UserPlusIcon } from
 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
-import { Avatar, AvatarGroup } from '../../components/ui/Avatar';
+import { Avatar } from '../../components/ui/Avatar';
 import { Badge, DepartmentChip, PriorityBadge } from '../../components/ui/Badge';
 import { Progress } from '../../components/ui/Progress';
 import { useAppData } from '../../contexts/AppDataContext';
-import { peopleById } from '../../data/people';
 import { formatDate } from '../../utils/format';
 
 export function Overview() {
@@ -168,51 +166,6 @@ export function Overview() {
           </section>
 
           <aside className="space-y-6">
-            <section className="rounded-xl border border-line bg-white shadow-card">
-              <div className="border-b border-line px-5 py-3.5">
-                <h2 className="text-sm font-semibold text-ink">In flight</h2>
-              </div>
-              <ul className="divide-y divide-line">
-                {transitions.slice(0, 5).map((transition) =>
-                <li key={transition.id} className="px-5 py-3.5">
-                    <div className="flex items-center gap-3">
-                      <span
-                      className={`h-2 w-2 shrink-0 rounded-full ${
-                      transition.kind === 'Onboarding' ? 'bg-emerald-500' : 'bg-violet-500'}`
-                      }
-                      aria-hidden="true" />
-                    
-                      <Link
-                      to={`/onboarding/transitions/${transition.id}`}
-                      className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink transition-colors duration-150 ease-out hover:text-brand-600">
-                      
-                        {transition.candidate.firstName} {transition.candidate.lastName}
-                      </Link>
-                      <span className="text-[12px] font-medium text-muted">
-                        {progressOf(transition.id)}%
-                      </span>
-                    </div>
-                    <div className="mt-2 pl-5">
-                      <Progress
-                      value={progressOf(transition.id)}
-                      tone={transition.status === 'At Risk' ? 'amber' : 'brand'} />
-                    
-                      <div className="mt-2 flex items-center justify-between">
-                        <AvatarGroup
-                        names={transition.ownerIds.map((id) => peopleById[id]?.name ?? '')}
-                        size="xs" />
-                      
-                        <span className="inline-flex items-center gap-1 text-[11px] text-muted">
-                          <ClockIcon className="h-3 w-3" />
-                          {transition.daysRemaining} days
-                        </span>
-                      </div>
-                    </div>
-                  </li>
-                )}
-              </ul>
-            </section>
-
             <section className="rounded-xl border border-line bg-white p-5 shadow-card">
               <h2 className="text-sm font-semibold text-ink">Task library</h2>
               <p className="mt-1 text-[13px] text-muted">

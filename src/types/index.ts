@@ -194,7 +194,6 @@ export interface Employee {
 export type EmployeeFormStatus =
 'Not Sent' |
 'Sent' |
-'In Progress' |
 'Submitted' |
 'Expired' |
 'Revoked';
