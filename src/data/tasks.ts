@@ -17,7 +17,10 @@ export const seedTasks: Task[] = [
   parentCompletionRequired: false,
   notifyOnAssignment: 'Yes',
   ownerOnlyVisible: false,
-  files: []
+  files: [
+  { id: 'f3', name: 'Offer-Letter-Template.pdf', size: '96 KB' },
+  { id: 'f4', name: 'Start-Date-Confirmation.docx', size: '42 KB' }]
+
 },
 {
   id: 't2',

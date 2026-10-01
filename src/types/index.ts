@@ -73,7 +73,7 @@ export interface Template {
   taskIds: string[];
 }
 
-export type TransitionTaskStatus = 'Not Started' | 'In Progress' | 'Completed' | 'Skipped' | 'Cancelled';
+export type TransitionTaskStatus = 'Open' | 'In Progress' | 'On Hold' | 'Completed' | 'Cancelled';
 
 export interface TransitionTask {
   id: string;

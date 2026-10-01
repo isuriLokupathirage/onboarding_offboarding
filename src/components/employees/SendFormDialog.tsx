@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { LockIcon, MailIcon } from 'lucide-react';
+import { LockIcon, MailIcon, XIcon } from 'lucide-react';
 import type { Employee } from '../../types';
 import { Button } from '../ui/Button';
 import { Avatar } from '../ui/Avatar';
+import { Badge } from '../ui/Badge';
 import { FormPicker } from './FormPicker';
 import { useAppData } from '../../contexts/AppDataContext';
 import { EXPIRY_DAYS, useEmployeeData } from '../../contexts/EmployeeDataContext';
@@ -19,14 +20,14 @@ export function SendFormDialog({
 
 
 
-}: {open: boolean;recipients: Employee[];onClose: () => void;onSent: (formName: string, count: number) => void;}) {
+}: {open: boolean;recipients: Employee[];onClose: () => void;onSent: (formNames: string[], count: number) => void;}) {
   const { forms } = useAppData();
   const { sendForm, canSendForms } = useEmployeeData();
   const activeForms = forms.filter((form) => form.status === 'Active' && !form.isDraft);
-  const [formId, setFormId] = useState('');
+  const [formIds, setFormIds] = useState<string[]>([]);
 
   useEffect(() => {
-    if (open) setFormId('');
+    if (open) setFormIds([]);
   }, [open]);
 
   useEffect(() => {
@@ -39,16 +40,17 @@ export function SendFormDialog({
   }, [open, onClose]);
 
   const expiry = addDays(new Date().toISOString(), EXPIRY_DAYS);
-  const selectedForm = activeForms.find((form) => form.id === formId);
+  const selectedForms = activeForms.filter((form) => formIds.includes(form.id));
+  const several = selectedForms.length > 1;
 
   const handleSend = () => {
-    if (!selectedForm || !canSendForms) return;
-    sendForm(
-      recipients.map((employee) => employee.id),
-      selectedForm.id,
-      selectedForm.name
+    if (selectedForms.length === 0 || !canSendForms) return;
+    const employeeIds = recipients.map((employee) => employee.id);
+    selectedForms.forEach((form) => sendForm(employeeIds, form.id, form.name));
+    onSent(
+      selectedForms.map((form) => form.name),
+      recipients.length
     );
-    onSent(selectedForm.name, recipients.length);
     onClose();
   };
 
@@ -78,22 +80,43 @@ export function SendFormDialog({
               <h2 className="text-base font-semibold text-ink">Send Form</h2>
               <p className="mt-1 text-[13px] text-muted">
                 {recipients.length === 1 ?
-              `${recipients[0].firstName} ${recipients[0].lastName} will get an email naming the form, with the same portal link as any earlier form.` :
-              `${recipients.length} employees will each get an email naming the form, with a link to their own portal.`}
+              `${recipients[0].firstName} ${recipients[0].lastName} will get an email naming each form, with the same portal link as any earlier form.` :
+              `${recipients.length} employees will each get an email naming each form, with a link to their own portal.`}
               </p>
             </div>
 
             <div className="scroll-thin flex-1 overflow-y-auto px-6 py-5">
               <label className="text-[13px] font-medium text-ink" htmlFor="send-form-picker">
-                Select a form <span className="text-red-500">*</span>
+                Select one or more forms <span className="text-red-500">*</span>
               </label>
               <div className="mt-2">
-                <FormPicker forms={activeForms} value={formId} onChange={setFormId} />
+                <FormPicker multiple forms={activeForms} value={formIds} onChange={setFormIds} />
               </div>
-              {selectedForm &&
+              {selectedForms.length === 1 &&
             <p className="mt-2 text-[12px] leading-relaxed text-muted">
-                  {selectedForm.description}
+                  {selectedForms[0].description}
                 </p>
+            }
+              {several &&
+            <ul className="mt-2 space-y-1.5">
+                  {selectedForms.map((form) =>
+              <li
+                key={form.id}
+                className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+
+                      <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{form.name}</span>
+                      <Badge>{form.employmentType}</Badge>
+                      <button
+                  type="button"
+                  aria-label={`Remove ${form.name}`}
+                  onClick={() => setFormIds((prev) => prev.filter((id) => id !== form.id))}
+                  className="rounded p-1 text-subtle transition-colors duration-150 ease-out hover:bg-slate-200 hover:text-ink">
+
+                        <XIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+              )}
+                </ul>
             }
 
               <div className="mt-5">
@@ -126,16 +149,17 @@ export function SendFormDialog({
               <div className="mt-5 flex items-start gap-2.5 rounded-lg bg-sky-50 px-3.5 py-3 ring-1 ring-inset ring-sky-200">
                 <MailIcon className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
                 <p className="text-[13px] leading-relaxed text-sky-900">
-                  No new link is issued. The form expires in {EXPIRY_DAYS} days, on{' '}
-                  {formatDate(expiry)}. Fields already held on the record are pre-filled.
+                  No new link is issued. {several ? 'Each form expires' : 'The form expires'} in{' '}
+                  {EXPIRY_DAYS} days, on {formatDate(expiry)}. Fields already held on the record are
+                  pre-filled.
                 </p>
               </div>
             </div>
 
             <div className="flex justify-end gap-2 border-t border-line px-6 py-4">
               <Button onClick={onClose}>Cancel</Button>
-              <Button variant="primary" onClick={handleSend} disabled={!selectedForm}>
-                Send Form
+              <Button variant="primary" onClick={handleSend} disabled={selectedForms.length === 0}>
+                {several ? `Send ${selectedForms.length} Forms` : 'Send Form'}
               </Button>
             </div>
           </motion.div>

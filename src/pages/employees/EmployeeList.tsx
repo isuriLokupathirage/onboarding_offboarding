@@ -260,11 +260,13 @@ export function EmployeeList() {
         open={Boolean(sendingTo)}
         recipients={recipients}
         onClose={() => setSendingTo(null)}
-        onSent={(formName, count) => {
+        onSent={(formNames, count) => {
+          const what =
+          formNames.length === 1 ? `${formNames[0]} was` : `${formNames.length} forms were`;
           setNotice(
             count === 1 ?
-            `${formName} was sent to ${recipients[0]?.officialEmail}.` :
-            `${formName} was sent to ${count} employees at their official email addresses.`
+            `${what} sent to ${recipients[0]?.officialEmail}.` :
+            `${what} sent to ${count} employees at their official email addresses.`
           );
           setSelected([]);
         }} />

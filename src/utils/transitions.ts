@@ -21,14 +21,14 @@ export function toTransitionTask(task: Task, id: string, dueDate: string | null)
     calculatedDueDate: dueDate,
     dueSource: 'calculated',
     ownerIds: task.ownerIds,
-    status: 'Not Started',
+    status: 'Open',
     parentTaskId: task.parentId,
     parentCompletionRequired: task.parentCompletionRequired,
     restricted: task.ownerOnlyVisible
   };
 }
 
-const CLOSED_TASK_STATUSES = new Set<TransitionTask['status']>(['Completed', 'Skipped', 'Cancelled']);
+const CLOSED_TASK_STATUSES = new Set<TransitionTask['status']>(['Completed', 'Cancelled']);
 
 export function isTaskOpen(task: TransitionTask): boolean {
   return !CLOSED_TASK_STATUSES.has(task.status);
@@ -37,7 +37,7 @@ export function isTaskOpen(task: TransitionTask): boolean {
 export function blockingTask(transition: Transition, task: TransitionTask): TransitionTask | undefined {
   if (!task.parentTaskId || !task.parentCompletionRequired) return undefined;
   const parent = transition.tasks.find((candidate) => candidate.taskId === task.parentTaskId);
-  return parent && parent.status !== 'Completed' && parent.status !== 'Skipped' ? parent : undefined;
+  return parent && parent.status !== 'Completed' ? parent : undefined;
 }
 
 export type TransitionStatusGroup = 'Active' | 'Completed' | 'Cancelled';

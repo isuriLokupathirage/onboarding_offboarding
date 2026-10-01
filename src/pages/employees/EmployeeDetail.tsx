@@ -160,8 +160,11 @@ export function EmployeeDetail() {
         open={sending}
         recipients={[employee]}
         onClose={() => setSending(false)}
-        onSent={(formName) => {
-          setNotice(`${formName} was sent to ${employee.officialEmail}.`);
+        onSent={(formNames) => {
+          setNotice(
+            `${formNames.length === 1 ? `${formNames[0]} was` : `${formNames.length} forms were`} sent to ${
+            employee.officialEmail}.`
+          );
           setTab('access');
         }} />
       

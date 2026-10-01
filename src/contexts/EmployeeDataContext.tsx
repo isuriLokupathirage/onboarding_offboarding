@@ -88,7 +88,7 @@ export function EmployeeDataProvider({
       if (!canSendForms) return;
       const now = new Date().toISOString();
       const created: EmployeeFormAssignment[] = employeeIds.map((employeeId, index) => ({
-        id: `asg-${Date.now()}-${index}`,
+        id: `asg-${Date.now()}-${formId}-${index}`,
         employeeId,
         formId,
         formName,
