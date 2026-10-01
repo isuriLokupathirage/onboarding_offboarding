@@ -3,7 +3,8 @@ import type {
   ChangedValue,
   Employee,
   EmployeeFormAssignment,
-  FormActivityAction } from
+  FormActivityAction,
+  SubmittedDocument } from
 '../types';
 import { employees as seedEmployees } from '../data/employees';
 import { seedAssignments } from '../data/employeeAssignments';
@@ -11,9 +12,9 @@ import { addDays } from '../utils/format';
 
 export const EXPIRY_DAYS = 14;
 
-/** A link the employee can still use. Only open forms can be revoked. */
+/** A form the employee can still complete. Only open forms can be revoked. */
 export function isOpenAssignment(assignment: EmployeeFormAssignment): boolean {
-  return assignment.status === 'Sent';
+  return assignment.status === 'Sent' && new Date(assignment.expiresAt).getTime() >= Date.now();
 }
 
 interface EmployeeData {
@@ -34,18 +35,12 @@ interface EmployeeData {
   submitAssignment: (
   assignmentId: string,
   responses: Record<string, string>,
-  labels: Record<string, string>)
+  labels: Record<string, string>,
+  documents: SubmittedDocument[])
   => void;
 }
 
 const EmployeeDataContext = createContext<EmployeeData | null>(null);
-
-let tokenCounter = 100;
-
-function newToken(): string {
-  tokenCounter += 7;
-  return `lnk-${(tokenCounter * 8191).toString(16).slice(0, 6)}`;
-}
 
 export function EmployeeDataProvider({
   children,
@@ -96,10 +91,10 @@ export function EmployeeDataProvider({
         sentAt: now,
         expiresAt: addDays(now, EXPIRY_DAYS),
         submittedAt: null,
-        linkToken: newToken(),
         draftSaved: false,
         responses: {},
         documentDrafts: {},
+        submittedDocuments: [],
         changes: [],
         activity: [log('Sent', currentUser, formName)]
       }));
@@ -137,8 +132,7 @@ export function EmployeeDataProvider({
     {
       setAssignments((prev) =>
       prev.map((assignment) => {
-        if (assignment.id !== assignmentId) return assignment;
-        if (assignment.status === 'Revoked' || assignment.status === 'Expired') return assignment;
+        if (assignment.id !== assignmentId || !isOpenAssignment(assignment)) return assignment;
         return {
           ...assignment,
           draftSaved: true,
@@ -152,7 +146,12 @@ export function EmployeeDataProvider({
   );
 
   const submitAssignment = useCallback(
-    (assignmentId: string, responses: Record<string, string>, labels: Record<string, string>) => {
+    (
+    assignmentId: string,
+    responses: Record<string, string>,
+    labels: Record<string, string>,
+    documents: SubmittedDocument[]) =>
+    {
       const now = new Date().toISOString();
       const assignment = assignments.find((item) => item.id === assignmentId);
       if (!assignment || !isOpenAssignment(assignment)) return;
@@ -189,6 +188,7 @@ export function EmployeeDataProvider({
         submittedAt: now,
         draftSaved: false,
         documentDrafts: {},
+        submittedDocuments: documents,
         responses,
         changes,
         activity: [
@@ -203,7 +203,7 @@ export function EmployeeDataProvider({
         ...changes.map((change) =>
         log(
           'Profile updated',
-          'System',
+          actor,
           `${change.label}: ${change.previous} → ${change.submitted}`
         )
         )]

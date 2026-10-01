@@ -17,29 +17,35 @@ import { EmployeeForms } from './pages/templates/EmployeeForms';
 import { FormDetail } from './pages/templates/FormDetail';
 import { BackgroundCheckForms } from './pages/templates/BackgroundCheckForms';
 import { RecruitmentEmails } from './pages/templates/RecruitmentEmails';
-import { CandidatePortal, PortalEntry } from './pages/portal/CandidatePortal';
+import { Portal, PortalEntry } from './pages/portal/Portal';
+import { MyTasks } from './pages/tasks/MyTasks';
+import type { OboPermission } from './types';
 
 interface AppProps {
-  /** Show the candidate portal's My Events tab in its empty state. */
+  /** Show the candidate portal's My Schedule tab in its empty state. */
   portalEventsEmpty?: boolean;
   /** Simulate the signed-in user holding the Send Employee Forms (employee.form.send) permission. */
   canSendEmployeeForms?: boolean;
   /** Simulate the signed-in user holding manage rights on employee forms, rather than view only. */
   canManageEmployeeForms?: boolean;
+  /** Simulate the Onboarding & Offboarding permissions held by the signed-in user. */
+  oboPermissions?: OboPermission[];
 }
 
 export function App({
   portalEventsEmpty = false,
   canSendEmployeeForms = true,
-  canManageEmployeeForms = true
+  canManageEmployeeForms = true,
+  oboPermissions
 }: AppProps) {
   return (
-    <AppDataProvider canManageForms={canManageEmployeeForms}>
+    <AppDataProvider canManageForms={canManageEmployeeForms} oboPermissions={oboPermissions}>
       <EmployeeDataProvider canSendForms={canSendEmployeeForms}>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<AppShell />}>
             <Route index element={<Navigate to="/onboarding/overview" replace />} />
+            <Route path="tasks/my-tasks" element={<MyTasks />} />
             <Route path="onboarding/overview" element={<Overview />} />
             <Route path="onboarding/transitions" element={<Transitions />} />
             <Route path="onboarding/transitions/new" element={<NewTransition />} />
@@ -55,7 +61,7 @@ export function App({
             <Route path="employees/:employeeId" element={<EmployeeDetail />} />
           </Route>
           <Route path="/portal" element={<PortalEntry />} />
-          <Route path="/portal/:token" element={<CandidatePortal eventsEmpty={portalEventsEmpty} />} />
+          <Route path="/portal/:token" element={<Portal eventsEmpty={portalEventsEmpty} />} />
           <Route path="/employee-form/:assignmentId" element={<EmployeeFormLink />} />
           <Route path="*" element={<Navigate to="/onboarding/overview" replace />} />
         </Routes>

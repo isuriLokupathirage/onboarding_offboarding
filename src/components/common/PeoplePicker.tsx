@@ -1,26 +1,29 @@
 import React, { useMemo, useState } from 'react';
 import { SearchIcon, XIcon } from 'lucide-react';
 import { people, peopleById } from '../../data/people';
+import type { Person } from '../../types';
 import { Avatar } from '../ui/Avatar';
 
 export function PeoplePicker({
   selectedIds,
   onChange,
   placeholder = 'Search people',
-  emptyHint
-
-
-
-
-
-}: {selectedIds: string[];onChange: (ids: string[]) => void;placeholder?: string;emptyHint?: string;}) {
+  emptyHint,
+  isEligible
+}: {
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  placeholder?: string;
+  emptyHint?: string;
+  isEligible?: (person: Person) => boolean;
+}) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
 
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return people.
-    filter((person) => !selectedIds.includes(person.id)).
+    filter((person) => !selectedIds.includes(person.id) && (!isEligible || isEligible(person))).
     filter(
       (person) =>
       !needle ||
@@ -29,7 +32,7 @@ export function PeoplePicker({
       person.department.toLowerCase().includes(needle)
     ).
     slice(0, 6);
-  }, [query, selectedIds]);
+  }, [query, selectedIds, isEligible]);
 
   return (
     <div className="rounded-lg border border-line bg-white">

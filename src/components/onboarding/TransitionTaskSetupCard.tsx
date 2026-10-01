@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { AlertCircleIcon, CalendarIcon, PencilIcon, RotateCcwIcon, Trash2Icon } from 'lucide-react';
-import type { Milestone, TransitionTask } from '../../types';
+import type { Milestone, Person, TransitionTask } from '../../types';
 import { Badge, DepartmentChip, PriorityBadge } from '../ui/Badge';
 import { Input, Select } from '../ui/Field';
 import { PillToggle } from '../ui/Toggle';
 import { PeoplePicker } from '../common/PeoplePicker';
 import { milestones } from '../../data/people';
 import { formatDate, resolveDueDate } from '../../utils/format';
+
+const canOwnTasks = (person: Person) => person.canUpdateTaskProgress;
 
 export function TransitionTaskSetupCard({
   task,
@@ -235,8 +237,11 @@ export function TransitionTaskSetupCard({
           selectedIds={task.ownerIds}
           onChange={(ids) => onChange({ ownerIds: ids })}
           placeholder="Search to add an owner"
-          emptyHint="No owners assigned yet" />
-        
+          emptyHint="No owners assigned yet"
+          isEligible={canOwnTasks} />
+        <p className="mt-1.5 text-[11px] text-subtle">
+          Only people with the Update Task Progress permission can be task owners.
+        </p>
       </div>
     </div>);
 

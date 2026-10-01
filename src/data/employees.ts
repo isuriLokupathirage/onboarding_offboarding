@@ -1,6 +1,6 @@
 import type { Employee } from '../types';
 
-export const employees: Employee[] = [
+const baseEmployees: Omit<Employee, 'portalToken'>[] = [
 {
   id: 'emp1',
   code: 'EMP67678',
@@ -251,3 +251,8 @@ export const employees: Employee[] = [
     accName: 'N R Gunawardena'
   }
 }];
+
+export const employees: Employee[] = baseEmployees.map((employee, index) => ({
+  ...employee,
+  portalToken: `emp-${((index + 1) * 69621).toString(16)}`
+}));

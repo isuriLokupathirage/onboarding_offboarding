@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   ChevronDownIcon,
+  ClipboardListIcon,
   ExternalLinkIcon,
   FileTextIcon,
   LayersIcon,
@@ -31,6 +32,13 @@ interface NavModule {
 }
 
 const modules: NavModule[] = [
+{
+  id: 'tasks',
+  label: 'Tasks',
+  icon: ClipboardListIcon,
+  basePath: '/tasks',
+  groups: [{ items: [{ label: 'My Tasks', to: '/tasks/my-tasks' }] }]
+},
 {
   id: 'onboarding',
   label: 'Onboarding & Offboarding',

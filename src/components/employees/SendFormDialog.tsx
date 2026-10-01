@@ -78,8 +78,8 @@ export function SendFormDialog({
               <h2 className="text-base font-semibold text-ink">Send Form</h2>
               <p className="mt-1 text-[13px] text-muted">
                 {recipients.length === 1 ?
-              `${recipients[0].firstName} ${recipients[0].lastName} will receive a unique link to confirm their details.` :
-              `${recipients.length} employees will each receive their own unique link.`}
+              `${recipients[0].firstName} ${recipients[0].lastName} will get an email naming the form, with the same portal link as any earlier form.` :
+              `${recipients.length} employees will each get an email naming the form, with a link to their own portal.`}
               </p>
             </div>
 
@@ -126,7 +126,7 @@ export function SendFormDialog({
               <div className="mt-5 flex items-start gap-2.5 rounded-lg bg-sky-50 px-3.5 py-3 ring-1 ring-inset ring-sky-200">
                 <MailIcon className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
                 <p className="text-[13px] leading-relaxed text-sky-900">
-                  Each link is unique to the employee and expires in {EXPIRY_DAYS} days, on{' '}
+                  No new link is issued. The form expires in {EXPIRY_DAYS} days, on{' '}
                   {formatDate(expiry)}. Fields already held on the record are pre-filled.
                 </p>
               </div>

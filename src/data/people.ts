@@ -3,16 +3,18 @@ import type { Department, Person } from '../types';
 export const departments: Department[] = ['HR', 'IT Ops', 'Engineering', 'Finance', 'Security'];
 
 export const people: Person[] = [
-{ id: 'u1', name: 'Nimal Perera', role: 'HR Manager', department: 'HR' },
-{ id: 'u2', name: 'Kasun Fernando', role: 'IT Ops Lead', department: 'IT Ops' },
-{ id: 'u3', name: 'Dilani Jayawardena', role: 'HR Executive', department: 'HR' },
-{ id: 'u4', name: 'Ruwan Silva', role: 'Engineering Manager', department: 'Engineering' },
-{ id: 'u5', name: 'Thilini Gunasekara', role: 'Finance Executive', department: 'Finance' },
-{ id: 'u6', name: 'Sanjaya Bandara', role: 'Security Officer', department: 'Security' },
-{ id: 'u7', name: 'Amaya Wickramasinghe', role: 'Talent Acquisition Lead', department: 'HR' },
-{ id: 'u8', name: 'Pradeep Rathnayake', role: 'Systems Administrator', department: 'IT Ops' },
-{ id: 'u9', name: 'Ishara Mendis', role: 'Tech Lead', department: 'Engineering' },
-{ id: 'u10', name: 'Chathuri Ekanayake', role: 'Payroll Officer', department: 'Finance' }];
+{ id: 'u1', name: 'Nimal Perera', role: 'HR Manager', department: 'HR', canUpdateTaskProgress: true },
+{ id: 'u2', name: 'Kasun Fernando', role: 'IT Ops Lead', department: 'IT Ops', canUpdateTaskProgress: true },
+{ id: 'u3', name: 'Dilani Jayawardena', role: 'HR Executive', department: 'HR', canUpdateTaskProgress: true },
+{ id: 'u4', name: 'Ruwan Silva', role: 'Engineering Manager', department: 'Engineering', canUpdateTaskProgress: true },
+{ id: 'u5', name: 'Thilini Gunasekara', role: 'Finance Executive', department: 'Finance', canUpdateTaskProgress: true },
+{ id: 'u6', name: 'Sanjaya Bandara', role: 'Security Officer', department: 'Security', canUpdateTaskProgress: true },
+{ id: 'u7', name: 'Amaya Wickramasinghe', role: 'Talent Acquisition Lead', department: 'HR', canUpdateTaskProgress: true },
+{ id: 'u8', name: 'Pradeep Rathnayake', role: 'Systems Administrator', department: 'IT Ops', canUpdateTaskProgress: true },
+{ id: 'u9', name: 'Ishara Mendis', role: 'Tech Lead', department: 'Engineering', canUpdateTaskProgress: true },
+{ id: 'u10', name: 'Chathuri Ekanayake', role: 'Payroll Officer', department: 'Finance', canUpdateTaskProgress: true },
+{ id: 'u11', name: 'Harsha Dias', role: 'Recruitment Coordinator', department: 'HR', canUpdateTaskProgress: false },
+{ id: 'u12', name: 'Menaka Rodrigo', role: 'Finance Assistant', department: 'Finance', canUpdateTaskProgress: false }];
 
 
 export const peopleById: Record<string, Person> = people.reduce(

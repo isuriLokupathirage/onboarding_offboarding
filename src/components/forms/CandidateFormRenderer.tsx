@@ -11,13 +11,23 @@ function visibleFields(fields: FormField[]): FormField[] {
 interface ControlProps {
   value?: string;
   onChange?: (value: string) => void;
+  disabled?: boolean;
 }
 
-function FieldControl({ field, id, value, onChange }: {field: FormField;id: string;} & ControlProps) {
+function FieldControl({
+  field,
+  id,
+  value,
+  onChange,
+  disabled
+}: {field: FormField;id: string;} & ControlProps) {
   const controlled = value !== undefined;
-  const shared = controlled ?
-  { value, onChange: (event: {target: {value: string;};}) => onChange?.(event.target.value) } :
-  {};
+  const shared = {
+    disabled,
+    ...(controlled ?
+    { value, onChange: (event: {target: {value: string;};}) => onChange?.(event.target.value) } :
+    {})
+  };
 
   if (field.dataType === 'Dropdown') {
     return (
@@ -59,7 +69,8 @@ function FieldBlock({
   valueKey,
   values,
   onValueChange,
-  prefilled
+  prefilled,
+  readOnly
 
 
 
@@ -67,7 +78,8 @@ function FieldBlock({
 
 
 
-}: {field: FormField;prefix: string;valueKey: string;values?: Record<string, string>;onValueChange?: (key: string, value: string) => void;prefilled?: Record<string, string>;}) {
+
+}: {field: FormField;prefix: string;valueKey: string;values?: Record<string, string>;onValueChange?: (key: string, value: string) => void;prefilled?: Record<string, string>;readOnly?: boolean;}) {
   const id = `${prefix}-${field.id}`;
   const original = prefilled?.[valueKey];
   const current = values?.[valueKey];
@@ -82,17 +94,19 @@ function FieldBlock({
           {field.name}
           {field.state === 'Required' && <span className="ml-0.5 text-red-500">*</span>}
         </label>
-        {changed ?
+        {!readOnly && (
+        changed ?
         <span className="text-[11px] font-medium text-brand-700">Changed</span> :
 
-        original !== undefined && <span className="text-[11px] text-sky-700">from your record</span>
+        original !== undefined && <span className="text-[11px] text-sky-700">from your record</span>)
         }
       </div>
       <FieldControl
         field={field}
         id={id}
         value={values ? current ?? '' : undefined}
-        onChange={values ? (next) => onValueChange?.(valueKey, next) : undefined} />
+        onChange={values ? (next) => onValueChange?.(valueKey, next) : undefined}
+        disabled={readOnly} />
       
       {showOther &&
       <div className="mt-2">
@@ -103,6 +117,7 @@ function FieldBlock({
           <Input
           id={`${id}-other`}
           type="text"
+          disabled={readOnly}
           value={values ? values[otherKey] ?? '' : undefined}
           onChange={values ? (event) => onValueChange?.(otherKey, event.target.value) : undefined}
           placeholder={`Tell us your ${field.name.toLowerCase()}`} />
@@ -119,7 +134,9 @@ export function CandidateFormRenderer({
   onMaritalStatusChange,
   values,
   onValueChange,
-  prefilled
+  prefilled,
+  readOnly = false,
+  emptyMessage = 'This form does not ask for any employee details. Continue to the documents tab.'
 
 
 
@@ -127,8 +144,13 @@ export function CandidateFormRenderer({
 
 
 
-}: {form: EmployeeForm;maritalStatus: 'Single' | 'Married';onMaritalStatusChange: (status: 'Single' | 'Married') => void;values?: Record<string, string>;onValueChange?: (key: string, value: string) => void;prefilled?: Record<string, string>;}) {
-  const [repeats, setRepeats] = useState<Record<string, number>>({});
+
+
+}: {form: EmployeeForm;maritalStatus: 'Single' | 'Married';onMaritalStatusChange: (status: 'Single' | 'Married') => void;values?: Record<string, string>;onValueChange?: (key: string, value: string) => void;prefilled?: Record<string, string>;readOnly?: boolean;emptyMessage?: string;}) {
+  // Start with as many repeating rows as the saved values use, so a draft comes back whole.
+  const [repeats, setRepeats] = useState<Record<string, number>>(() =>
+  initialRepeats(form, values ?? {})
+  );
 
   const sections = useMemo(
     () =>
@@ -151,12 +173,12 @@ export function CandidateFormRenderer({
   const setRows = (key: string, next: number) =>
   setRepeats((prev) => ({ ...prev, [key]: Math.max(1, next) }));
 
-  const blockProps = { values, onValueChange, prefilled };
+  const blockProps = { values, onValueChange, prefilled, readOnly };
 
   if (sections.length === 0) {
     return (
       <p className="rounded-xl border border-dashed border-line bg-white px-5 py-8 text-center text-[13px] text-muted">
-        This form does not ask for any employee details. Continue to the documents tab.
+        {emptyMessage}
       </p>);
 
   }
@@ -171,7 +193,7 @@ export function CandidateFormRenderer({
           <section key={section.id} className="rounded-xl border border-line bg-white p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-ink">{section.title}</h3>
-              {section.repeating &&
+              {section.repeating && !readOnly &&
               <Button size="sm" onClick={() => setRows(section.id, rows + 1)}>
                   <PlusIcon className="h-3.5 w-3.5" />
                   Add {section.title.replace(/s$/, '')}
@@ -202,6 +224,7 @@ export function CandidateFormRenderer({
                       </label>
                       <Select
                   id="marital-status"
+                  disabled={readOnly}
                   value={maritalStatus}
                   onChange={(event) =>
                   onMaritalStatusChange(event.target.value as 'Single' | 'Married')
@@ -253,10 +276,12 @@ export function CandidateFormRenderer({
                   <div className="mt-4 border-t border-line pt-4">
                         <div className="mb-3 flex items-center justify-between gap-3">
                           <p className="text-[12px] font-medium text-ink">{group.repeating.label}</p>
-                          <Button size="sm" onClick={() => setRows(childKey, childRows + 1)}>
-                            <PlusIcon className="h-3.5 w-3.5" />
-                            Add Child
-                          </Button>
+                          {!readOnly &&
+                      <Button size="sm" onClick={() => setRows(childKey, childRows + 1)}>
+                              <PlusIcon className="h-3.5 w-3.5" />
+                              Add Child
+                            </Button>
+                      }
                         </div>
                         <RepeatingRows
                       label="Child"
@@ -286,7 +311,8 @@ function RepeatingRows({
   prefix,
   values,
   onValueChange,
-  prefilled
+  prefilled,
+  readOnly
 
 
 
@@ -296,7 +322,8 @@ function RepeatingRows({
 
 
 
-}: {label: string;rows: number;onRemove: () => void;fields: FormField[];prefix: string;values?: Record<string, string>;onValueChange?: (key: string, value: string) => void;prefilled?: Record<string, string>;}) {
+
+}: {label: string;rows: number;onRemove: () => void;fields: FormField[];prefix: string;values?: Record<string, string>;onValueChange?: (key: string, value: string) => void;prefilled?: Record<string, string>;readOnly?: boolean;}) {
   return (
     <div className="space-y-4">
       {Array.from({ length: rows }).map((_, index) =>
@@ -305,7 +332,7 @@ function RepeatingRows({
             <p className="text-[12px] font-medium text-muted">
               {label} {index + 1}
             </p>
-            {rows > 1 && index === rows - 1 &&
+            {rows > 1 && index === rows - 1 && !readOnly &&
           <button
             type="button"
             onClick={onRemove}
@@ -326,7 +353,8 @@ function RepeatingRows({
             valueKey={`${field.id}#${index}`}
             values={values}
             onValueChange={onValueChange}
-            prefilled={prefilled} />
+            prefilled={prefilled}
+            readOnly={readOnly} />
 
           )}
           </div>
@@ -352,4 +380,68 @@ export function formHasFields(form: EmployeeForm): boolean {
       visibleFields(group.repeating?.fields ?? []).length > 0
     ))
   );
+}
+
+/** Repeating rows used by saved values. Row keys look like `fieldId#index`. */
+function initialRepeats(form: EmployeeForm, values: Record<string, string>): Record<string, number> {
+  const rowsUsed = (fields: FormField[]) => {
+    const ids = new Set(fields.map((field) => field.id));
+    let max = 0;
+    Object.keys(values).forEach((key) => {
+      const [fieldId, index] = key.split('#');
+      if (index !== undefined && ids.has(fieldId)) max = Math.max(max, Number(index) + 1);
+    });
+    return max;
+  };
+  const result: Record<string, number> = {};
+  form.sections.forEach((section) => {
+    if (section.repeating) result[section.id] = Math.max(1, rowsUsed(section.fields));
+    (section.conditionalGroups ?? []).forEach((group) => {
+      if (group.repeating) result[`${group.id}-repeat`] = Math.max(1, rowsUsed(group.repeating.fields));
+    });
+  });
+  return result;
+}
+
+function isBlank(value: string | undefined): boolean {
+  return (value ?? '').trim() === '';
+}
+
+/**
+ * Names of the required fields shown to the recipient that are still empty. Mirrors what the
+ * renderer displays: enabled sections, visible fields and the group for the chosen civil status.
+ */
+export function missingRequiredFields(
+form: EmployeeForm,
+values: Record<string, string>,
+maritalStatus: 'Single' | 'Married')
+: string[] {
+  if (!form.employeeDetailsEnabled) return [];
+  const rowsFor = initialRepeats(form, values);
+  const missing: string[] = [];
+  const check = (field: FormField, key: string) => {
+    if (field.state !== 'Required' || field.id === 'marital') return;
+    if (isBlank(values[key])) missing.push(field.name);else
+    if (field.allowOther && values[key] === 'Other' && isBlank(values[`${key}__other`]))
+    missing.push(`${field.name} (please specify)`);
+  };
+  const checkRows = (fields: FormField[], rows: number) => {
+    for (let index = 0; index < rows; index += 1) {
+      visibleFields(fields).forEach((field) => check(field, `${field.id}#${index}`));
+    }
+  };
+
+  form.sections.
+  filter((section) => section.enabled).
+  forEach((section) => {
+    if (section.repeating) checkRows(section.fields, rowsFor[section.id] ?? 1);else
+    visibleFields(section.fields).forEach((field) => check(field, field.id));
+    (section.conditionalGroups ?? []).
+    filter((group) => group.condition === maritalStatus).
+    forEach((group) => {
+      visibleFields(group.fields).forEach((field) => check(field, field.id));
+      if (group.repeating) checkRows(group.repeating.fields, rowsFor[`${group.id}-repeat`] ?? 1);
+    });
+  });
+  return [...new Set(missing)];
 }

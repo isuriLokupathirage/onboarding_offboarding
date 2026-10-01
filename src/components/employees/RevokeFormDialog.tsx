@@ -191,15 +191,16 @@ export function RevokeFormDialog({
                     <li className="flex gap-2.5">
                       <UnlinkIcon className="mt-0.5 h-4 w-4 shrink-0 text-subtle" />
                       <span>
-                        {plural ? 'The links stop' : 'The link stops'} working{' '}
-                        <strong className="font-medium text-ink">as soon as you confirm</strong>.
+                        {plural ? 'The forms are' : 'The form is'} removed from {employee.firstName}'s portal{' '}
+                        <strong className="font-medium text-ink">as soon as you confirm</strong>. Other forms in
+                        the portal are not affected.
                       </span>
                     </li>
                     <li className="flex gap-2.5">
                       <InfoIcon className="mt-0.5 h-4 w-4 shrink-0 text-subtle" />
                       <span>
-                        If {employee.firstName} opens {plural ? 'one' : 'it'}, they'll see that the form is no
-                        longer available and that they should contact HR.
+                        {employee.firstName} can still open the portal, but {plural ? 'these forms' : 'this form'}{' '}
+                        will no longer be listed there.
                       </span>
                     </li>
                     <li className="flex gap-2.5">
@@ -209,8 +210,8 @@ export function RevokeFormDialog({
                     <li className="flex gap-2.5">
                       <RotateCcwIcon className="mt-0.5 h-4 w-4 shrink-0 text-subtle" />
                       <span>
-                        You can send {plural ? 'these forms' : 'this form'} again at any time with Send Form. That
-                        issues a new link.
+                        You can send {plural ? 'these forms' : 'this form'} again at any time with Send Form. It
+                        appears in the same portal.
                       </span>
                     </li>
                   </ul>

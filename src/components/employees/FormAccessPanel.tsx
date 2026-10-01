@@ -19,6 +19,7 @@ import { RevokeFormDialog } from './RevokeFormDialog';
 import { revokeNotice } from '../../utils/revoke';
 import { isOpenAssignment, useEmployeeData } from '../../contexts/EmployeeDataContext';
 import { formatDate, formatDateTime } from '../../utils/format';
+import { portalUrl } from '../../utils/portal';
 
 export const PERMISSION_NOTE = 'You need the Send Employee Forms permission to do this.';
 
@@ -71,7 +72,7 @@ export function FormAccessPanel({
       <EmptyState
         icon={FileTextIcon}
         title="No forms have been sent to this employee"
-        description={`Send a form to ${employee.firstName} and they will receive a unique link at ${employee.officialEmail}.`}
+        description={`Send a form to ${employee.firstName} and they will receive a link to their portal at ${employee.officialEmail}.`}
         action={sendFormButton}
       />
     );
@@ -80,7 +81,9 @@ export function FormAccessPanel({
   const renderRow = (assignment: EmployeeFormAssignment) => {
     const open = isOpenAssignment(assignment);
     const checked = selected.includes(assignment.id);
-    const linkClosed = assignment.status === 'Revoked' || assignment.status === 'Expired';
+    // A form past its expiry date is expired even before anything marks it so.
+    const status = assignment.status === 'Sent' && !open ? 'Expired' : assignment.status;
+    const linkClosed = status === 'Revoked' || status === 'Expired';
     const revokedEntry =
       assignment.status === 'Revoked'
         ? [...assignment.activity].reverse().find((entry) => entry.action === 'Revoked')
@@ -111,7 +114,7 @@ export function FormAccessPanel({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-[13px] font-medium text-ink">{assignment.formName}</h3>
-                <FormStatusBadge status={assignment.status} />
+                <FormStatusBadge status={status} />
               </div>
               <dl className="mt-2.5 flex flex-wrap gap-x-6 gap-y-1.5 text-[12px]">
                 <div className="flex gap-1.5">
@@ -124,12 +127,12 @@ export function FormAccessPanel({
                     <dd className="text-ink">{formatDateTime(assignment.submittedAt)}</dd>
                   </div>
                 ) : (
-                  assignment.status !== 'Revoked' && (
+                  status !== 'Revoked' && (
                     <div className="flex gap-1.5">
                       <dt className="text-subtle">
-                        {assignment.status === 'Expired' ? 'Expired' : 'Expires'}
+                        {status === 'Expired' ? 'Expired' : 'Expires'}
                       </dt>
-                      <dd className={assignment.status === 'Expired' ? 'text-red-600' : 'text-ink'}>
+                      <dd className={status === 'Expired' ? 'text-red-600' : 'text-ink'}>
                         {formatDate(assignment.expiresAt)}
                       </dd>
                     </div>
@@ -142,7 +145,7 @@ export function FormAccessPanel({
                 }`}
               >
                 {linkClosed ? <UnlinkIcon className="h-3 w-3" /> : <LinkIcon className="h-3 w-3" />}
-                accxis.lk/form/{assignment.linkToken}
+                {portalUrl(employee.portalToken)}
               </p>
               {revokedEntry && (
                 <p className="mt-2 w-fit rounded-md bg-slate-50 px-2.5 py-1.5 text-[12px] text-slate-700 ring-1 ring-inset ring-line">
@@ -154,7 +157,7 @@ export function FormAccessPanel({
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Link to={`/employee-form/${assignment.id}`}>
+            <Link to={`/portal/${employee.portalToken}?form=${assignment.id}`}>
               <Button size="sm" variant="ghost">
                 <ExternalLinkIcon className="h-3.5 w-3.5" />
                 Employee view
@@ -221,8 +224,8 @@ export function FormAccessPanel({
   return (
     <div>
       <p className="max-w-xl text-[13px] text-muted">
-        Forms sent to {employee.firstName}'s official email. Each link is personal to them. To send
-        a revoked or expired form again, use Send Form above. It issues a new link.
+        Forms sent to {employee.firstName}'s official email. Every form opens in their portal at the
+        same link. To send a revoked or expired form again, use Send Form above.
       </p>
 
       {notice && (
