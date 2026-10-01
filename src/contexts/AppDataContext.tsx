@@ -2,7 +2,9 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 import type {
   EmployeeForm,
   FieldState,
+  FormPart,
   FormSection,
+  FormSubmission,
   RequiredDocument,
   Task,
   Template,
@@ -27,6 +29,7 @@ import {
   statusGroup } from
 '../utils/transitions';
 import { addDays } from '../utils/format';
+import { formParts, partLabels } from '../utils/portal';
 
 interface AppData {
   canManageForms: boolean;
@@ -66,6 +69,7 @@ interface AppData {
   submitTransitionForm: (
   transitionId: string,
   emailId: string,
+  part: FormPart,
   responses: Record<string, string>,
   documents: SubmittedDocument[])
   => void;
@@ -433,6 +437,10 @@ export function AppDataProvider({
           ...transition,
           candidate: { ...transition.candidate, employeeFormId: form.id },
           formStatus: previous?.draft ? 'In Progress' : 'Sent',
+          // A part already submitted on the open copy stays submitted on the new one.
+          submissions: transition.submissions.map((submission) =>
+          previous && submission.emailId === previous.id ? { ...submission, emailId } : submission
+          ),
           emails: [
           ...transition.emails.map((email) =>
           email.id === previous?.id ? { ...email, replacedBy: emailId, draft: undefined } : email
@@ -486,6 +494,7 @@ export function AppDataProvider({
     (
     transitionId: string,
     emailId: string,
+    part: FormPart,
     responses: Record<string, string>,
     documents: SubmittedDocument[]) =>
     {
@@ -494,16 +503,32 @@ export function AppDataProvider({
       prev.map((transition) => {
         const email = transition.emails.find((item) => item.id === emailId);
         if (transition.id !== transitionId || !email || !isOpenFormEmail(transition, email)) return transition;
-        const formName = forms.find((form) => form.id === email.formId)?.name ?? email.subject;
+        const form = forms.find((item) => item.id === email.formId);
+        const existing = transition.submissions.find((item) => item.emailId === emailId);
+        const parts = { ...existing?.parts, [part]: submittedAt };
+        const pendingParts = (form ? formParts(form) : []).filter((item) => !parts[item]);
+        const complete = pendingParts.length === 0;
+        const submission: FormSubmission = {
+          emailId,
+          formId: email.formId,
+          submittedAt,
+          responses: part === 'details' ? responses : existing?.responses ?? {},
+          documents: part === 'documents' ? documents : existing?.documents ?? [],
+          parts,
+          pendingParts
+        };
+        const count = part === 'details' ? Object.keys(responses).length : documents.length;
+        const unit = part === 'details' ? 'field' : 'document';
         return {
           ...transition,
-          formStatus: 'Submitted',
+          formStatus: complete ? 'Submitted' : 'In Progress',
+          // What is saved for a part still to submit is kept until the whole form is in.
           emails: transition.emails.map((item) =>
-          item.id === emailId ? { ...item, draft: undefined } : item
+          item.id === emailId && complete ? { ...item, draft: undefined } : item
           ),
           submissions: [
-          ...transition.submissions,
-          { emailId, formId: email.formId, submittedAt, responses, documents }],
+          ...transition.submissions.filter((item) => item.emailId !== emailId),
+          submission],
 
           auditTrail: [
           ...transition.auditTrail,
@@ -512,9 +537,8 @@ export function AppDataProvider({
             action: 'Form submitted',
             actor: `${transition.candidate.firstName} ${transition.candidate.lastName}`,
             at: submittedAt,
-            detail: `${formName} · ${Object.keys(responses).length} field${
-            Object.keys(responses).length === 1 ? '' : 's'} and ${documents.length} document${
-            documents.length === 1 ? '' : 's'}`
+            detail: `${form?.name ?? email.subject} · ${partLabels[part]} · ${count} ${unit}${
+            count === 1 ? '' : 's'}`
           }]
 
         };

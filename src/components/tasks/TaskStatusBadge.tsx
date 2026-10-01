@@ -1,14 +1,15 @@
 import { Badge } from '../ui/Badge';
 import type { TransitionTaskStatus } from '../../types';
 
-const styles: Record<TransitionTaskStatus, string> = {
-  'Not Started': 'bg-slate-50 text-slate-600 ring-slate-200',
-  'In Progress': 'bg-amber-50 text-amber-700 ring-amber-200',
-  Completed: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  Skipped: 'bg-slate-100 text-slate-500 ring-slate-200',
-  Cancelled: 'bg-slate-100 text-slate-500 ring-slate-200'
+/** One colour per status, shared by the badge and the status dropdown. */
+export const taskStatusStyles: Record<TransitionTaskStatus, {badge: string;dot: string;}> = {
+  Open: { badge: 'bg-slate-50 text-slate-600 ring-slate-200', dot: 'bg-slate-400' },
+  'In Progress': { badge: 'bg-sky-50 text-sky-700 ring-sky-200', dot: 'bg-sky-500' },
+  'On Hold': { badge: 'bg-amber-50 text-amber-700 ring-amber-200', dot: 'bg-amber-500' },
+  Completed: { badge: 'bg-emerald-50 text-emerald-700 ring-emerald-200', dot: 'bg-emerald-500' },
+  Cancelled: { badge: 'bg-red-50 text-red-700 ring-red-200', dot: 'bg-red-500' }
 };
 
 export function TaskStatusBadge({ status }: {status: TransitionTaskStatus;}) {
-  return <Badge className={styles[status]}>{status}</Badge>;
+  return <Badge className={taskStatusStyles[status].badge}>{status}</Badge>;
 }

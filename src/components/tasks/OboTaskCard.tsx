@@ -27,7 +27,7 @@ export function KindTag({ kind }: {kind: TransitionKind;}) {
 }
 
 const statusStyles: Partial<Record<TransitionTask['status'], string>> = {
-  'Not Started': 'bg-slate-50 text-slate-600',
+  Open: 'bg-slate-50 text-slate-600',
   'In Progress': 'bg-sky-50 text-sky-700'
 };
 

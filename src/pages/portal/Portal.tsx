@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { LinkIcon, ShieldOffIcon } from 'lucide-react';
-import type { Employee, EmployeeForm, Transition } from '../../types';
+import type { Employee, EmployeeForm, FormPart, Transition } from '../../types';
 import { PortalShell, type PortalTab } from '../../components/portal/PortalShell';
 import { PortalMessage } from '../../components/portal/PortalMessage';
 import { MyFormsList } from '../../components/portal/MyFormsList';
@@ -12,6 +12,7 @@ import { useEmployeeData } from '../../contexts/EmployeeDataContext';
 import { formatDate } from '../../utils/format';
 import {
   employeePortalForms,
+  formParts,
   transitionPortalForms,
   uploadsFromSubmission,
   type PortalFormItem } from
@@ -101,6 +102,11 @@ function TransitionPortal({ transition, eventsEmpty }: {transition: Transition;e
   const openItem = items.find((item) => item.id === openFormId);
   const openItemForm = openItem ? formById(openItem.formId) : undefined;
   const emailFor = (item: PortalFormItem) => transition.emails.find((email) => email.id === item.id);
+  const submissionFor = (item: PortalFormItem) =>
+  transition.submissions.find((submission) => submission.emailId === item.id);
+  // A submitted part shows what was sent to HR; a part still open shows the saved draft.
+  const partSubmitted = (item: PortalFormItem, part: FormPart) =>
+  item.status === 'Submitted' || Boolean(item.submittedParts[part]);
   const { candidate } = transition;
 
   return (
@@ -122,16 +128,13 @@ function TransitionPortal({ transition, eventsEmpty }: {transition: Transition;e
         form={openItemForm}
         item={openItem}
         initialValues={
-        openItem.status === 'Submitted' ?
-        transition.submissions.find((item) => item.emailId === openItem.id)?.responses ?? {} :
+        partSubmitted(openItem, 'details') ?
+        submissionFor(openItem)?.responses ?? {} :
         emailFor(openItem)?.draft?.responses ?? {}
         }
         initialUploads={
-        openItem.status === 'Submitted' ?
-        uploadsFromSubmission(
-          openItemForm,
-          transition.submissions.find((item) => item.emailId === openItem.id)?.documents ?? []
-        ) :
+        partSubmitted(openItem, 'documents') ?
+        uploadsFromSubmission(openItemForm, submissionFor(openItem)?.documents ?? []) :
         emailFor(openItem)?.draft?.documents ?? {}
         }
         draftSavedAt={emailFor(openItem)?.draft?.savedAt}
@@ -139,8 +142,8 @@ function TransitionPortal({ transition, eventsEmpty }: {transition: Transition;e
         onSaveDraft={(values, uploads) =>
         saveTransitionDraft(transition.id, openItem.id, values, uploads)
         }
-        onSubmit={(values, documents) =>
-        submitTransitionForm(transition.id, openItem.id, values, documents)
+        onSubmit={(part, values, documents) =>
+        submitTransitionForm(transition.id, openItem.id, part, values, documents)
         }
         onBack={() => openForm(null)} /> :
 
@@ -198,7 +201,7 @@ function EmployeePortal({ employee }: {employee: Employee;}) {
         item={openItem}
         initialValues={{ ...employee.record, ...assignment.responses }}
         initialUploads={
-        openItem.status === 'Submitted' ?
+        openItem.status === 'Submitted' || openItem.submittedParts.documents ?
         uploadsFromSubmission(form, assignment.submittedDocuments) :
         assignment.documentDrafts
         }
@@ -206,8 +209,8 @@ function EmployeePortal({ employee }: {employee: Employee;}) {
         prefilled={openItem.status === 'Submitted' ? undefined : employee.record}
         confirmBody={`${CONFIRM_BODY} Any changes will update your employee profile.`}
         onSaveDraft={(values, uploads) => saveDraft(assignment.id, values, uploads)}
-        onSubmit={(values, documents) =>
-        submitAssignment(assignment.id, values, fieldLabels(form), documents)
+        onSubmit={(part, values, documents) =>
+        submitAssignment(assignment.id, part, formParts(form), values, fieldLabels(form), documents)
         }
         onBack={() => openForm(null)} /> :
 

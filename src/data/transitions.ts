@@ -64,10 +64,10 @@ const baseTransitions: TransitionSeed[] = [
     t2: { status: 'Completed' },
     t3: { status: 'Completed' },
     t4: { status: 'In Progress' },
-    t5: { status: 'Not Started' },
-    t6: { status: 'Not Started' },
+    t5: { status: 'Open' },
+    t6: { status: 'Open' },
     t7: { status: 'Completed' },
-    t8: { status: 'Not Started' },
+    t8: { status: 'Open' },
     t9: { status: 'In Progress', ownerIds: ['u5', 'u10', 'u1'] },
     t14: { dueDate: null, calculatedDueDate: null }
   }),

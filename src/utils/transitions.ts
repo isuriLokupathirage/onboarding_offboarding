@@ -21,14 +21,14 @@ export function toTransitionTask(task: Task, id: string, dueDate: string | null)
     calculatedDueDate: dueDate,
     dueSource: 'calculated',
     ownerIds: task.ownerIds,
-    status: 'Not Started',
+    status: 'Open',
     parentTaskId: task.parentId,
     parentCompletionRequired: task.parentCompletionRequired,
     restricted: task.ownerOnlyVisible
   };
 }
 
-const CLOSED_TASK_STATUSES = new Set<TransitionTask['status']>(['Completed', 'Skipped', 'Cancelled']);
+const CLOSED_TASK_STATUSES = new Set<TransitionTask['status']>(['Completed', 'Cancelled']);
 
 export function isTaskOpen(task: TransitionTask): boolean {
   return !CLOSED_TASK_STATUSES.has(task.status);
@@ -37,7 +37,7 @@ export function isTaskOpen(task: TransitionTask): boolean {
 export function blockingTask(transition: Transition, task: TransitionTask): TransitionTask | undefined {
   if (!task.parentTaskId || !task.parentCompletionRequired) return undefined;
   const parent = transition.tasks.find((candidate) => candidate.taskId === task.parentTaskId);
-  return parent && parent.status !== 'Completed' && parent.status !== 'Skipped' ? parent : undefined;
+  return parent && parent.status !== 'Completed' ? parent : undefined;
 }
 
 export type TransitionStatusGroup = 'Active' | 'Completed' | 'Cancelled';
@@ -64,7 +64,13 @@ export type EmailStatus = 'Sent' | 'Submitted' | 'Expired' | 'Revoked' | 'Replac
 export function emailStatus(transition: Transition, email: EmailRecord): EmailStatus | null {
   if (email.content === 'reminder') return null;
   if (email.linkRevoked) return 'Revoked';
-  if (transition.submissions.some((submission) => submission.emailId === email.id)) return 'Submitted';
+  // A form with one part still to submit stays open.
+  if (
+  transition.submissions.some(
+    (submission) => submission.emailId === email.id && !submission.pendingParts?.length
+  ))
+
+  return 'Submitted';
   if (email.replacedBy) return 'Replaced';
   if (statusGroup(transition) !== 'Active') return 'Closed';
   if (email.linkExpiresAt && new Date(email.linkExpiresAt).getTime() < Date.now()) return 'Expired';

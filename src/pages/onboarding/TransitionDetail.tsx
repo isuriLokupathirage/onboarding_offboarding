@@ -411,7 +411,7 @@ function StatusIcon({ status }: {status: TransitionTask['status'];}) {
   return <CheckCircle2Icon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />;
   if (status === 'In Progress')
   return <ClockIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />;
-  if (status === 'Skipped' || status === 'Cancelled')
+  if (status === 'Cancelled')
   return <MinusCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-slate-300" />;
   return <CircleDashedIcon className="mt-0.5 h-4 w-4 shrink-0 text-slate-300" />;
 }

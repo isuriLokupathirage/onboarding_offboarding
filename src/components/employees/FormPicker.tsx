@@ -3,21 +3,33 @@ import { CheckIcon, ChevronDownIcon, SearchIcon } from 'lucide-react';
 import type { EmployeeForm } from '../../types';
 import { Badge } from '../ui/Badge';
 
-export function FormPicker({
-  forms,
-  value,
-  onChange
+type FormPickerProps =
+{forms: EmployeeForm[];multiple?: false;value: string;onChange: (formId: string) => void;} |
+{forms: EmployeeForm[];multiple: true;value: string[];onChange: (formIds: string[]) => void;};
 
-
-
-
-}: {forms: EmployeeForm[];value: string;onChange: (formId: string) => void;}) {
+/** Searchable form select. With `multiple`, options toggle and the list stays open. */
+export function FormPicker(props: FormPickerProps) {
+  const { forms } = props;
+  const selectedIds = props.multiple ? props.value : props.value ? [props.value] : [];
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const selected = forms.find((form) => form.id === value);
+  const selected = selectedIds.length === 1 ? forms.find((form) => form.id === selectedIds[0]) : undefined;
+
+  const pick = (formId: string) => {
+    if (!props.multiple) {
+      props.onChange(formId);
+      setOpen(false);
+      return;
+    }
+    props.onChange(
+      selectedIds.includes(formId) ?
+      selectedIds.filter((id) => id !== formId) :
+      [...selectedIds, formId]
+    );
+  };
 
   const results = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -59,8 +71,12 @@ export function FormPicker({
             <Badge>{selected.employmentType}</Badge>
             <span className="font-mono text-[11px] text-subtle">{selected.code}</span>
           </span> :
+        selectedIds.length > 1 ?
+        <span className="text-[13px] font-medium text-ink">{selectedIds.length} forms selected</span> :
 
-        <span className="text-[13px] text-subtle">Search and select a form</span>
+        <span className="text-[13px] text-subtle">
+            {props.multiple ? 'Search and select one or more forms' : 'Search and select a form'}
+          </span>
         }
         <ChevronDownIcon
           className={`h-4 w-4 shrink-0 text-subtle transition-transform duration-150 ease-out ${
@@ -84,24 +100,21 @@ export function FormPicker({
           
           </div>
 
-          <ul role="listbox" className="scroll-thin max-h-56 overflow-y-auto py-1">
+          <ul role="listbox" aria-multiselectable={props.multiple || undefined} className="scroll-thin max-h-56 overflow-y-auto py-1">
             {results.length === 0 ?
           <li className="px-3.5 py-6 text-center text-[13px] text-muted">
                 No active forms match “{query}”.
               </li> :
 
           results.map((form) => {
-            const isSelected = form.id === value;
+            const isSelected = selectedIds.includes(form.id);
             return (
               <li key={form.id}>
                     <button
                   type="button"
                   role="option"
                   aria-selected={isSelected}
-                  onClick={() => {
-                    onChange(form.id);
-                    setOpen(false);
-                  }}
+                  onClick={() => pick(form.id)}
                   className={`flex w-full items-start gap-3 px-3.5 py-2.5 text-left transition-colors duration-150 ease-out ${
                   isSelected ? 'bg-brand-50/60' : 'hover:bg-slate-50'}`
                   }>
