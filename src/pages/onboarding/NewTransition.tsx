@@ -19,6 +19,7 @@ import { TransitionTaskSetupCard } from '../../components/onboarding/TransitionT
 import { useAppData } from '../../contexts/AppDataContext';
 import type { Department, TransitionKind, TransitionTask } from '../../types';
 import { resolveDueDate } from '../../utils/format';
+import { toTransitionTask } from '../../utils/transitions';
 
 const steps = ['Transition Type', 'Candidate Details', 'Tasks & Owners'];
 
@@ -56,22 +57,7 @@ export function NewTransition() {
     if (!selected) return [];
     return selected.taskIds.map((taskId) => {
       const task = tasks.find((t) => t.id === taskId)!;
-      const calculated = resolveDueDate(task.dueRule, hire);
-      return {
-        id: `st-${taskId}`,
-        taskId,
-        name: task.name,
-        description: task.description,
-        department: task.department,
-        priority: task.priority,
-        optional: task.optional,
-        showInCandidateEvents: task.showInCandidateEvents,
-        dueDate: calculated,
-        calculatedDueDate: calculated,
-        dueSource: 'calculated',
-        ownerIds: task.ownerIds,
-        status: 'Not Started'
-      };
+      return toTransitionTask(task, `st-${taskId}`, resolveDueDate(task.dueRule, hire));
     });
   };
 
@@ -153,6 +139,16 @@ export function NewTransition() {
       ownerIds: managerIds,
       tasks: setupTasks,
       emails: [],
+      emailEvents: [],
+      submissions: [],
+      auditTrail: [
+      {
+        id: `${id}-au1`,
+        action: 'Transition started',
+        actor: 'Nimal Perera',
+        at: new Date().toISOString(),
+        detail: template?.name
+      }],
       formStatus: 'Not Sent'
     });
     navigate(`/onboarding/transitions/${id}`);
@@ -357,21 +353,7 @@ export function NewTransition() {
                   onClick={() => {
                     setSetupTasks((prev) => [
                     ...prev,
-                    {
-                      id: `st-${task.id}`,
-                      taskId: task.id,
-                      name: task.name,
-                      description: task.description,
-                      department: task.department,
-                      priority: task.priority,
-                      optional: task.optional,
-                      showInCandidateEvents: task.showInCandidateEvents,
-                      dueDate: resolveDueDate(task.dueRule, hireDate),
-                      calculatedDueDate: resolveDueDate(task.dueRule, hireDate),
-                      dueSource: 'calculated',
-                      ownerIds: task.ownerIds,
-                      status: 'Not Started'
-                    }]
+                    toTransitionTask(task, `st-${task.id}`, resolveDueDate(task.dueRule, hireDate))]
                     );
                     setAddingTask(false);
                   }}

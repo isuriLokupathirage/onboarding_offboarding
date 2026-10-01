@@ -1,6 +1,5 @@
 import React from 'react';
-import { CalendarClockIcon } from 'lucide-react';
-import { formatDate } from '../../utils/format';
+import { companyDetails } from '../../data/company';
 
 export interface PortalTab {
   value: string;
@@ -9,9 +8,7 @@ export interface PortalTab {
 
 export function PortalShell({
   recipientName,
-  subtitle,
-  greeting,
-  expiresAt,
+  details = [],
   tabs,
   activeTab,
   onTabChange,
@@ -26,8 +23,7 @@ export function PortalShell({
 
 
 
-
-}: {recipientName: string;subtitle?: string;greeting?: string;expiresAt?: string;tabs: PortalTab[];activeTab: string;onTabChange: (value: string) => void;illustration?: boolean;children: React.ReactNode;}) {
+}: {recipientName: string;details?: string[];tabs: PortalTab[];activeTab: string;onTabChange: (value: string) => void;illustration?: boolean;children: React.ReactNode;}) {
   return (
     <div className="min-h-full w-full bg-white">
       <div className="relative overflow-hidden border-b border-line bg-brand-50/50">
@@ -40,24 +36,18 @@ export function PortalShell({
 
         }
         <div className="relative mx-auto max-w-4xl px-6 pb-4 pt-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">
-                A
-              </span>
-              <span className="text-sm font-semibold text-ink">Accxis 360</span>
-            </div>
-            {expiresAt &&
-            <span className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12px] text-muted ring-1 ring-inset ring-line">
-                <CalendarClockIcon className="h-3.5 w-3.5 text-subtle" />
-                This link expires on {formatDate(expiresAt)}
-              </span>
-            }
+          <div className="flex items-center gap-2.5">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">
+              A
+            </span>
+            <span className="text-sm font-semibold text-ink">Accxis 360</span>
           </div>
 
-          {greeting && <p className="mt-6 text-[13px] text-brand-700">{greeting}</p>}
+          <p className="mt-6 text-[13px] text-brand-700">Welcome to your {companyDetails.name} portal</p>
           <h1 className="mt-1 text-lg font-semibold tracking-tight text-ink">{recipientName}</h1>
-          {subtitle && <p className="mt-1 max-w-xl text-[13px] text-muted">{subtitle}</p>}
+          {details.length > 0 &&
+          <p className="mt-1 max-w-xl text-[13px] text-muted">{details.join(' · ')}</p>
+          }
 
           <nav className="mt-6 flex flex-wrap items-center gap-1" aria-label="Portal sections">
             {tabs.map((tab) => {
@@ -73,7 +63,7 @@ export function PortalShell({
                   'border-line border-b-white bg-white text-ink' :
                   'border-transparent text-muted hover:bg-white/60 hover:text-ink'}`
                   }>
-                  
+
                   {tab.label}
                 </button>);
 
@@ -86,7 +76,7 @@ export function PortalShell({
 
       <footer className="mx-auto max-w-4xl px-6 pb-10">
         <p className="border-t border-line pt-5 text-[12px] text-muted">
-          Need help? Email people@accxis.lk or call +94 11 234 5678.
+          Need help? Email {companyDetails.primaryEmail} or call {companyDetails.primaryPhone}.
         </p>
       </footer>
     </div>);

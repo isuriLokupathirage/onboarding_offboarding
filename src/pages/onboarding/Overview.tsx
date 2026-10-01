@@ -14,9 +14,11 @@ import { Badge, DepartmentChip, PriorityBadge } from '../../components/ui/Badge'
 import { Progress } from '../../components/ui/Progress';
 import { useAppData } from '../../contexts/AppDataContext';
 import { formatDate } from '../../utils/format';
+import { statusGroup } from '../../utils/transitions';
 
 export function Overview() {
-  const { transitions, tasks, templates } = useAppData();
+  const { transitions: allTransitions, tasks, templates } = useAppData();
+  const transitions = allTransitions.filter((t) => statusGroup(t) === 'Active');
   const onboarding = transitions.filter((t) => t.kind === 'Onboarding');
   const offboarding = transitions.filter((t) => t.kind === 'Offboarding');
 

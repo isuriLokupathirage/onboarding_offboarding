@@ -6,15 +6,35 @@ import type {
   RequiredDocument,
   Task,
   Template,
-  Transition } from
+  OboPermission,
+  Transition,
+  SubmittedDocument,
+  TransitionTaskStatus } from
 '../types';
 import { seedTasks } from '../data/tasks';
 import { seedTemplates } from '../data/templates';
 import { seedTransitions } from '../data/transitions';
 import { buildSections, seedForms } from '../data/forms';
+import { peopleById } from '../data/people';
+import {
+  FORM_LINK_EXPIRY_DAYS,
+  canReceiveForm,
+  canRevokeEmail,
+  isOpenFormEmail,
+  isTaskOpen,
+  managePermissionFor,
+  openFormEmail,
+  statusGroup } from
+'../utils/transitions';
+import { addDays } from '../utils/format';
 
 interface AppData {
   canManageForms: boolean;
+  currentUserId: string;
+  oboPermissions: OboPermission[];
+  hasOboPermission: (permission: OboPermission) => boolean;
+  updateTaskStatus: (transitionId: string, taskId: string, status: TransitionTaskStatus) => void;
+  cancelTransition: (transitionId: string, date: string, reason: string) => void;
   createForm: () => string;
   duplicateForm: (formId: string) => string | undefined;
   deleteForm: (formId: string) => void;
@@ -35,10 +55,30 @@ interface AppData {
   updateDocument: (formId: string, docId: string, patch: Partial<RequiredDocument>) => void;
   removeDocument: (formId: string, docId: string) => void;
   revokeEmail: (transitionId: string, emailId: string) => void;
-  resendEmail: (transitionId: string, emailId: string) => void;
+  sendTransitionForm: (transitionIds: string[], formId: string) => void;
+  /** Stores the candidate's entries against one form. Does not submit or change its expiry. */
+  saveTransitionDraft: (
+  transitionId: string,
+  emailId: string,
+  responses: Record<string, string>,
+  documents: Record<string, string[]>)
+  => void;
+  submitTransitionForm: (
+  transitionId: string,
+  emailId: string,
+  responses: Record<string, string>,
+  documents: SubmittedDocument[])
+  => void;
 }
 
 const AppDataContext = createContext<AppData | null>(null);
+
+const DEFAULT_OBO_PERMISSIONS: OboPermission[] = [
+'View All Transitions',
+'Manage Onboarding Transitions',
+'Manage Offboarding Transitions',
+'Update Task Progress',
+'View Restricted Tasks'];
 
 function enforceMandatory(form: EmployeeForm): EmployeeForm {
   return {
@@ -82,15 +122,76 @@ function mapSectionFields(section: FormSection, fieldId: string, state: FieldSta
 
 export function AppDataProvider({
   children,
-  canManageForms = true
-
-
-
-}: {children: React.ReactNode;canManageForms?: boolean;}) {
+  canManageForms = true,
+  currentUserId = 'u1',
+  oboPermissions = DEFAULT_OBO_PERMISSIONS
+}: {
+  children: React.ReactNode;
+  canManageForms?: boolean;
+  currentUserId?: string;
+  oboPermissions?: OboPermission[];
+}) {
   const [tasks, setTasks] = useState<Task[]>(seedTasks);
   const [templates, setTemplates] = useState<Template[]>(seedTemplates);
   const [transitions, setTransitions] = useState<Transition[]>(seedTransitions);
   const [forms, setForms] = useState<EmployeeForm[]>(seedForms);
+
+  const hasOboPermission = useCallback(
+    (permission: OboPermission) => oboPermissions.includes(permission),
+    [oboPermissions]
+  );
+
+  const updateTaskStatus = useCallback(
+    (transitionId: string, taskId: string, status: TransitionTaskStatus) => {
+      setTransitions((prev) =>
+      prev.map((transition) =>
+      transition.id === transitionId ?
+      {
+        ...transition,
+        tasks: transition.tasks.map((task) => task.id === taskId ? { ...task, status } : task)
+      } :
+      transition
+      )
+      );
+    },
+    []
+  );
+
+  const cancelTransition = useCallback(
+    (transitionId: string, date: string, reason: string) => {
+      const actor = peopleById[currentUserId]?.name ?? currentUserId;
+      const recordedAt = new Date().toISOString();
+      setTransitions((prev) =>
+      prev.map((transition) => {
+        if (
+        transition.id !== transitionId ||
+        statusGroup(transition) !== 'Active' ||
+        !oboPermissions.includes(managePermissionFor(transition.kind)))
+
+        return transition;
+        return {
+          ...transition,
+          status: 'Cancelled',
+          tasks: transition.tasks.map((task) =>
+          isTaskOpen(task) ? { ...task, status: 'Cancelled' } : task
+          ),
+          cancellation: { date, reason, cancelledBy: actor, recordedAt },
+          auditTrail: [
+          ...transition.auditTrail,
+          {
+            id: `au-${Date.now()}`,
+            action: 'Transition cancelled',
+            actor,
+            at: recordedAt,
+            detail: reason
+          }]
+
+        };
+      })
+      );
+    },
+    [currentUserId, oboPermissions]
+  );
 
   const addTask = useCallback((task: Task) => setTasks((prev) => [...prev, task]), []);
   const addTemplate = useCallback((template: Template) => setTemplates((prev) => [...prev, template]), []);
@@ -286,46 +387,151 @@ export function AppDataProvider({
     );
   }, []);
 
-  const revokeEmail = useCallback((transitionId: string, emailId: string) => {
-    setTransitions((prev) =>
-    prev.map((transition) =>
-    transition.id === transitionId ?
-    {
-      ...transition,
-      emails: transition.emails.map((email) =>
-      email.id === emailId ? { ...email, status: 'Revoked' } : email
-      )
-    } :
-    transition
-    )
-    );
-  }, []);
+  const revokeEmail = useCallback(
+    (transitionId: string, emailId: string) => {
+      const actor = peopleById[currentUserId]?.name ?? currentUserId;
+      setTransitions((prev) =>
+      prev.map((transition) => {
+        if (transition.id !== transitionId || !canRevokeEmail(transition, emailId)) return transition;
+        return {
+          ...transition,
+          emails: transition.emails.map((email) =>
+          email.id === emailId ? { ...email, linkRevoked: true } : email
+          ),
+          emailEvents: [
+          ...transition.emailEvents,
+          {
+            id: `ev-${Date.now()}`,
+            emailId,
+            action: 'Link revoked',
+            actor,
+            at: new Date().toISOString()
+          }]
 
-  const resendEmail = useCallback((transitionId: string, emailId: string) => {
-    const now = new Date().toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-    setTransitions((prev) =>
-    prev.map((transition) =>
-    transition.id === transitionId ?
+        };
+      })
+      );
+    },
+    [currentUserId]
+  );
+
+  const sendTransitionForm = useCallback(
+    (transitionIds: string[], formId: string) => {
+      const form = forms.find((item) => item.id === formId);
+      if (!form || !oboPermissions.includes('Manage Onboarding Transitions')) return;
+      const now = new Date();
+      const sentAt = now.toISOString();
+      const expiresAt = addDays(sentAt, FORM_LINK_EXPIRY_DAYS);
+      setTransitions((prev) =>
+      prev.map((transition, index) => {
+        if (!transitionIds.includes(transition.id) || !canReceiveForm(transition)) return transition;
+        const emailId = `em-${now.getTime()}-${index}`;
+        // Other forms in the portal are untouched. Only an open copy of this same form is
+        // replaced, and its draft moves to the new one.
+        const previous = openFormEmail(transition, form.id);
+        return {
+          ...transition,
+          candidate: { ...transition.candidate, employeeFormId: form.id },
+          formStatus: previous?.draft ? 'In Progress' : 'Sent',
+          emails: [
+          ...transition.emails.map((email) =>
+          email.id === previous?.id ? { ...email, replacedBy: emailId, draft: undefined } : email
+          ),
+          {
+            id: emailId,
+            subject: `Complete your ${form.name}`,
+            recipient: transition.candidate.personalEmail,
+            sentAt,
+            content: 'form',
+            formId: form.id,
+            linkExpiresAt: expiresAt,
+            draftCarriedForward: Boolean(previous?.draft),
+            draft: previous?.draft
+          }]
+
+        };
+      })
+      );
+    },
+    [forms, oboPermissions]
+  );
+
+  const saveTransitionDraft = useCallback(
+    (
+    transitionId: string,
+    emailId: string,
+    responses: Record<string, string>,
+    documents: Record<string, string[]>) =>
     {
-      ...transition,
-      emails: transition.emails.map((email) =>
-      email.id === emailId ?
-      { ...email, status: 'Delivered', sentAt: `${now}, just now` } :
-      email
-      )
-    } :
-    transition
-    )
-    );
-  }, []);
+      const savedAt = new Date().toISOString();
+      setTransitions((prev) =>
+      prev.map((transition) => {
+        if (transition.id !== transitionId) return transition;
+        return {
+          ...transition,
+          formStatus: transition.formStatus === 'Submitted' ? transition.formStatus : 'In Progress',
+          emails: transition.emails.map((email) =>
+          email.id === emailId && isOpenFormEmail(transition, email) ?
+          { ...email, draft: { savedAt, responses, documents } } :
+          email
+          )
+        };
+      })
+      );
+    },
+    []
+  );
+
+  const submitTransitionForm = useCallback(
+    (
+    transitionId: string,
+    emailId: string,
+    responses: Record<string, string>,
+    documents: SubmittedDocument[]) =>
+    {
+      const submittedAt = new Date().toISOString();
+      setTransitions((prev) =>
+      prev.map((transition) => {
+        const email = transition.emails.find((item) => item.id === emailId);
+        if (transition.id !== transitionId || !email || !isOpenFormEmail(transition, email)) return transition;
+        const formName = forms.find((form) => form.id === email.formId)?.name ?? email.subject;
+        return {
+          ...transition,
+          formStatus: 'Submitted',
+          emails: transition.emails.map((item) =>
+          item.id === emailId ? { ...item, draft: undefined } : item
+          ),
+          submissions: [
+          ...transition.submissions,
+          { emailId, formId: email.formId, submittedAt, responses, documents }],
+
+          auditTrail: [
+          ...transition.auditTrail,
+          {
+            id: `au-${Date.now()}`,
+            action: 'Form submitted',
+            actor: `${transition.candidate.firstName} ${transition.candidate.lastName}`,
+            at: submittedAt,
+            detail: `${formName} · ${Object.keys(responses).length} field${
+            Object.keys(responses).length === 1 ? '' : 's'} and ${documents.length} document${
+            documents.length === 1 ? '' : 's'}`
+          }]
+
+        };
+      })
+      );
+    },
+    [forms]
+  );
 
   const value = useMemo<AppData>(
     () => ({
       canManageForms,
+      currentUserId,
+      oboPermissions,
+      hasOboPermission,
+      updateTaskStatus,
+      cancelTransition,
       createForm,
       duplicateForm,
       deleteForm,
@@ -346,10 +552,17 @@ export function AppDataProvider({
       updateDocument,
       removeDocument,
       revokeEmail,
-      resendEmail
+      sendTransitionForm,
+      saveTransitionDraft,
+      submitTransitionForm
     }),
     [
     canManageForms,
+    currentUserId,
+    oboPermissions,
+    hasOboPermission,
+    updateTaskStatus,
+    cancelTransition,
     createForm,
     duplicateForm,
     deleteForm,
@@ -370,7 +583,9 @@ export function AppDataProvider({
     updateDocument,
     removeDocument,
     revokeEmail,
-    resendEmail]
+    sendTransitionForm,
+    saveTransitionDraft,
+    submitTransitionForm]
 
   );
 

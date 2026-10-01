@@ -1,46 +1,90 @@
-import React, { useMemo, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 import {
+  AlertTriangleIcon,
   CalendarIcon,
   CheckCircle2Icon,
   CircleDashedIcon,
   ClockIcon,
-  MailIcon,
-  PhoneIcon } from
+  HistoryIcon,
+  MinusCircleIcon,
+  SendIcon,
+  XCircleIcon } from
 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Avatar, AvatarGroup } from '../../components/ui/Avatar';
-import { Badge, DepartmentChip, PriorityBadge } from '../../components/ui/Badge';
+import { Badge, PriorityBadge } from '../../components/ui/Badge';
+import { CancelTransitionDialog } from '../../components/onboarding/CancelTransitionDialog';
 import { Progress } from '../../components/ui/Progress';
 import { Tabs } from '../../components/ui/Segmented';
+import { TaskDetailPanel } from '../../components/tasks/TaskDetailPanel';
+import { EmailHistory } from '../../components/onboarding/EmailHistory';
+import { SubmissionPanel } from '../../components/onboarding/SubmissionPanel';
+import { SendTransitionFormDialog } from '../../components/onboarding/SendTransitionFormDialog';
+import { TaskStatusBadge } from '../../components/tasks/TaskStatusBadge';
+import { dueLabel } from '../../components/tasks/OboTaskCard';
 import { useAppData } from '../../contexts/AppDataContext';
 import { peopleById } from '../../data/people';
-import type { Department, FormSubmissionStatus, TransitionTask } from '../../types';
-import { formatDate } from '../../utils/format';
+import type {
+  Department,
+  Transition,
+  TransitionTask,
+  TransitionTaskStatus } from
+'../../types';
+import { formatDate, formatDateTime } from '../../utils/format';
+import {
+  canReceiveForm,
+  daysLabel,
+  isOverdue,
+  managePermissionFor,
+  statusGroup,
+  transitionProgress } from
+'../../utils/transitions';
 import { useScreenInit } from '../../useScreenInit.js';
 
-type View = 'tasks' | 'emails' | 'details';
-
-const formStatusStyles: Record<FormSubmissionStatus, string> = {
-  'Not Sent': 'bg-slate-100 text-slate-700 ring-slate-200',
-  Sent: 'bg-sky-50 text-sky-700 ring-sky-200',
-  'In Progress': 'bg-amber-50 text-amber-700 ring-amber-200',
-  Submitted: 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-};
+type View = 'tasks' | 'emails';
 
 export function TransitionDetail() {
   const { transitionId } = useParams();
-  const { transitions, revokeEmail, resendEmail, setPortalAccess } = useAppData();
-  const screenInit = useScreenInit();
-  const [view, setView] = useState<View>(screenInit.view as View ?? 'tasks');
-
+  const { transitions } = useAppData();
   const transition = transitions.find((item) => item.id === transitionId);
   if (!transition) return <Navigate to="/onboarding/transitions" replace />;
+  return <TransitionView transition={transition} />;
+}
+
+function TransitionView({ transition }: {transition: Transition;}) {
+  const {
+    currentUserId,
+    hasOboPermission,
+    updateTaskStatus,
+    cancelTransition,
+    revokeEmail,
+    forms,
+    templates
+  } = useAppData();
+  const screenInit = useScreenInit() as {
+    view?: View;
+    openTask?: string;
+    submission?: boolean;
+    sendForm?: boolean;
+    cancel?: boolean;
+  };
+  const [submissionEmailId, setSubmissionEmailId] = useState<string | null>(
+    screenInit.submission ? transition.submissions[0]?.emailId ?? null : null
+  );
+  const [view, setView] = useState<View>(screenInit.view === 'emails' ? 'emails' : 'tasks');
+  const [openTaskId, setOpenTaskId] = useState<string | null>(screenInit.openTask ?? null);
+  const [confirmingCancel, setConfirmingCancel] = useState(Boolean(screenInit.cancel));
+  const [notice, setNotice] = useState<string | null>(null);
 
   const fullName = `${transition.candidate.firstName} ${transition.candidate.lastName}`;
-  const done = transition.tasks.filter((task) => task.status === 'Completed').length;
-  const progress = Math.round(done / Math.max(1, transition.tasks.length) * 100);
+  const { done, total, percent } = transitionProgress(transition);
+  const active = statusGroup(transition) === 'Active';
+  const overdue = isOverdue(transition);
+  const canCancel = active && hasOboPermission(managePermissionFor(transition.kind));
+  const canSendForm = canReceiveForm(transition) && hasOboPermission('Manage Onboarding Transitions');
+  const [sendingForm, setSendingForm] = useState(Boolean(screenInit.sendForm) && canSendForm);
 
   const grouped = useMemo(() => {
     const map = new Map<Department, TransitionTask[]>();
@@ -49,6 +93,29 @@ export function TransitionDetail() {
     });
     return Array.from(map.entries());
   }, [transition]);
+
+  const openTask = transition.tasks.find((task) => task.id === openTaskId);
+  const canUpdateOpenTask = Boolean(
+    openTask &&
+    active &&
+    openTask.ownerIds.includes(currentUserId) &&
+    hasOboPermission('Update Task Progress')
+  );
+
+  const closePanel = useCallback(() => setOpenTaskId(null), []);
+  const closeSubmission = useCallback(() => setSubmissionEmailId(null), []);
+  const shownSubmission = transition.submissions.find(
+    (submission) => submission.emailId === submissionEmailId
+  );
+  const closeSendForm = useCallback(() => setSendingForm(false), []);
+  const closeCancel = useCallback(() => setConfirmingCancel(false), []);
+
+  const saveStatus = (status: TransitionTaskStatus) => {
+    if (!openTask) return;
+    updateTaskStatus(transition.id, openTask.id, status);
+    setNotice(`${openTask.name} is now ${status.toLowerCase()}.`);
+    setOpenTaskId(null);
+  };
 
   return (
     <div>
@@ -64,52 +131,85 @@ export function TransitionDetail() {
               transition.kind === 'Onboarding' ? 'bg-emerald-500' : 'bg-violet-500'}`
               }
               aria-hidden="true" />
-            
+
               {transition.kind}
             </span>
             <span className="text-[13px] text-muted">{transition.candidate.position}</span>
-            <Badge
-            className={
-            transition.status === 'At Risk' ?
-            'bg-amber-50 text-amber-700 ring-amber-200' :
-            'bg-emerald-50 text-emerald-700 ring-emerald-200'
-            }>
-            
-              {transition.status}
-            </Badge>
-            <Badge className={formStatusStyles[transition.formStatus]}>
-              Employee form: {transition.formStatus}
-            </Badge>
+            <HealthBadge transition={transition} />
           </div>
         }
         actions={
-        <div className="w-64">
-            <div className="mb-1.5 flex items-center justify-between text-[12px]">
-              <span className="text-muted">
-                {done}/{transition.tasks.length} tasks complete
-              </span>
-              <span className="font-semibold text-ink">{progress}%</span>
+        <div className="flex items-start gap-5">
+            <div className="w-64">
+              <div className="mb-1.5 flex items-center justify-between text-[12px]">
+                <span className="text-muted">
+                  {done}/{total} tasks complete
+                </span>
+                <span className="font-semibold text-ink">{percent}%</span>
+              </div>
+              <Progress value={percent} tone={overdue ? 'amber' : 'brand'} />
+              <p
+              className={`mt-2 text-right text-[12px] ${
+              overdue ? 'font-medium text-red-600' : 'text-muted'}`
+              }>
+
+                {daysLabel(transition)} · {formatDate(transition.targetDate)}
+              </p>
             </div>
-            <Progress value={progress} tone={transition.status === 'At Risk' ? 'amber' : 'brand'} />
-            <p className="mt-2 text-right text-[12px] text-muted">
-              {transition.daysRemaining} days remaining · {formatDate(transition.targetDate)}
-            </p>
+            <div className="flex items-center gap-2">
+              {canSendForm &&
+            <Button size="sm" variant="primary" onClick={() => setSendingForm(true)}>
+                  <SendIcon className="h-4 w-4" />
+                  Send Form
+                </Button>
+            }
+              {canCancel &&
+            <Button
+              size="sm"
+              onClick={() => setConfirmingCancel(true)}
+              className="text-red-600 ring-red-200 hover:bg-red-50">
+
+                  <XCircleIcon className="h-4 w-4" />
+                  Cancel Transition
+                </Button>
+            }
+            </div>
           </div>
         } />
-      
+
 
       <div className="px-8 py-6">
+        {notice &&
+        <div className="mb-4 rounded-lg bg-emerald-50 px-3.5 py-3 text-[13px] text-emerald-900 ring-1 ring-inset ring-emerald-200">
+            {notice}
+          </div>
+        }
+
+        {transition.cancellation &&
+        <div className="mb-5 flex items-start gap-3 rounded-xl bg-slate-50 px-4 py-3.5 ring-1 ring-inset ring-slate-200">
+            <XCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+            <div className="min-w-0 text-[13px]">
+              <p className="font-medium text-ink">
+                Cancelled on {formatDate(transition.cancellation.date)} by{' '}
+                {transition.cancellation.cancelledBy}
+              </p>
+              <p className="mt-1 whitespace-pre-line break-words leading-relaxed text-muted">
+                <span className="font-medium text-ink">Reason:</span> {transition.cancellation.reason}
+              </p>
+            </div>
+          </div>
+        }
+
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <Tabs
               options={[
-              { value: 'tasks', label: 'Tasks', count: transition.tasks.length },
-              { value: 'emails', label: 'Email history', count: transition.emails.length },
-              { value: 'details', label: 'Candidate details' }]
+              { value: 'tasks', label: 'Tasks', count: total },
+              { value: 'emails', label: 'Email history', count: transition.emails.length }]
               }
               value={view}
               onChange={setView} />
-            
+
 
             {view === 'tasks' &&
             <div className="mt-4 space-y-3">
@@ -124,37 +224,38 @@ export function TransitionDetail() {
                     </div>
                     <ul className="divide-y divide-line">
                       {tasks.map((task) =>
-                  <li key={task.id} className="flex items-start gap-3 px-4 py-3">
-                          <StatusIcon status={task.status} />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-[13px] font-medium text-ink">{task.name}</p>
-                              {task.optional && <Badge>Optional</Badge>}
+                  <li key={task.id}>
+                          <button
+                      type="button"
+                      onClick={() => {
+                        setNotice(null);
+                        setOpenTaskId(task.id);
+                      }}
+                      className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors duration-150 ease-out hover:bg-slate-50/70">
+
+                            <StatusIcon status={task.status} />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-[13px] font-medium text-ink">{task.name}</p>
+                                {task.optional && <Badge>Optional</Badge>}
+                              </div>
+                              <p className="mt-0.5 text-[12px] text-muted">{task.description}</p>
+                              <div className="mt-2 flex flex-wrap items-center gap-3">
+                                <AvatarGroup
+                            names={task.ownerIds.map((id) => peopleById[id]?.name ?? '')}
+                            size="xs" />
+
+                                <PriorityBadge priority={task.priority} />
+                                <span className="inline-flex items-center gap-1.5 text-[12px] text-muted">
+                                  <CalendarIcon className="h-3.5 w-3.5 text-subtle" />
+                                  {task.dueDate ?
+                            `${dueLabel(task)} ${formatDate(task.dueDate)}` :
+                            'No due date set'}
+                                </span>
+                              </div>
                             </div>
-                            <p className="mt-0.5 text-[12px] text-muted">{task.description}</p>
-                            <div className="mt-2 flex flex-wrap items-center gap-3">
-                              <AvatarGroup
-                          names={task.ownerIds.map((id) => peopleById[id]?.name ?? '')}
-                          size="xs" />
-                        
-                              <PriorityBadge priority={task.priority} />
-                              <span className="inline-flex items-center gap-1.5 text-[12px] text-muted">
-                                <CalendarIcon className="h-3.5 w-3.5 text-subtle" />
-                                {task.dueDate ? formatDate(task.dueDate) : 'No due date set'}
-                              </span>
-                            </div>
-                          </div>
-                          <Badge
-                      className={
-                      task.status === 'Completed' ?
-                      'bg-emerald-50 text-emerald-700 ring-emerald-200' :
-                      task.status === 'In Progress' ?
-                      'bg-amber-50 text-amber-700 ring-amber-200' :
-                      'bg-slate-50 text-slate-600 ring-slate-200'
-                      }>
-                      
-                            {task.status}
-                          </Badge>
+                            <TaskStatusBadge status={task.status} />
+                          </button>
                         </li>
                   )}
                     </ul>
@@ -164,153 +265,45 @@ export function TransitionDetail() {
             }
 
             {view === 'emails' &&
-            <section className="mt-4 overflow-hidden rounded-xl border border-line bg-white">
-                <div className="border-b border-line px-4 py-3">
-                  <h2 className="text-[13px] font-medium text-ink">Emails sent to {fullName}</h2>
-                </div>
-                {transition.emails.length === 0 ?
-              <p className="px-4 py-10 text-center text-[13px] text-muted">
-                    No emails have been sent for this transition yet.
-                  </p> :
-
-              <ul className="divide-y divide-line">
-                    {transition.emails.map((email) =>
-                <li key={email.id} className="flex items-start gap-3 px-4 py-3.5">
-                        <MailIcon className="mt-0.5 h-4 w-4 shrink-0 text-subtle" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-medium text-ink">{email.subject}</p>
-                          <p className="mt-0.5 text-[12px] text-muted">
-                            {email.recipient} · {email.sentAt}
-                          </p>
-                        </div>
-                        <Badge
-                    className={
-                    email.status === 'Revoked' ?
-                    'bg-red-50 text-red-700 ring-red-200' :
-                    email.status === 'Opened' ?
-                    'bg-emerald-50 text-emerald-700 ring-emerald-200' :
-                    'bg-slate-50 text-slate-600 ring-slate-200'
-                    }>
-                    
-                          {email.status}
-                        </Badge>
-                        <div className="flex items-center gap-1.5">
-                          <Button size="sm" onClick={() => resendEmail(transition.id, email.id)}>
-                            Resend
-                          </Button>
-                          <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={email.status === 'Revoked'}
-                      onClick={() => revokeEmail(transition.id, email.id)}
-                      className="text-red-600 hover:bg-red-50 hover:text-red-700 disabled:text-subtle">
-                      
-                            Revoke
-                          </Button>
-                        </div>
-                      </li>
-                )}
-                  </ul>
-              }
-              </section>
-            }
-
-            {view === 'details' &&
-            <section className="mt-4 rounded-xl border border-line bg-white p-5">
-                <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Detail label="Personal email" value={transition.candidate.personalEmail} />
-                  <Detail label="Mobile number" value={transition.candidate.mobile} />
-                  <Detail label="Position" value={transition.candidate.position} />
-                  <Detail label="Hire date" value={formatDate(transition.candidate.hireDate)} />
-                  <Detail label="Country" value={transition.candidate.country ?? '—'} />
-                  <Detail label="Address" value={transition.candidate.address ?? '—'} />
-                  <Detail label="Date of birth" value={formatDate(transition.candidate.dateOfBirth)} />
-                  <Detail label="Gender" value={transition.candidate.gender ?? '—'} />
-                </dl>
-                <div className="mt-5 border-t border-line pt-4">
-                  <p className="text-[11px] uppercase tracking-wide text-subtle">Reporting managers</p>
-                  <ul className="mt-2 space-y-2">
-                    {transition.candidate.reportingManagerIds.map((id) =>
-                  <li key={id} className="flex items-center gap-2.5">
-                        <Avatar name={peopleById[id]?.name ?? id} size="sm" />
-                        <span className="text-[13px] text-ink">{peopleById[id]?.name}</span>
-                        <span className="text-[12px] text-muted">{peopleById[id]?.role}</span>
-                      </li>
-                  )}
-                  </ul>
-                </div>
-              </section>
+            <EmailHistory
+              transition={transition}
+              onRevoke={(emailId) => {
+                revokeEmail(transition.id, emailId);
+                setNotice("The form was revoked and removed from the candidate's portal.");
+              }}
+              onViewSubmission={setSubmissionEmailId} />
             }
           </div>
 
           <aside className="space-y-4">
             <section className="rounded-xl border border-line bg-white p-5">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-[13px] font-medium text-ink">Candidate portal</h2>
-                <Badge
-                  className={
-                  transition.portalAccess === 'Active' ?
-                  'bg-emerald-50 text-emerald-700 ring-emerald-200' :
-                  'bg-red-50 text-red-700 ring-red-200'
-                  }>
-                  
-                  {transition.portalAccess}
-                </Badge>
-              </div>
-              <p className="mt-2 font-mono text-[11px] text-subtle">
-                accxis.lk/portal/{transition.portalToken}
-              </p>
-              <p className="mt-1 text-[12px] text-muted">
-                Expires {formatDate(transition.portalExpiresAt)}
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Link to={`/portal/${transition.portalToken}`}>
-                  <Button size="sm">Open portal</Button>
-                </Link>
-                {transition.portalAccess === 'Active' ?
-                <Button
-                  size="sm"
-                  onClick={() => setPortalAccess(transition.id, 'Revoked')}
-                  className="text-red-600 ring-red-200 hover:bg-red-50">
-                  
-                    Revoke access
-                  </Button> :
-
-                <Button size="sm" onClick={() => setPortalAccess(transition.id, 'Active')}>
-                    Restore access
-                  </Button>
-                }
+              <h2 className="text-[13px] font-medium text-ink">Candidate details</h2>
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
+                <Detail label="Personal email" value={transition.candidate.personalEmail} wide />
+                <Detail label="Mobile number" value={transition.candidate.mobile} />
+                <Detail label="Position" value={transition.candidate.position} />
+                <Detail label="Hire date" value={formatDate(transition.candidate.hireDate)} />
+                <Detail label="Country" value={transition.candidate.country ?? '—'} />
+                <Detail label="Address" value={transition.candidate.address ?? '—'} wide />
+                <Detail label="Date of birth" value={formatDate(transition.candidate.dateOfBirth)} />
+                <Detail label="Gender" value={transition.candidate.gender ?? '—'} />
+              </dl>
+              <div className="mt-4 border-t border-line pt-3">
+                <p className="text-[11px] uppercase tracking-wide text-subtle">Reporting managers</p>
+                <ul className="mt-2 space-y-2">
+                  {transition.candidate.reportingManagerIds.map((id) =>
+                  <li key={id} className="flex items-center gap-2.5">
+                      <Avatar name={peopleById[id]?.name ?? id} size="sm" />
+                      <span className="min-w-0 leading-tight">
+                        <span className="block truncate text-[13px] text-ink">{peopleById[id]?.name ?? id}</span>
+                        <span className="block truncate text-[11px] text-muted">{peopleById[id]?.role}</span>
+                      </span>
+                    </li>
+                  )}
+                </ul>
               </div>
             </section>
 
-            <section className="rounded-xl border border-line bg-white p-5">
-              <h2 className="text-[13px] font-medium text-ink">Form submission</h2>
-              <p className="mt-2 text-[13px] text-muted">
-                Employee data form status:{' '}
-                <span className="font-medium text-ink">{transition.formStatus}</span>
-              </p>
-              <div className="mt-3 flex items-center gap-2">
-                <Button size="sm" variant="primary">
-                  {transition.formStatus === 'Not Sent' ? 'Send form' : 'Send reminder'}
-                </Button>
-                <Button size="sm">View submission</Button>
-              </div>
-            </section>
-
-            <section className="rounded-xl border border-line bg-white p-5">
-              <h2 className="text-[13px] font-medium text-ink">Transition owners</h2>
-              <ul className="mt-3 space-y-2.5">
-                {transition.ownerIds.map((id) =>
-                <li key={id} className="flex items-center gap-2.5">
-                    <Avatar name={peopleById[id]?.name ?? id} size="sm" />
-                    <span className="min-w-0 flex-1 leading-tight">
-                      <span className="block truncate text-[13px] text-ink">{peopleById[id]?.name}</span>
-                      <span className="block truncate text-[11px] text-muted">{peopleById[id]?.role}</span>
-                    </span>
-                  </li>
-                )}
-              </ul>
-            </section>
 
             <section className="rounded-xl border border-line bg-white p-5">
               <h2 className="text-[13px] font-medium text-ink">Key dates</h2>
@@ -321,28 +314,96 @@ export function TransitionDetail() {
                 </li>
                 <li className="flex items-center gap-2 text-muted">
                   <CalendarIcon className="h-3.5 w-3.5 text-subtle" />
-                  Target {formatDate(transition.targetDate)}
+                  {transition.kind === 'Onboarding' ? 'Hire date' : 'Last working day'}{' '}
+                  {formatDate(transition.candidate.hireDate)}
                 </li>
                 <li className="flex items-center gap-2 text-muted">
-                  <PhoneIcon className="h-3.5 w-3.5 text-subtle" />
-                  {transition.candidate.mobile}
+                  <CalendarIcon className="h-3.5 w-3.5 text-subtle" />
+                  Target {formatDate(transition.targetDate)}
                 </li>
               </ul>
             </section>
 
             <section className="rounded-xl border border-line bg-white p-5">
-              <h2 className="text-[13px] font-medium text-ink">Departments involved</h2>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {grouped.map(([department, tasks]) =>
-                <DepartmentChip key={department} department={`${department} · ${tasks.length}`} />
+              <h2 className="text-[13px] font-medium text-ink">Audit trail</h2>
+              <ol className="mt-3 space-y-3">
+                {[...transition.auditTrail].
+                sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).
+                map((entry) =>
+                <li key={entry.id} className="flex gap-2.5">
+                      <HistoryIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-subtle" />
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-medium text-ink">{entry.action}</p>
+                        <p className="text-[12px] text-muted">
+                          {entry.actor} · {formatDateTime(entry.at)}
+                        </p>
+                        {entry.detail &&
+                    <p className="mt-0.5 line-clamp-2 break-words text-[12px] text-muted">{entry.detail}</p>
+                    }
+                      </div>
+                    </li>
                 )}
-              </div>
+              </ol>
             </section>
           </aside>
         </div>
       </div>
+
+      <TaskDetailPanel
+        transition={openTask ? transition : undefined}
+        task={openTask}
+        canUpdate={canUpdateOpenTask}
+        onClose={closePanel}
+        onSave={saveStatus} />
+
+
+      <SendTransitionFormDialog
+        open={sendingForm}
+        recipients={[transition]}
+        onClose={closeSendForm}
+        onSent={(formName) => {
+          setView('emails');
+          setNotice(`${formName} was sent to ${transition.candidate.personalEmail}.`);
+        }} />
+
+
+      <SubmissionPanel
+        open={Boolean(shownSubmission)}
+        candidateName={fullName}
+        form={forms.find((form) => form.id === shownSubmission?.formId)}
+        submission={shownSubmission}
+        onClose={closeSubmission} />
+
+
+      <CancelTransitionDialog
+        open={confirmingCancel}
+        transition={transition}
+        client={templates.find((template) => template.id === transition.templateId)?.client ?? '—'}
+        onClose={closeCancel}
+        onConfirm={(date, reason) => {
+          cancelTransition(transition.id, date, reason);
+          setConfirmingCancel(false);
+          setNotice(`${fullName}'s ${transition.kind.toLowerCase()} was cancelled.`);
+        }} />
+
     </div>);
 
+}
+
+function HealthBadge({ transition }: {transition: Transition;}) {
+  const group = statusGroup(transition);
+  if (group === 'Completed')
+  return <Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200">Completed</Badge>;
+  if (group === 'Cancelled')
+  return <Badge className="bg-slate-100 text-slate-600 ring-slate-200">Cancelled</Badge>;
+  if (isOverdue(transition))
+  return (
+    <Badge className="bg-red-50 text-red-700 ring-red-200">
+        <AlertTriangleIcon className="h-3 w-3" />
+        Overdue
+      </Badge>);
+
+  return <Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200">On track</Badge>;
 }
 
 function StatusIcon({ status }: {status: TransitionTask['status'];}) {
@@ -350,14 +411,16 @@ function StatusIcon({ status }: {status: TransitionTask['status'];}) {
   return <CheckCircle2Icon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />;
   if (status === 'In Progress')
   return <ClockIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />;
+  if (status === 'Skipped' || status === 'Cancelled')
+  return <MinusCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-slate-300" />;
   return <CircleDashedIcon className="mt-0.5 h-4 w-4 shrink-0 text-slate-300" />;
 }
 
-function Detail({ label, value }: {label: string;value: string;}) {
+function Detail({ label, value, wide }: {label: string;value: string;wide?: boolean;}) {
   return (
-    <div>
+    <div className={wide ? 'col-span-2 min-w-0' : 'min-w-0'}>
       <dt className="text-[11px] uppercase tracking-wide text-subtle">{label}</dt>
-      <dd className="mt-0.5 text-[13px] text-ink">{value}</dd>
+      <dd className="mt-0.5 break-words text-[13px] text-ink">{value}</dd>
     </div>);
 
 }

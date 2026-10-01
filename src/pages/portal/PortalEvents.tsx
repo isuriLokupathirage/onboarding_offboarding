@@ -12,9 +12,9 @@ const events = [
 export function PortalEvents({ empty }: {empty: boolean;}) {
   return (
     <section>
-      <h2 className="text-2xl font-semibold tracking-tight text-ink">Your Upcoming Events</h2>
+      <h2 className="text-2xl font-semibold tracking-tight text-ink">My Schedule</h2>
       <p className="mt-1.5 text-[13px] text-muted">
-        These are the sessions your team has scheduled for you. We will email you if anything changes.
+        These are the sessions your team has scheduled for your first days. We will email you if anything changes.
       </p>
 
       {empty ?

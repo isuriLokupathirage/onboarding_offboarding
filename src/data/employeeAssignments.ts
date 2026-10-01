@@ -1,6 +1,6 @@
 import type { ChangedValue, EmployeeFormAssignment } from '../types';
 
-type AssignmentSeed = Omit<EmployeeFormAssignment, 'documentDrafts' | 'changes'> & {
+type AssignmentSeed = Omit<EmployeeFormAssignment, 'documentDrafts' | 'changes' | 'submittedDocuments'> & {
   changes: (ChangedValue & {review?: string;})[];
 };
 
@@ -14,7 +14,6 @@ const baseAssignments: AssignmentSeed[] = [
   sentAt: '2026-09-02T09:15:00',
   expiresAt: '2026-10-02T09:15:00',
   submittedAt: null,
-  linkToken: 'lnk-7f2a91',
   draftSaved: true,
   responses: {},
   changes: [],
@@ -39,7 +38,6 @@ const baseAssignments: AssignmentSeed[] = [
   sentAt: '2026-08-20T10:02:00',
   expiresAt: '2026-09-19T10:02:00',
   submittedAt: '2026-08-24T14:36:00',
-  linkToken: 'lnk-3c88b0',
   draftSaved: false,
   responses: {
     mobile: '+94 71 900 4477',
@@ -99,7 +97,6 @@ const baseAssignments: AssignmentSeed[] = [
   sentAt: '2026-09-14T08:30:00',
   expiresAt: '2026-10-14T08:30:00',
   submittedAt: null,
-  linkToken: 'lnk-b41d27',
   draftSaved: false,
   responses: {},
   changes: [],
@@ -122,7 +119,6 @@ const baseAssignments: AssignmentSeed[] = [
   sentAt: '2026-09-24T16:02:00',
   expiresAt: '2026-10-08T16:02:00',
   submittedAt: null,
-  linkToken: 'lnk-c19e04',
   draftSaved: false,
   responses: {},
   changes: [],
@@ -145,7 +141,6 @@ const baseAssignments: AssignmentSeed[] = [
   sentAt: '2026-07-15T11:20:00',
   expiresAt: '2026-08-14T11:20:00',
   submittedAt: null,
-  linkToken: 'lnk-90ee5a',
   draftSaved: false,
   responses: {},
   changes: [],
@@ -169,7 +164,6 @@ const baseAssignments: AssignmentSeed[] = [
   sentAt: '2026-09-01T09:00:00',
   expiresAt: '2026-10-01T09:00:00',
   submittedAt: null,
-  linkToken: 'lnk-5ab6c3',
   draftSaved: true,
   responses: {},
   changes: [],
@@ -200,6 +194,10 @@ export const seedAssignments: EmployeeFormAssignment[] = baseAssignments.map((as
   assignment.id === 'asg5' ?
   { d5: ['photograph.jpg'] } :
   {},
+  submittedDocuments:
+  assignment.id === 'asg2' ?
+  [{ name: 'National Identity Card', fileName: 'NIC-scan.pdf' }] :
+  [],
   changes: assignment.changes.map(({ fieldId, label, previous, submitted }) => ({
     fieldId,
     label,

@@ -1,5 +1,12 @@
 export type TransitionKind = 'Onboarding' | 'Offboarding';
 
+export type OboPermission =
+'View All Transitions' |
+'Manage Onboarding Transitions' |
+'Manage Offboarding Transitions' |
+'Update Task Progress' |
+'View Restricted Tasks';
+
 export type Priority = 'Low' | 'Medium' | 'High';
 
 export type Department = 'HR' | 'IT Ops' | 'Engineering' | 'Finance' | 'Security';
@@ -26,6 +33,7 @@ export interface Person {
   name: string;
   role: string;
   department: Department;
+  canUpdateTaskProgress: boolean;
 }
 
 export interface TaskFile {
@@ -65,7 +73,7 @@ export interface Template {
   taskIds: string[];
 }
 
-export type TransitionTaskStatus = 'Not Started' | 'In Progress' | 'Completed';
+export type TransitionTaskStatus = 'Not Started' | 'In Progress' | 'Completed' | 'Skipped' | 'Cancelled';
 
 export interface TransitionTask {
   id: string;
@@ -81,6 +89,9 @@ export interface TransitionTask {
   dueSource: 'calculated' | 'override';
   ownerIds: string[];
   status: TransitionTaskStatus;
+  parentTaskId: string | null;
+  parentCompletionRequired: boolean;
+  restricted: boolean;
 }
 
 export interface EmailRecord {
@@ -88,7 +99,57 @@ export interface EmailRecord {
   subject: string;
   recipient: string;
   sentAt: string;
-  status: 'Delivered' | 'Opened' | 'Revoked' | 'Bounced';
+  content: 'form' | 'reminder';
+  formId?: string;
+  /** Form emails carry the transition's portal link; this is when the form itself closes. */
+  linkExpiresAt?: string;
+  linkRevoked?: boolean;
+  replacedBy?: string;
+  draftCarriedForward?: boolean;
+  /** The recipient's unsubmitted entries for this form. Never shown to HR. */
+  draft?: FormDraft;
+}
+
+export interface EmailHistoryEvent {
+  id: string;
+  emailId: string;
+  action: 'Link revoked';
+  actor: string;
+  at: string;
+}
+
+export interface TransitionCancellation {
+  date: string;
+  reason: string;
+  cancelledBy: string;
+  recordedAt: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  action: string;
+  actor: string;
+  at: string;
+  detail?: string;
+}
+
+export interface FormDraft {
+  savedAt: string;
+  responses: Record<string, string>;
+  documents: Record<string, string[]>;
+}
+
+export interface SubmittedDocument {
+  name: string;
+  fileName: string;
+}
+
+export interface FormSubmission {
+  emailId: string;
+  formId?: string;
+  submittedAt: string;
+  responses: Record<string, string>;
+  documents: SubmittedDocument[];
 }
 
 export type FormSubmissionStatus = 'Not Sent' | 'Sent' | 'In Progress' | 'Submitted';
@@ -124,7 +185,11 @@ export interface Transition {
   ownerIds: string[];
   tasks: TransitionTask[];
   emails: EmailRecord[];
+  emailEvents: EmailHistoryEvent[];
   formStatus: FormSubmissionStatus;
+  submissions: FormSubmission[];
+  cancellation?: TransitionCancellation;
+  auditTrail: AuditEntry[];
 }
 
 /* ---------- Employee forms ---------- */
@@ -188,6 +253,8 @@ export interface Employee {
   reportingManager: string;
   status: 'Active' | 'Inactive';
   joinedOn: string;
+  /** One portal link per employee; every form sent from Employee Management opens in it. */
+  portalToken: string;
   record: Record<string, string>;
 }
 
@@ -232,10 +299,10 @@ export interface EmployeeFormAssignment {
   sentAt: string;
   expiresAt: string;
   submittedAt: string | null;
-  linkToken: string;
   draftSaved: boolean;
   responses: Record<string, string>;
   documentDrafts: Record<string, string[]>;
+  submittedDocuments: SubmittedDocument[];
   changes: ChangedValue[];
   activity: FormActivityEntry[];
 }
