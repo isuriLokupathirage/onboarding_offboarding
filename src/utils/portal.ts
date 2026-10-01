@@ -1,5 +1,12 @@
-import type { EmployeeForm, EmployeeFormAssignment, SubmittedDocument, Transition } from '../types';
+import type {
+  EmployeeForm,
+  EmployeeFormAssignment,
+  FormPart,
+  SubmittedDocument,
+  Transition } from
+'../types';
 import { emailStatus } from './transitions';
+import { formHasFields } from '../components/forms/CandidateFormRenderer';
 
 export type PortalFormStatus = 'To complete' | 'Submitted';
 
@@ -12,7 +19,22 @@ export interface PortalFormItem {
   sentAt: string;
   expiresAt: string;
   submittedAt: string | null;
+  /** When each part was submitted, for a form submitted one part at a time. */
+  submittedParts: Partial<Record<FormPart, string>>;
   status: PortalFormStatus;
+}
+
+export const partLabels: Record<FormPart, string> = {
+  details: 'Employee Details',
+  documents: 'Required Documents'
+};
+
+/** The parts a form asks for, in the order the recipient sees them. */
+export function formParts(form: EmployeeForm): FormPart[] {
+  const parts: FormPart[] = [];
+  if (formHasFields(form)) parts.push('details');
+  if (form.documents.length > 0) parts.push('documents');
+  return parts;
 }
 
 export function portalUrl(token: string): string {
@@ -45,7 +67,8 @@ formName: (formId: string) => string)
       sentAt: email.sentAt,
       expiresAt: email.linkExpiresAt ?? '',
       submittedAt: submission?.submittedAt ?? null,
-      status: submission ? 'Submitted' : 'To complete'
+      submittedParts: submission?.parts ?? {},
+      status: status === 'Submitted' ? 'Submitted' : 'To complete'
     }];
 
   }).
@@ -72,7 +95,8 @@ function toItem(assignment: EmployeeFormAssignment): Omit<PortalFormItem, 'statu
     formName: assignment.formName,
     sentAt: assignment.sentAt,
     expiresAt: assignment.expiresAt,
-    submittedAt: assignment.submittedAt
+    submittedAt: assignment.submittedAt,
+    submittedParts: assignment.submittedParts ?? {}
   };
 }
 

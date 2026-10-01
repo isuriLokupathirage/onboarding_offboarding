@@ -45,6 +45,7 @@ export function MyFormsList({
           {items.map((item) => {
           const submitted = item.status === 'Submitted';
           const draft = !submitted && hasDraft(item);
+          const partsIn = submitted ? 0 : Object.keys(item.submittedParts).length;
           return (
             <li key={item.id}>
                 <button
@@ -63,6 +64,9 @@ export function MyFormsList({
                     <span>Submitted {formatDate(item.submittedAt)}</span> :
 
                     <span>Expires {formatDate(item.expiresAt)}</span>
+                    }
+                      {partsIn > 0 &&
+                    <span className="text-emerald-700">{partsIn} of 2 sections submitted</span>
                     }
                       {draft &&
                     <span className="inline-flex items-center gap-1 text-sky-700">

@@ -106,6 +106,9 @@ function EmailRow({
   const status = emailStatus(transition, email);
   const isForm = email.content === 'form';
   const linkClosed = status !== 'Sent' && status !== 'Submitted';
+  // One part of the form can be in while the other is still open.
+  const partSubmitted =
+  status === 'Sent' && transition.submissions.some((item) => item.emailId === email.id);
 
   return (
     <li className="flex items-start gap-3 px-4 py-3.5">
@@ -138,7 +141,7 @@ function EmailRow({
       </div>
       {status && <Badge className={statusStyles[status]}>{status}</Badge>}
       <div className="flex items-center gap-1.5">
-        {email.content === 'form' && status === 'Submitted' &&
+        {email.content === 'form' && (status === 'Submitted' || partSubmitted) &&
         <Button size="sm" onClick={onViewSubmission}>
             View submission
           </Button>

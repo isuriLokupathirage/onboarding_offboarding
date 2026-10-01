@@ -4,11 +4,13 @@ import type {
   Employee,
   EmployeeFormAssignment,
   FormActivityAction,
+  FormPart,
   SubmittedDocument } from
 '../types';
 import { employees as seedEmployees } from '../data/employees';
 import { seedAssignments } from '../data/employeeAssignments';
 import { addDays } from '../utils/format';
+import { partLabels } from '../utils/portal';
 
 export const EXPIRY_DAYS = 14;
 
@@ -32,8 +34,11 @@ interface EmployeeData {
   responses: Record<string, string>,
   documentDrafts?: Record<string, string[]>)
   => void;
+  /** Submits one part of a form. `parts` lists every part the form has. */
   submitAssignment: (
   assignmentId: string,
+  part: FormPart,
+  parts: FormPart[],
   responses: Record<string, string>,
   labels: Record<string, string>,
   documents: SubmittedDocument[])
@@ -148,6 +153,8 @@ export function EmployeeDataProvider({
   const submitAssignment = useCallback(
     (
     assignmentId: string,
+    part: FormPart,
+    parts: FormPart[],
     responses: Record<string, string>,
     labels: Record<string, string>,
     documents: SubmittedDocument[]) =>
@@ -157,8 +164,14 @@ export function EmployeeDataProvider({
       if (!assignment || !isOpenAssignment(assignment)) return;
       const employee = employees.find((item) => item.id === assignment.employeeId);
       const actor = employee ? `${employee.firstName} ${employee.lastName}` : 'Employee';
+      const submittedParts = { ...assignment.submittedParts, [part]: now };
+      const complete = parts.every((item) => submittedParts[item]);
+      const prefix = parts.length > 1 ? `${partLabels[part]}: ` : '';
 
-      const changes: ChangedValue[] = Object.entries(responses).
+      // Only the Employee Details part touches the profile.
+      const changes: ChangedValue[] =
+      part === 'details' ?
+      Object.entries(responses).
       filter(([fieldId, value]) => {
         const previous = employee?.record[fieldId];
         return previous !== undefined && value.trim() !== '' && value.trim() !== previous;
@@ -168,7 +181,8 @@ export function EmployeeDataProvider({
         label: labels[fieldId] ?? fieldId,
         previous: employee?.record[fieldId] ?? '',
         submitted: value.trim()
-      }));
+      })) :
+      [];
 
       if (employee && changes.length > 0) {
         const applied = Object.fromEntries(changes.map((change) => [change.fieldId, change.submitted]));
@@ -179,27 +193,30 @@ export function EmployeeDataProvider({
         );
       }
 
+      const summary =
+      part === 'documents' ?
+      `${documents.length} document${documents.length === 1 ? '' : 's'} uploaded` :
+      changes.length > 0 ?
+      `${changes.length} value${changes.length === 1 ? '' : 's'} updated on the employee profile` :
+      'Details confirmed with no changes';
+
       setAssignments((prev) =>
       prev.map((item) =>
       item.id === assignmentId ?
       {
         ...item,
-        status: 'Submitted',
-        submittedAt: now,
-        draftSaved: false,
-        documentDrafts: {},
-        submittedDocuments: documents,
-        responses,
-        changes,
+        status: complete ? 'Submitted' : item.status,
+        submittedAt: complete ? now : item.submittedAt,
+        submittedParts,
+        // What is saved for a part still to submit is kept until the whole form is in.
+        draftSaved: complete ? false : item.draftSaved,
+        documentDrafts: complete ? {} : item.documentDrafts,
+        submittedDocuments: part === 'documents' ? documents : item.submittedDocuments,
+        responses: part === 'details' ? responses : item.responses,
+        changes: part === 'details' ? changes : item.changes,
         activity: [
         ...item.activity,
-        log(
-          'Submitted',
-          actor,
-          changes.length > 0 ?
-          `${changes.length} value${changes.length === 1 ? '' : 's'} updated on the employee profile` :
-          'Details confirmed with no changes'
-        ),
+        log('Submitted', actor, `${prefix}${summary}`),
         ...changes.map((change) =>
         log(
           'Profile updated',

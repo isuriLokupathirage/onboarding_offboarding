@@ -144,12 +144,20 @@ export interface SubmittedDocument {
   fileName: string;
 }
 
+/** The two parts of a form. A form with both lets the recipient submit each on its own. */
+export type FormPart = 'details' | 'documents';
+
 export interface FormSubmission {
   emailId: string;
   formId?: string;
+  /** When the most recent part was submitted. */
   submittedAt: string;
   responses: Record<string, string>;
   documents: SubmittedDocument[];
+  /** When each part was submitted. Absent on a form submitted in one go. */
+  parts?: Partial<Record<FormPart, string>>;
+  /** Parts the recipient has still to submit. Empty or absent once the form is complete. */
+  pendingParts?: FormPart[];
 }
 
 export type FormSubmissionStatus = 'Not Sent' | 'Sent' | 'In Progress' | 'Submitted';
@@ -299,6 +307,8 @@ export interface EmployeeFormAssignment {
   sentAt: string;
   expiresAt: string;
   submittedAt: string | null;
+  /** When each part was submitted. The form is Submitted once every part it has is in. */
+  submittedParts?: Partial<Record<FormPart, string>>;
   draftSaved: boolean;
   responses: Record<string, string>;
   documentDrafts: Record<string, string[]>;

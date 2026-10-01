@@ -64,7 +64,13 @@ export type EmailStatus = 'Sent' | 'Submitted' | 'Expired' | 'Revoked' | 'Replac
 export function emailStatus(transition: Transition, email: EmailRecord): EmailStatus | null {
   if (email.content === 'reminder') return null;
   if (email.linkRevoked) return 'Revoked';
-  if (transition.submissions.some((submission) => submission.emailId === email.id)) return 'Submitted';
+  // A form with one part still to submit stays open.
+  if (
+  transition.submissions.some(
+    (submission) => submission.emailId === email.id && !submission.pendingParts?.length
+  ))
+
+  return 'Submitted';
   if (email.replacedBy) return 'Replaced';
   if (statusGroup(transition) !== 'Active') return 'Closed';
   if (email.linkExpiresAt && new Date(email.linkExpiresAt).getTime() < Date.now()) return 'Expired';
