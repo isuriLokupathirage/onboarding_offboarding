@@ -13,6 +13,11 @@ import { TransitionDetail } from './pages/onboarding/TransitionDetail';
 import { TaskTemplates } from './pages/onboarding/TaskTemplates';
 import { CreateTask } from './pages/onboarding/CreateTask';
 import { CreateTemplate } from './pages/onboarding/CreateTemplate';
+import { TaskDetail } from './pages/onboarding/TaskDetail';
+import { TemplateDetail } from './pages/onboarding/TemplateDetail';
+import { OboAccessGate } from './components/layout/AccessGate';
+import { canOpenTemplates } from './utils/library';
+import { visibleKinds } from './utils/transitions';
 import { EmployeeForms } from './pages/templates/EmployeeForms';
 import { FormDetail } from './pages/templates/FormDetail';
 import { BackgroundCheckForms } from './pages/templates/BackgroundCheckForms';
@@ -30,29 +35,54 @@ interface AppProps {
   canManageEmployeeForms?: boolean;
   /** Simulate the Onboarding & Offboarding permissions held by the signed-in user. */
   oboPermissions?: OboPermission[];
+  /** Simulate whether the tenant has purchased the Onboarding & Offboarding module. */
+  oboModulePurchased?: boolean;
 }
+
+const canOpenTransitions = (permissions: OboPermission[]) =>
+visibleKinds(permissions).length > 0 || permissions.includes('Update Task Progress');
+const canOpenDashboard = (permissions: OboPermission[]) => permissions.length > 0;
 
 export function App({
   portalEventsEmpty = false,
   canSendEmployeeForms = true,
   canManageEmployeeForms = true,
-  oboPermissions
+  oboPermissions,
+  oboModulePurchased = true
 }: AppProps) {
   return (
-    <AppDataProvider canManageForms={canManageEmployeeForms} oboPermissions={oboPermissions}>
+    <AppDataProvider
+      canManageForms={canManageEmployeeForms}
+      oboPermissions={oboPermissions}
+      oboModulePurchased={oboModulePurchased}>
       <EmployeeDataProvider canSendForms={canSendEmployeeForms}>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<AppShell />}>
-            <Route index element={<Navigate to="/onboarding/overview" replace />} />
+            <Route index element={<Navigate to="/onboarding/dashboard" replace />} />
             <Route path="tasks/my-tasks" element={<MyTasks />} />
-            <Route path="onboarding/overview" element={<Overview />} />
-            <Route path="onboarding/transitions" element={<Transitions />} />
-            <Route path="onboarding/transitions/new" element={<NewTransition />} />
-            <Route path="onboarding/transitions/:transitionId" element={<TransitionDetail />} />
-            <Route path="onboarding/templates" element={<TaskTemplates />} />
-            <Route path="onboarding/templates/new-task" element={<CreateTask />} />
-            <Route path="onboarding/templates/new-template" element={<CreateTemplate />} />
+            <Route path="onboarding" element={<OboAccessGate />}>
+              {/* Dashboard is the landing screen when the module is opened. */}
+              <Route index element={<Navigate to="/onboarding/dashboard" replace />} />
+              <Route path="overview" element={<Navigate to="/onboarding/dashboard" replace />} />
+              <Route element={<OboAccessGate allowed={canOpenDashboard} />}>
+                <Route path="dashboard" element={<Overview />} />
+              </Route>
+              <Route element={<OboAccessGate allowed={canOpenTransitions} />}>
+                <Route path="transitions" element={<Transitions />} />
+                <Route path="transitions/new" element={<NewTransition />} />
+                <Route path="transitions/:transitionId" element={<TransitionDetail />} />
+              </Route>
+              <Route element={<OboAccessGate allowed={canOpenTemplates} />}>
+                <Route path="templates" element={<TaskTemplates />} />
+                <Route path="templates/new-task" element={<CreateTask />} />
+                <Route path="templates/tasks/:taskId" element={<TaskDetail />} />
+                <Route path="templates/tasks/:taskId/edit" element={<CreateTask />} />
+                <Route path="templates/new-template" element={<CreateTemplate />} />
+                <Route path="templates/:templateId" element={<TemplateDetail />} />
+                <Route path="templates/:templateId/edit" element={<CreateTemplate />} />
+              </Route>
+            </Route>
             <Route path="templates/forms/employee" element={<EmployeeForms />} />
             <Route path="templates/forms/employee/:formId" element={<FormDetail />} />
             <Route path="templates/forms/background-check" element={<BackgroundCheckForms />} />
@@ -63,7 +93,7 @@ export function App({
           <Route path="/portal" element={<PortalEntry />} />
           <Route path="/portal/:token" element={<Portal eventsEmpty={portalEventsEmpty} />} />
           <Route path="/employee-form/:assignmentId" element={<EmployeeFormLink />} />
-          <Route path="*" element={<Navigate to="/onboarding/overview" replace />} />
+          <Route path="*" element={<Navigate to="/onboarding/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
       </EmployeeDataProvider>

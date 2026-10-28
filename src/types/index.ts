@@ -1,11 +1,19 @@
 export type TransitionKind = 'Onboarding' | 'Offboarding';
 
+/**
+ * Onboarding & Offboarding permissions. The system keys are noted where a story names them:
+ * View Templates (obo.template.view), Manage Templates (obo.template.manage),
+ * Manage Task Library (obo.task.manage), View Restricted Tasks (obo.task.restricted).
+ */
 export type OboPermission =
 'View All Transitions' |
 'Manage Onboarding Transitions' |
 'Manage Offboarding Transitions' |
 'Update Task Progress' |
-'View Restricted Tasks';
+'View Restricted Tasks' |
+'View Templates' |
+'Manage Templates' |
+'Manage Task Library';
 
 export type Priority = 'Low' | 'Medium' | 'High';
 
