@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { AppDataProvider } from './contexts/AppDataContext';
 import { EmployeeDataProvider } from './contexts/EmployeeDataContext';
 import { AppShell } from './components/layout/AppShell';
@@ -41,6 +41,17 @@ interface AppProps {
 
 const canOpenTransitions = (permissions: OboPermission[]) =>
 visibleKinds(permissions).length > 0 || permissions.includes('Update Task Progress');
+/** A fresh form for each task or template, so moving between them never shows the previous one's values. */
+function TaskFormRoute() {
+  const { taskId } = useParams();
+  return <CreateTask key={taskId ?? 'new'} />;
+}
+
+function TemplateFormRoute() {
+  const { templateId } = useParams();
+  return <CreateTemplate key={templateId ?? 'new'} />;
+}
+
 const canOpenDashboard = (permissions: OboPermission[]) => permissions.length > 0;
 
 export function App({
@@ -75,12 +86,12 @@ export function App({
               </Route>
               <Route element={<OboAccessGate allowed={canOpenTemplates} />}>
                 <Route path="templates" element={<TaskTemplates />} />
-                <Route path="templates/new-task" element={<CreateTask />} />
+                <Route path="templates/new-task" element={<TaskFormRoute />} />
                 <Route path="templates/tasks/:taskId" element={<TaskDetail />} />
-                <Route path="templates/tasks/:taskId/edit" element={<CreateTask />} />
-                <Route path="templates/new-template" element={<CreateTemplate />} />
+                <Route path="templates/tasks/:taskId/edit" element={<TaskFormRoute />} />
+                <Route path="templates/new-template" element={<TemplateFormRoute />} />
                 <Route path="templates/:templateId" element={<TemplateDetail />} />
-                <Route path="templates/:templateId/edit" element={<CreateTemplate />} />
+                <Route path="templates/:templateId/edit" element={<TemplateFormRoute />} />
               </Route>
             </Route>
             <Route path="templates/forms/employee" element={<EmployeeForms />} />
