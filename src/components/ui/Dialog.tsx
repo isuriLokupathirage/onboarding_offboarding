@@ -9,7 +9,9 @@ export function Dialog({
   confirmLabel = 'Submit',
   cancelLabel = 'Cancel',
   onConfirm,
-  onCancel
+  onCancel,
+  confirmVariant = 'primary',
+  confirmDisabled = false
 
 
 
@@ -18,7 +20,11 @@ export function Dialog({
 
 
 
-}: {open: boolean;title: string;body: React.ReactNode;confirmLabel?: string;cancelLabel?: string;onConfirm: () => void;onCancel: () => void;}) {
+
+
+
+
+}: {open: boolean;title: string;body: React.ReactNode;confirmLabel?: string;cancelLabel?: string;onConfirm: () => void;onCancel: () => void;confirmVariant?: 'primary' | 'danger';confirmDisabled?: boolean;}) {
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (event: KeyboardEvent) => {
@@ -54,7 +60,7 @@ export function Dialog({
             <div className="mt-2 text-sm leading-relaxed text-muted">{body}</div>
             <div className="mt-6 flex justify-end gap-2">
               <Button onClick={onCancel}>{cancelLabel}</Button>
-              <Button variant="primary" onClick={onConfirm}>
+              <Button variant={confirmVariant} onClick={onConfirm} disabled={confirmDisabled}>
                 {confirmLabel}
               </Button>
             </div>

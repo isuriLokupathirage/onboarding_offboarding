@@ -1,207 +1,112 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import {
-  ArrowRightIcon,
-  ClipboardListIcon,
-  LayoutTemplateIcon,
-  UserMinusIcon,
-  UserPlusIcon } from
-'lucide-react';
+import { useState } from 'react';
+import { RefreshCwIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
-import { Button } from '../../components/ui/Button';
-import { Avatar } from '../../components/ui/Avatar';
-import { Badge, DepartmentChip, PriorityBadge } from '../../components/ui/Badge';
-import { Progress } from '../../components/ui/Progress';
+import { ActiveTransitions } from '../../components/onboarding/ActiveTransitions';
+import { AttentionSummary } from '../../components/onboarding/AttentionSummary';
+import { NeedsAttention } from '../../components/onboarding/NeedsAttention';
+import { MyTasksSection } from '../../components/onboarding/MyTasksSection';
+import { UpcomingTransitions } from '../../components/onboarding/UpcomingTransitions';
+import { TaskDetailPanel } from '../../components/tasks/TaskDetailPanel';
 import { useAppData } from '../../contexts/AppDataContext';
-import { formatDate } from '../../utils/format';
-import { statusGroup } from '../../utils/transitions';
+import { managePermissionFor, statusGroup, visibleKinds } from '../../utils/transitions';
+import { attentionEntries, todayKey } from '../../utils/attention';
 
 export function Overview() {
-  const { transitions: allTransitions, tasks, templates } = useAppData();
+  const {
+    transitions: allTransitions,
+    oboPermissions,
+    hasOboPermission,
+    currentUserId,
+    updateTaskStatus
+  } = useAppData();
   const transitions = allTransitions.filter((t) => statusGroup(t) === 'Active');
-  const onboarding = transitions.filter((t) => t.kind === 'Onboarding');
-  const offboarding = transitions.filter((t) => t.kind === 'Offboarding');
+  // Refreshing re-reads the data against the current date and time.
+  const [refreshedAt, setRefreshedAt] = useState(() => new Date());
+  const permittedKinds = visibleKinds(oboPermissions);
+  const permitted = transitions.filter((t) => permittedKinds.includes(t.kind));
 
-  const progressOf = (id: string) => {
-    const transition = transitions.find((t) => t.id === id)!;
-    const done = transition.tasks.filter((task) => task.status === 'Completed').length;
-    return Math.round(done / Math.max(1, transition.tasks.length) * 100);
-  };
+  const today = todayKey(refreshedAt);
+  const canSeeRestricted = hasOboPermission('View Restricted Tasks');
+  const attention = attentionEntries(permitted, canSeeRestricted, today);
 
-  const dueSoon = transitions.
-  flatMap((transition) =>
-  transition.tasks.
-  filter((task) => task.status !== 'Completed').
-  slice(0, 2).
-  map((task) => ({ transition, task }))
-  ).
-  slice(0, 6);
-
-  const spotlight = onboarding[0];
+  // The task open in the side panel, looked up fresh so a status change shows straight away.
+  const [openRef, setOpenRef] = useState<{transitionId: string;taskId: string;} | null>(null);
+  const openTransition = allTransitions.find((t) => t.id === openRef?.transitionId);
+  const openTask = openTransition?.tasks.find((task) => task.id === openRef?.taskId);
+  const canUpdateOpenTask = Boolean(
+    openTransition &&
+    openTask && (
+    hasOboPermission(managePermissionFor(openTransition.kind)) ||
+    openTask.ownerIds.includes(currentUserId) && hasOboPermission('Update Task Progress'))
+  );
 
   return (
     <div>
       <PageHeader
-        title="Onboarding & Offboarding"
-        subtitle="Track every joiner and leaver, the tasks behind them and the teams responsible."
+        title="Dashboard"
+        breadcrumb={[{ label: 'Onboarding & Offboarding' }, { label: 'Dashboard' }]}
         actions={
         <>
-            <Link to="/onboarding/templates">
-              <Button>Manage templates</Button>
-            </Link>
-            <Link to="/onboarding/transitions/new">
-              <Button variant="primary">
-                <UserPlusIcon className="h-4 w-4" />
-                New transition
-              </Button>
-            </Link>
+            <AttentionSummary
+            transitions={permitted}
+            canSeeRestricted={canSeeRestricted}
+            today={today} />
+
+            <button
+            type="button"
+            aria-label="Refresh dashboard"
+            title={`Refresh · updated ${refreshedAt.toLocaleTimeString('en-GB', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })}`}
+            onClick={() => setRefreshedAt(new Date())}
+            className="ml-3 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-slate-50 text-muted transition-colors duration-150 ease-out hover:bg-slate-100 hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand-200">
+
+              <RefreshCwIcon className="h-4 w-4" />
+            </button>
           </>
         } />
-      
 
-      <div className="px-8 py-6">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <section className="lg:col-span-2">
-            {spotlight &&
-            <article className="rounded-xl border border-line bg-white p-6 shadow-card">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-4">
-                    <Avatar
-                    name={`${spotlight.candidate.firstName} ${spotlight.candidate.lastName}`}
-                    size="lg" />
-                  
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-lg font-semibold text-ink">
-                          {spotlight.candidate.firstName} {spotlight.candidate.lastName}
-                        </h2>
-                        <Badge className="bg-brand-50 text-brand-700 ring-brand-200">
-                          Closest start date
-                        </Badge>
-                      </div>
-                      <p className="mt-0.5 text-[13px] text-muted">
-                        {spotlight.candidate.position} · Joins {formatDate(spotlight.candidate.hireDate)}
-                      </p>
-                      <p className="mt-0.5 text-[13px] text-muted">{spotlight.templateName}</p>
-                    </div>
-                  </div>
-                  <Link to={`/onboarding/transitions/${spotlight.id}`}>
-                    <Button>
-                      View details
-                      <ArrowRightIcon className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </div>
 
-                <div className="mt-6 flex items-end justify-between gap-6">
-                  <div className="flex-1">
-                    <div className="mb-1.5 flex items-center justify-between text-[12px]">
-                      <span className="text-muted">
-                        {spotlight.tasks.filter((t) => t.status === 'Completed').length} of{' '}
-                        {spotlight.tasks.length} tasks complete
-                      </span>
-                      <span className="font-semibold text-ink">{progressOf(spotlight.id)}%</span>
-                    </div>
-                    <Progress value={progressOf(spotlight.id)} />
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-semibold tracking-tight text-ink">
-                      {spotlight.daysRemaining}
-                    </p>
-                    <p className="text-[11px] uppercase tracking-wide text-subtle">days remaining</p>
-                  </div>
-                </div>
-              </article>
-            }
+      <div className="space-y-6 px-8 py-6">
+        <ActiveTransitions transitions={permitted} />
 
-            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <StatCard
-                icon={UserPlusIcon}
-                label="Active onboardings"
-                value={onboarding.length}
-                accent="text-brand-600" />
-              
-              <StatCard
-                icon={UserMinusIcon}
-                label="Active offboardings"
-                value={offboarding.length}
-                accent="text-slate-600" />
-              
-              <StatCard
-                icon={LayoutTemplateIcon}
-                label="Templates in use"
-                value={templates.length}
-                accent="text-slate-600" />
-              
-            </div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <NeedsAttention
+            entries={attention}
+            onResolve={(entry) =>
+            setOpenRef({ transitionId: entry.transition.id, taskId: entry.task.id })
+            } />
 
-            <section className="mt-6 rounded-xl border border-line bg-white shadow-card">
-              <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
-                <h2 className="text-sm font-semibold text-ink">Tasks needing attention</h2>
-                <Link
-                  to="/onboarding/transitions"
-                  className="text-[13px] text-brand-600 transition-colors duration-150 ease-out hover:text-brand-700">
-                  
-                  All transitions
-                </Link>
-              </div>
-              <ul className="divide-y divide-line">
-                {dueSoon.map(({ transition, task }) =>
-                <li key={`${transition.id}-${task.id}`} className="flex items-center gap-4 px-5 py-3">
-                    <ClipboardListIcon className="h-4 w-4 shrink-0 text-subtle" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-ink">{task.name}</p>
-                      <p className="truncate text-[12px] text-muted">
-                        {transition.candidate.firstName} {transition.candidate.lastName} ·{' '}
-                        {transition.kind}
-                      </p>
-                    </div>
-                    <DepartmentChip department={task.department} />
-                    <PriorityBadge priority={task.priority} />
-                    <span className="w-24 text-right text-[12px] text-muted">
-                      {formatDate(task.dueDate)}
-                    </span>
-                  </li>
-                )}
-              </ul>
-            </section>
-          </section>
-
-          <aside className="space-y-6">
-            <section className="rounded-xl border border-line bg-white p-5 shadow-card">
-              <h2 className="text-sm font-semibold text-ink">Task library</h2>
-              <p className="mt-1 text-[13px] text-muted">
-                {tasks.filter((t) => t.kind === 'Onboarding').length} onboarding and{' '}
-                {tasks.filter((t) => t.kind === 'Offboarding').length} offboarding tasks are available
-                across {templates.length} templates.
-              </p>
-              <Link to="/onboarding/templates" className="mt-4 inline-block">
-                <Button size="sm">Open task library</Button>
-              </Link>
-            </section>
-          </aside>
+          <UpcomingTransitions transitions={permitted} today={today} />
         </div>
+
+        {hasOboPermission('Update Task Progress') &&
+        <MyTasksSection
+          transitions={permitted}
+          currentUserId={currentUserId}
+          canSeeRestricted={canSeeRestricted}
+          today={today}
+          onOpenTask={(transition, task) =>
+          setOpenRef({ transitionId: transition.id, taskId: task.id })
+          }
+          onStatusChange={(transition, task, status) =>
+          updateTaskStatus(transition.id, task.id, status)
+          } />
+
+        }
       </div>
-    </div>);
 
-}
+      <TaskDetailPanel
+        transition={openTask ? openTransition : undefined}
+        task={openTask}
+        canUpdate={canUpdateOpenTask}
+        onClose={() => setOpenRef(null)}
+        onSave={(status) => {
+          if (openRef) updateTaskStatus(openRef.transitionId, openRef.taskId, status);
+          setOpenRef(null);
+        }} />
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  accent
-
-
-
-
-
-}: {icon: React.ComponentType<{className?: string;}>;label: string;value: number;accent: string;}) {
-  return (
-    <div className="rounded-xl border border-line bg-white px-5 py-4 shadow-card">
-      <Icon className={`h-4 w-4 ${accent}`} />
-      <p className="mt-3 text-2xl font-semibold tracking-tight text-ink">{value}</p>
-      <p className="mt-0.5 text-[12px] text-muted">{label}</p>
     </div>);
 
 }

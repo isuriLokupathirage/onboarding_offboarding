@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangleIcon,
   CalendarDaysIcon,
@@ -38,6 +38,7 @@ import {
   visibleKinds,
   type TransitionStatusGroup } from
 '../../utils/transitions';
+import { attentionLabels, attentionTasks, isAttentionFilter } from '../../utils/attention';
 import { useScreenInit } from '../../useScreenInit.js';
 
 type TypeFilter = 'all' | TransitionKind;
@@ -62,6 +63,11 @@ export function Transitions() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const kinds = useMemo(() => visibleKinds(oboPermissions), [oboPermissions]);
+  // Set by the dashboard counts: only transitions with a task in that set are listed.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const attentionParam = searchParams.get('attention');
+  const attention = isAttentionFilter(attentionParam) ? attentionParam : null;
+  const canSeeRestricted = hasOboPermission('View Restricted Tasks');
   const canSendForms = hasOboPermission('Manage Onboarding Transitions');
   const isSelectable = (transition: Transition) => canSendForms && canReceiveForm(transition);
   const closeSendForm = useCallback(() => setSendingTo(null), []);
@@ -81,13 +87,14 @@ export function Transitions() {
     return scoped.filter(
       (transition) =>
       statusGroup(transition) === tab && (
+      !attention || attentionTasks(transition, attention, canSeeRestricted).length > 0) && (
       typeFilter === 'all' || transition.kind === typeFilter) && (
       !needle ||
       `${transition.candidate.firstName} ${transition.candidate.lastName}`.
       toLowerCase().
       includes(needle))
     );
-  }, [scoped, tab, typeFilter, query]);
+  }, [scoped, tab, typeFilter, query, attention, canSeeRestricted]);
 
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
@@ -156,6 +163,26 @@ export function Transitions() {
         {notice &&
         <div className="mb-4 rounded-lg bg-emerald-50 px-3.5 py-3 text-[13px] text-emerald-900 ring-1 ring-inset ring-emerald-200">
             {notice}
+          </div>
+        }
+
+        {attention &&
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-50 px-3.5 py-2.5 text-[13px] text-amber-900 ring-1 ring-inset ring-amber-200">
+            <span>
+              Showing transitions with <span className="font-medium">{attentionLabels[attention]}</span>{' '}
+              tasks.
+            </span>
+            <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setSearchParams({}, { replace: true });
+              setPage(1);
+            }}>
+
+              <XIcon className="h-3.5 w-3.5" />
+              Clear filter
+            </Button>
           </div>
         }
 

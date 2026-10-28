@@ -248,7 +248,7 @@ export function NewTransition() {
               <FieldGroup label="Position" required>
                 <Input value={position} onChange={(event) => setPosition(event.target.value)} />
               </FieldGroup>
-              <FieldGroup label="Hire Date" required>
+              <FieldGroup label={kind === 'Offboarding' ? 'Last Working Date' : 'Hire Date'} required>
                 <Input type="date" value={hireDate} onChange={(event) => setHireDate(event.target.value)} />
               </FieldGroup>
 
@@ -404,6 +404,7 @@ export function NewTransition() {
                       <TransitionTaskSetupCard
                         key={task.id}
                         task={task}
+                        kind={kind}
                         hireDate={hireDate}
                         showDateError={submitted}
                         onChange={(patch) =>

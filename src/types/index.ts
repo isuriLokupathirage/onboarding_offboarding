@@ -1,22 +1,39 @@
 export type TransitionKind = 'Onboarding' | 'Offboarding';
 
+/**
+ * Onboarding & Offboarding permissions. The system keys are noted where a story names them:
+ * View Templates (obo.template.view), Manage Templates (obo.template.manage),
+ * Manage Task Library (obo.task.manage), View Restricted Tasks (obo.task.restricted).
+ */
 export type OboPermission =
 'View All Transitions' |
 'Manage Onboarding Transitions' |
 'Manage Offboarding Transitions' |
 'Update Task Progress' |
-'View Restricted Tasks';
+'View Restricted Tasks' |
+'View Templates' |
+'Manage Templates' |
+'Manage Task Library';
 
 export type Priority = 'Low' | 'Medium' | 'High';
 
 export type Department = 'HR' | 'IT Ops' | 'Engineering' | 'Finance' | 'Security';
 
-export type Milestone =
+export type OnboardingMilestone =
 'Hire Date' |
 'First Working Day' |
 'End of First Week' |
 'End of First Month' |
 'Probation End Date';
+
+export type OffboardingMilestone =
+'Resignation Effective Date' |
+'Notice Period Start Date' |
+'Payroll Cut-off Date' |
+'Actual Exit Date' |
+'Last Working Date';
+
+export type Milestone = OnboardingMilestone | OffboardingMilestone;
 
 export type DueRule =
 {

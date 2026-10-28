@@ -1,6 +1,8 @@
 import React from 'react';
-import { CheckCircle2Icon, UploadCloudIcon, XIcon } from 'lucide-react';
+import { UploadCloudIcon, XIcon } from 'lucide-react';
 import type { RequiredDocument } from '../../types';
+import { FilePreviewButton, FileThumb } from '../ui/FilePreview';
+import { rememberFiles } from '../../utils/filePreview';
 
 export function DocumentUploads({
   documents,
@@ -46,8 +48,14 @@ export function DocumentUploads({
             multiple={doc.multiple}
             className="hidden"
             onChange={(event) => {
-              const names = Array.from(event.target.files ?? []).map((file) => file.name);
-              if (names.length > 0) onAdd(doc.id, names);
+              const files = Array.from(event.target.files ?? []);
+              // Clear the input so picking the same file again still counts as a change.
+              event.target.value = '';
+              if (files.length === 0) return;
+              rememberFiles(files);
+              // A single-file document takes the new pick in place of the old one.
+              if (!doc.multiple) (uploads[doc.id] ?? []).forEach((name) => onRemove(doc.id, name));
+              onAdd(doc.id, files.map((file) => file.name));
             }} />
           
             </label>
@@ -60,8 +68,9 @@ export function DocumentUploads({
             key={`${name}-${index}`}
             className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-[12px] text-ink">
             
-                  <CheckCircle2Icon className="h-3.5 w-3.5 text-emerald-500" />
+                  <FileThumb name={name} context={doc.name} size="sm" />
                   <span className="flex-1 truncate">{name}</span>
+                  <FilePreviewButton name={name} context={doc.name} />
                   {!readOnly &&
             <button
               type="button"

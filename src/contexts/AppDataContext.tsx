@@ -11,9 +11,11 @@ import type {
   OboPermission,
   Transition,
   SubmittedDocument,
+  TransitionKind,
   TransitionTaskStatus } from
 '../types';
 import { seedTasks } from '../data/tasks';
+import { ALL_OBO_PERMISSIONS } from '../data/permissions';
 import { seedTemplates } from '../data/templates';
 import { seedTransitions } from '../data/transitions';
 import { buildSections, seedForms } from '../data/forms';
@@ -28,14 +30,19 @@ import {
   openFormEmail,
   statusGroup } from
 '../utils/transitions';
-import { addDays } from '../utils/format';
+import { addDays, nextCode } from '../utils/format';
 import { formParts, partLabels } from '../utils/portal';
 
 interface AppData {
   canManageForms: boolean;
+  /** Whether the tenant has purchased the Onboarding & Offboarding module. */
+  oboModulePurchased: boolean;
   currentUserId: string;
   oboPermissions: OboPermission[];
   hasOboPermission: (permission: OboPermission) => boolean;
+  /** Prototype only: lets testers try the module as different roles. */
+  setOboPermissions: (permissions: OboPermission[]) => void;
+  setOboModulePurchased: (purchased: boolean) => void;
   updateTaskStatus: (transitionId: string, taskId: string, status: TransitionTaskStatus) => void;
   cancelTransition: (transitionId: string, date: string, reason: string) => void;
   createForm: () => string;
@@ -47,7 +54,17 @@ interface AppData {
   forms: EmployeeForm[];
   addTask: (task: Task) => void;
   addTemplate: (template: Template) => void;
+  /** Saves changes to an existing task. Its id and task code stay the same. */
+  updateTask: (id: string, patch: Omit<Task, 'id' | 'code' | 'kind'>) => void;
+  /** Saves changes to an existing template. Its id and template code stay the same. */
+  updateTemplate: (id: string, patch: Pick<Template, 'name' | 'client' | 'employmentType' | 'taskIds'>) => void;
+  /** Removes tasks. Their child tasks stay in the library without a parent. */
   deleteTasks: (ids: string[]) => void;
+  deleteTemplates: (ids: string[]) => void;
+  /** The next unused task code. Codes of deleted tasks are never issued again. */
+  nextTaskCode: (kind: TransitionKind) => string;
+  /** The next unused template code. Codes of deleted templates are never issued again. */
+  nextTemplateCode: (kind: TransitionKind) => string;
   addTransition: (transition: Transition) => void;
   setFieldState: (formId: string, fieldId: string, state: FieldState) => void;
   toggleSection: (formId: string, sectionId: string) => void;
@@ -77,12 +94,26 @@ interface AppData {
 
 const AppDataContext = createContext<AppData | null>(null);
 
-const DEFAULT_OBO_PERMISSIONS: OboPermission[] = [
-'View All Transitions',
-'Manage Onboarding Transitions',
-'Manage Offboarding Transitions',
-'Update Task Progress',
-'View Restricted Tasks'];
+const DEMO_ACCESS_KEY = 'obo-demo-access';
+
+/** The role a tester picked, kept for this browser tab so a reload does not reset it. */
+function storedAccess(): {permissions?: OboPermission[];purchased?: boolean;} {
+  try {
+    return JSON.parse(sessionStorage.getItem(DEMO_ACCESS_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+
+function storeAccess(access: {permissions: OboPermission[];purchased: boolean;}): void {
+  try {
+    sessionStorage.setItem(DEMO_ACCESS_KEY, JSON.stringify(access));
+  } catch {
+    // Storage can be unavailable (private mode); the choice then lasts until reload.
+  }
+}
+
+const DEFAULT_OBO_PERMISSIONS = ALL_OBO_PERMISSIONS;
 
 function enforceMandatory(form: EmployeeForm): EmployeeForm {
   return {
@@ -127,11 +158,13 @@ function mapSectionFields(section: FormSection, fieldId: string, state: FieldSta
 export function AppDataProvider({
   children,
   canManageForms = true,
+  oboModulePurchased: initialPurchased,
   currentUserId = 'u1',
-  oboPermissions = DEFAULT_OBO_PERMISSIONS
+  oboPermissions: initialPermissions
 }: {
   children: React.ReactNode;
   canManageForms?: boolean;
+  oboModulePurchased?: boolean;
   currentUserId?: string;
   oboPermissions?: OboPermission[];
 }) {
@@ -139,6 +172,32 @@ export function AppDataProvider({
   const [templates, setTemplates] = useState<Template[]>(seedTemplates);
   const [transitions, setTransitions] = useState<Transition[]>(seedTransitions);
   const [forms, setForms] = useState<EmployeeForm[]>(seedForms);
+  // Props set by the design canvas win; otherwise the tester's last choice, then full access.
+  const [oboPermissions, setPermissionsState] = useState<OboPermission[]>(
+    () => initialPermissions ?? storedAccess().permissions ?? DEFAULT_OBO_PERMISSIONS
+  );
+  const [oboModulePurchased, setPurchasedState] = useState<boolean>(
+    () => initialPurchased ?? storedAccess().purchased ?? true
+  );
+  const setOboPermissions = useCallback(
+    (permissions: OboPermission[]) => {
+      setPermissionsState(permissions);
+      storeAccess({ permissions, purchased: oboModulePurchased });
+    },
+    [oboModulePurchased]
+  );
+  const setOboModulePurchased = useCallback(
+    (purchased: boolean) => {
+      setPurchasedState(purchased);
+      storeAccess({ permissions: oboPermissions, purchased });
+    },
+    [oboPermissions]
+  );
+// Every task and template code ever issued, including deleted ones, so a code is never reused.
+  const [issuedCodes, setIssuedCodes] = useState<string[]>(() => [
+  ...seedTasks.map((task) => task.code),
+  ...seedTemplates.map((template) => template.code)]
+  );
 
   const hasOboPermission = useCallback(
     (permission: OboPermission) => oboPermissions.includes(permission),
@@ -197,12 +256,53 @@ export function AppDataProvider({
     [currentUserId, oboPermissions]
   );
 
-  const addTask = useCallback((task: Task) => setTasks((prev) => [...prev, task]), []);
-  const addTemplate = useCallback((template: Template) => setTemplates((prev) => [...prev, template]), []);
-  const deleteTasks = useCallback(
-    (ids: string[]) => setTasks((prev) => prev.filter((task) => !ids.includes(task.id))),
+  const nextTaskCode = useCallback(
+    (kind: TransitionKind) => nextCode(kind === 'Onboarding' ? 'ONB' : 'OFB', issuedCodes, 3),
+    [issuedCodes]
+  );
+  const nextTemplateCode = useCallback(
+    (kind: TransitionKind) => nextCode(kind === 'Onboarding' ? 'ONT' : 'OFT', issuedCodes, 3),
+    [issuedCodes]
+  );
+
+  const addTask = useCallback((task: Task) => {
+    setTasks((prev) => [...prev, task]);
+    setIssuedCodes((prev) => [...prev, task.code]);
+  }, []);
+  const addTemplate = useCallback((template: Template) => {
+    setTemplates((prev) => [...prev, template]);
+    setIssuedCodes((prev) => [...prev, template.code]);
+  }, []);
+  const updateTask = useCallback((id: string, patch: Omit<Task, 'id' | 'code' | 'kind'>) => {
+    setTasks((prev) => prev.map((task) => task.id === id ? { ...task, ...patch } : task));
+  }, []);
+  const updateTemplate = useCallback(
+    (id: string, patch: Pick<Template, 'name' | 'client' | 'employmentType' | 'taskIds'>) => {
+      setTemplates((prev) => prev.map((template) => template.id === id ? { ...template, ...patch } : template));
+    },
     []
   );
+  const deleteTasks = useCallback((ids: string[]) => {
+    setTasks((prev) =>
+    prev.
+    filter((task) => !ids.includes(task.id)).
+    map((task) =>
+    task.parentId && ids.includes(task.parentId) ?
+    { ...task, parentId: null, parentCompletionRequired: false } :
+    task
+    )
+    );
+    setTemplates((prev) =>
+    prev.map((template) =>
+    template.taskIds.some((id) => ids.includes(id)) ?
+    { ...template, taskIds: template.taskIds.filter((id) => !ids.includes(id)) } :
+    template
+    )
+    );
+  }, []);
+  const deleteTemplates = useCallback((ids: string[]) => {
+    setTemplates((prev) => prev.filter((template) => !ids.includes(template.id)));
+  }, []);
   const addTransition = useCallback(
     (transition: Transition) => setTransitions((prev) => [transition, ...prev]),
     []
@@ -551,9 +651,12 @@ export function AppDataProvider({
   const value = useMemo<AppData>(
     () => ({
       canManageForms,
+      oboModulePurchased,
       currentUserId,
       oboPermissions,
       hasOboPermission,
+      setOboPermissions,
+      setOboModulePurchased,
       updateTaskStatus,
       cancelTransition,
       createForm,
@@ -565,7 +668,12 @@ export function AppDataProvider({
       forms,
       addTask,
       addTemplate,
+      updateTask,
+      updateTemplate,
       deleteTasks,
+      deleteTemplates,
+      nextTaskCode,
+      nextTemplateCode,
       addTransition,
       setFieldState,
       toggleSection,
@@ -582,9 +690,12 @@ export function AppDataProvider({
     }),
     [
     canManageForms,
+    oboModulePurchased,
     currentUserId,
     oboPermissions,
     hasOboPermission,
+    setOboPermissions,
+    setOboModulePurchased,
     updateTaskStatus,
     cancelTransition,
     createForm,
@@ -596,7 +707,12 @@ export function AppDataProvider({
     forms,
     addTask,
     addTemplate,
+    updateTask,
+    updateTemplate,
     deleteTasks,
+    deleteTemplates,
+    nextTaskCode,
+    nextTemplateCode,
     addTransition,
     setFieldState,
     toggleSection,

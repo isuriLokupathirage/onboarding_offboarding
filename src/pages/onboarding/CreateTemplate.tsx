@@ -1,38 +1,49 @@
 import React, { useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronDownIcon, PlusIcon } from 'lucide-react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ChevronDownIcon, InfoIcon, PlusIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
+import { Dialog } from '../../components/ui/Dialog';
+import { NoAccess } from '../../components/layout/AccessGate';
 import { FieldGroup, Input, Select } from '../../components/ui/Field';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { WizardSteps } from '../../components/ui/WizardSteps';
 import { Badge, DepartmentChip, PriorityBadge } from '../../components/ui/Badge';
 import { useAppData } from '../../contexts/AppDataContext';
 import { clients, departments, employmentTypes } from '../../data/people';
-import type { Department, EmploymentType, TransitionKind } from '../../types';
-import { formatDueRule, nextCode } from '../../utils/format';
+import type { Department, EmploymentType, Template, TransitionKind } from '../../types';
+import { formatDueRule } from '../../utils/format';
+import { templateTransitions } from '../../utils/library';
+import type { TemplatesScreenState } from './TaskTemplates';
 import { useScreenInit } from '../../useScreenInit.js';
 
 const steps = ['Basic Information', 'Add Tasks', 'Review'];
 
+/** Creates a template, or edits one when the route has a template id. */
 export function CreateTemplate() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { templateId } = useParams();
   const state = (location.state ?? {}) as {kind?: TransitionKind;taskIds?: string[];};
-  const kind: TransitionKind = state.kind ?? 'Onboarding';
-  const { tasks, templates, addTemplate } = useAppData();
+  const { tasks, templates, transitions, addTemplate, updateTemplate, nextTemplateCode, hasOboPermission } =
+  useAppData();
+  // Read once, so the wizard keeps its values while the user edits.
+  const [editing] = useState<Template | undefined>(() => templates.find((t) => t.id === templateId));
+  const kind: TransitionKind = editing?.kind ?? state.kind ?? 'Onboarding';
+  const usedBy = editing ? templateTransitions(editing.id, transitions).length : 0;
 
   const screenInit = useScreenInit();
   const seeded = Boolean(screenInit.seeded);
   const [step, setStep] = useState<number>(screenInit.step ?? 0);
-  const [name, setName] = useState(seeded ? 'Engineering Onboarding — Colombo' : '');
-  const [client, setClient] = useState(seeded ? clients[0] : '');
+  const [name, setName] = useState(editing?.name ?? (seeded ? 'Engineering Onboarding — Colombo' : ''));
+  const [client, setClient] = useState(editing?.client ?? (seeded ? clients[0] : ''));
   const [employmentType, setEmploymentType] = useState<EmploymentType | ''>(
-    seeded ? 'Permanent' : ''
+    editing?.employmentType ?? (seeded ? 'Permanent' : '')
   );
   const [selectedIds, setSelectedIds] = useState<string[]>(
-    state.taskIds ?? (seeded ? ['t1', 't2', 't5', 't7', 't9'] : [])
+    editing?.taskIds ?? state.taskIds ?? (seeded ? ['t1', 't2', 't5', 't7', 't9'] : [])
   );
+  const [confirmNewTemplate, setConfirmNewTemplate] = useState(false);
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<string[]>(departments);
   const [submitted, setSubmitted] = useState(false);
@@ -74,30 +85,60 @@ export function CreateTemplate() {
     setStep((prev) => Math.min(steps.length - 1, prev + 1));
   };
 
-  const handleCreate = () => {
-    addTemplate({
-      id: `tpl-${Date.now()}`,
-      code: nextCode(
-        kind === 'Onboarding' ? 'ONT' : 'OFT',
-        templates.map((t) => t.code),
-        3
-      ),
-      kind,
-      name: name.trim(),
-      client,
-      employmentType: employmentType as EmploymentType,
-      taskIds: selectedIds
-    });
-    navigate('/onboarding/templates');
+  const listState: TemplatesScreenState = { kind, view: 'templates' };
+  const fields = () => ({
+    name: name.trim(),
+    client,
+    employmentType: employmentType as EmploymentType,
+    taskIds: selectedIds
+  });
+
+  const createTemplate = (notice?: string) => {
+    const id = `tpl-${Date.now()}`;
+    const code = nextTemplateCode(kind);
+    addTemplate({ id, code, kind, ...fields() });
+    if (notice) {
+      navigate(`/onboarding/templates/${id}`, { state: { ...listState, notice: notice.replace('{code}', code) } });
+    } else {
+      navigate('/onboarding/templates', { state: listState });
+    }
   };
+
+  const handleCreate = () => createTemplate();
+
+  const handleSave = () => {
+    if (!editing) return;
+    // A template a transition was started from is never changed: saving creates a new template.
+    if (usedBy > 0) {
+      setConfirmNewTemplate(true);
+      return;
+    }
+    updateTemplate(editing.id, fields());
+    navigate(`/onboarding/templates/${editing.id}`, {
+      state: { ...listState, notice: `Changes to ${editing.code} were saved.` }
+    });
+  };
+
+  if (templateId && !editing) {
+    return <NoAccess title="Template not found" description="This template may have been deleted." />;
+  }
+  if (!hasOboPermission('Manage Templates')) {
+    return (
+      <NoAccess
+        title="You don't have access to this screen"
+        description="Creating and editing templates requires the Manage Templates permission." />);
+
+
+  }
+  const cancelTo = editing ? `/onboarding/templates/${editing.id}` : '/onboarding/templates';
 
   return (
     <div>
       <PageHeader
-        title="Create Template"
+        title={editing ? `Edit Template · ${editing.code}` : 'Create Template'}
         subtitle={`A ${kind.toLowerCase()} template groups the tasks a client and employment type always need.`}
-        backTo="/onboarding/templates"
-        backLabel="Back to Templates"
+        backTo={cancelTo}
+        backLabel={editing ? 'Back to template' : 'Back to Templates'}
         meta={
         <div className="mt-4">
             <WizardSteps steps={steps} current={step} />
@@ -107,6 +148,15 @@ export function CreateTemplate() {
 
       <div className="px-8 py-6">
         <div className="max-w-3xl rounded-xl border border-line bg-white p-6 shadow-card">
+          {editing && usedBy > 0 &&
+          <div className="mb-5 flex items-start gap-2.5 rounded-lg bg-amber-50 px-3.5 py-3 ring-1 ring-inset ring-amber-200">
+              <InfoIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <p className="text-[13px] leading-relaxed text-amber-900">
+                Used by {usedBy} transition{usedBy === 1 ? '' : 's'}. Saving will create a new template with a new
+                template code; this template stays unchanged.
+              </p>
+            </div>
+          }
           {step === 0 &&
           <div className="space-y-5">
               <FieldGroup label="Template Name" required>
@@ -293,7 +343,7 @@ export function CreateTemplate() {
           }
 
           <div className="mt-6 flex items-center justify-between border-t border-line pt-5">
-            <Button onClick={() => step === 0 ? navigate('/onboarding/templates') : setStep(step - 1)}>
+            <Button onClick={() => step === 0 ? navigate(cancelTo, { state: listState }) : setStep(step - 1)}>
               {step === 0 ? 'Cancel' : 'Back'}
             </Button>
             {step < steps.length - 1 ?
@@ -301,13 +351,38 @@ export function CreateTemplate() {
                 Continue
               </Button> :
 
-            <Button variant="primary" onClick={handleCreate} disabled={selectedIds.length === 0}>
-                Create Template
+            <Button
+              variant="primary"
+              onClick={editing ? handleSave : handleCreate}
+              disabled={selectedIds.length === 0}>
+
+                {editing ? 'Save Changes' : 'Create Template'}
               </Button>
             }
           </div>
         </div>
       </div>
+
+      {editing &&
+      <Dialog
+        open={confirmNewTemplate}
+        title="Save as a new template?"
+        body={
+        <>
+              <p>
+                <span className="font-medium text-ink">{editing.name}</span> ({editing.code}) is used by {usedBy}{' '}
+                transition{usedBy === 1 ? '' : 's'}, so it cannot be changed.
+              </p>
+              <p className="mt-2">
+                Saving will create a new template with a new template code ({nextTemplateCode(kind)}). The original
+                template stays unchanged.
+              </p>
+            </>
+        }
+        confirmLabel="Create New Template"
+        onCancel={() => setConfirmNewTemplate(false)}
+        onConfirm={() => createTemplate(`Saved as a new template, {code}. ${editing.code} was left unchanged.`)} />
+      }
     </div>);
 
 }

@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { AlertCircleIcon, CalendarIcon, PencilIcon, RotateCcwIcon, Trash2Icon } from 'lucide-react';
-import type { Milestone, Person, TransitionTask } from '../../types';
+import type { Milestone, Person, TransitionKind, TransitionTask } from '../../types';
 import { Badge, DepartmentChip, PriorityBadge } from '../ui/Badge';
 import { Input, Select } from '../ui/Field';
 import { PillToggle } from '../ui/Toggle';
 import { PeoplePicker } from '../common/PeoplePicker';
-import { milestones } from '../../data/people';
+import { milestonesFor } from '../../data/people';
 import { formatDate, resolveDueDate } from '../../utils/format';
 
 const canOwnTasks = (person: Person) => person.canUpdateTaskProgress;
 
 export function TransitionTaskSetupCard({
   task,
+  kind = 'Onboarding',
   hireDate,
   showDateError,
   onChange,
@@ -22,13 +23,13 @@ export function TransitionTaskSetupCard({
 
 
 
-}: {task: TransitionTask;hireDate: string;showDateError: boolean;onChange: (patch: Partial<TransitionTask>) => void;onRemove: () => void;}) {
+}: {task: TransitionTask;kind?: TransitionKind;hireDate: string;showDateError: boolean;onChange: (patch: Partial<TransitionTask>) => void;onRemove: () => void;}) {
   const [editing, setEditing] = useState(false);
   const [mode, setMode] = useState<'relative' | 'exact'>('relative');
   const [amount, setAmount] = useState('3');
   const [unit, setUnit] = useState<'days' | 'weeks' | 'months'>('days');
   const [direction, setDirection] = useState<'before' | 'after'>('after');
-  const [milestone, setMilestone] = useState<Milestone>('Hire Date');
+  const [milestone, setMilestone] = useState<Milestone>(milestonesFor(kind)[kind === 'Onboarding' ? 0 : 4]);
 
   const dateRequired = task.showInCandidateEvents;
   const dateMissing = !task.dueDate;
@@ -207,7 +208,7 @@ export function TransitionTaskSetupCard({
               aria-label={`Milestone for ${task.name}`}
               className="h-9 w-52 bg-white">
               
-                  {milestones.map((option) =>
+                  {milestonesFor(kind).map((option) =>
               <option key={option} value={option}>
                       {option}
                     </option>

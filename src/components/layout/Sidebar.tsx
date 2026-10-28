@@ -11,11 +11,22 @@ import {
 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 import { SearchInput } from '../ui/SearchInput';
-import { Avatar } from '../ui/Avatar';
+import { DemoAccessPanel } from './DemoAccessPanel';
+import { useAppData } from '../../contexts/AppDataContext';
+import type { OboPermission } from '../../types';
+import { canOpenTemplates } from '../../utils/library';
+import { visibleKinds } from '../../utils/transitions';
+
+interface NavAccess {
+  oboModulePurchased: boolean;
+  oboPermissions: OboPermission[];
+}
 
 interface NavLeaf {
   label: string;
   to: string;
+  /** Shown only when this returns true. Items without it are always shown. */
+  visible?: (access: NavAccess) => boolean;
 }
 
 interface NavGroup {
@@ -29,6 +40,8 @@ interface NavModule {
   icon: React.ComponentType<{className?: string;}>;
   basePath: string;
   groups: NavGroup[];
+  /** Hides the whole module, for example when the tenant has not purchased it. */
+  visible?: (access: NavAccess) => boolean;
 }
 
 const modules: NavModule[] = [
@@ -44,12 +57,26 @@ const modules: NavModule[] = [
   label: 'Onboarding & Offboarding',
   icon: UserCheckIcon,
   basePath: '/onboarding',
+  visible: ({ oboModulePurchased }) => oboModulePurchased,
   groups: [
   {
     items: [
-    { label: 'Overview', to: '/onboarding/overview' },
-    { label: 'Transitions', to: '/onboarding/transitions' },
-    { label: 'Templates', to: '/onboarding/templates' }]
+    {
+      label: 'Dashboard',
+      to: '/onboarding/dashboard',
+      visible: ({ oboPermissions }) => oboPermissions.length > 0
+    },
+    {
+      label: 'Transitions',
+      to: '/onboarding/transitions',
+      visible: ({ oboPermissions }) =>
+      visibleKinds(oboPermissions).length > 0 || oboPermissions.includes('Update Task Progress')
+    },
+    {
+      label: 'Templates',
+      to: '/onboarding/templates',
+      visible: ({ oboPermissions }) => canOpenTemplates(oboPermissions)
+    }]
 
   }]
 
@@ -86,15 +113,37 @@ const modules: NavModule[] = [
 }];
 
 
+/** Modules and items the signed-in user may see. A module with no visible items is hidden. */
+function permittedModules(access: NavAccess): NavModule[] {
+  return modules.
+  filter((module) => !module.visible || module.visible(access)).
+  map((module) => ({
+    ...module,
+    groups: module.groups.
+    map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !item.visible || item.visible(access))
+    })).
+    filter((group) => group.items.length > 0)
+  })).
+  filter((module) => module.groups.length > 0);
+}
+
 export function Sidebar() {
   const location = useLocation();
+  const { oboModulePurchased, oboPermissions } = useAppData();
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<string[]>([]);
 
+  const permitted = useMemo(
+    () => permittedModules({ oboModulePurchased, oboPermissions }),
+    [oboModulePurchased, oboPermissions]
+  );
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return modules;
-    return modules.
+    if (!needle) return permitted;
+    return permitted.
     map((module) => ({
       ...module,
       groups: module.groups.
@@ -109,7 +158,7 @@ export function Sidebar() {
       filter((group) => group.items.length > 0)
     })).
     filter((module) => module.groups.length > 0 || module.label.toLowerCase().includes(needle));
-  }, [query]);
+  }, [query, permitted]);
 
   return (
     <aside className="flex h-full w-[268px] shrink-0 flex-col border-r border-line bg-white">
@@ -208,15 +257,7 @@ export function Sidebar() {
         </div>
       </nav>
 
-      <div className="border-t border-line p-3">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-          <Avatar name="Nimal Perera" size="md" />
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-[13px] font-medium text-ink">Nimal Perera</p>
-            <p className="truncate text-[11px] text-muted">HR Manager</p>
-          </div>
-        </div>
-      </div>
+      <DemoAccessPanel />
     </aside>);
 
 }

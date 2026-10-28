@@ -1,7 +1,8 @@
 import React from 'react';
-import { FileIcon, XIcon } from 'lucide-react';
+import { XIcon } from 'lucide-react';
 import { Drawer } from '../ui/Drawer';
 import { Button } from '../ui/Button';
+import { FilePreviewButton, FileThumb } from '../ui/FilePreview';
 import type { EmployeeForm, FormField, FormSubmission } from '../../types';
 import { formatDateTime } from '../../utils/format';
 
@@ -97,12 +98,13 @@ export function SubmissionPanel({
 
             <ul className="mt-2 divide-y divide-line rounded-lg border border-line">
                   {submission.documents.map((doc) =>
-              <li key={doc.name} className="flex items-center gap-3 px-3.5 py-2.5">
-                      <FileIcon className="h-4 w-4 shrink-0 text-subtle" />
+              <li key={`${doc.name}-${doc.fileName}`} className="flex items-center gap-3 px-3.5 py-2.5">
+                      <FileThumb name={doc.fileName} context={doc.name} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13px] text-ink">{doc.name}</span>
                         <span className="block truncate font-mono text-[11px] text-subtle">{doc.fileName}</span>
                       </span>
+                      <FilePreviewButton name={doc.fileName} context={doc.name} />
                     </li>
               )}
                 </ul>

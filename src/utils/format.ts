@@ -40,6 +40,7 @@ export function formatShortDate(iso: string | null | undefined): {day: string;mo
   };
 }
 
+/** `hireDate` is the transition's key date: the hire date, or the last working date when offboarding. */
 export function resolveDueDate(rule: DueRule | null, hireDate: string): string | null {
   if (!rule || !hireDate) return null;
   const base = new Date(hireDate);
@@ -57,6 +58,14 @@ export function resolveDueDate(rule: DueRule | null, hireDate: string): string |
         break;
       case 'Probation End Date':
         date.setMonth(date.getMonth() + 6);
+        break;
+      // For offboarding the base date is the last working date.
+      case 'Resignation Effective Date':
+      case 'Notice Period Start Date':
+        date.setDate(date.getDate() - 30);
+        break;
+      case 'Payroll Cut-off Date':
+        date.setDate(date.getDate() - 5);
         break;
       default:
         break;

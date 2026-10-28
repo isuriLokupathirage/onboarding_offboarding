@@ -1,6 +1,6 @@
 export const manifest = {
   screens: {
-    scr_464ptg: { name: "Overview", route: "/onboarding/overview", position: { "x": 160, "y": 220 } },
+    scr_464ptg: { name: "Dashboard", route: "/onboarding/dashboard", position: { "x": 160, "y": 220 } },
     scr_5nxd8j: { name: "Transitions", route: "/onboarding/transitions", position: { "x": 1560, "y": 220 } },
     scr_yi1qbz: { name: "Transition – Tasks", route: "/onboarding/transitions/tr1", state: { "view": "tasks" }, position: { "x": 2960, "y": 220 } },
     scr_fqlim1: { name: "Transition – Emails", route: "/onboarding/transitions/tr1", state: { "view": "emails" }, position: { "x": 4360, "y": 220 } },
