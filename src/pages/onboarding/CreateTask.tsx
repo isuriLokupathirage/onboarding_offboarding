@@ -73,7 +73,9 @@ export function CreateTask() {
   const [description, setDescription] = useState(editing?.description ?? '');
   const [department, setDepartment] = useState<Department | ''>(editing?.department ?? '');
   const [priority, setPriority] = useState<Priority | ''>(editing?.priority ?? '');
-  const [dueMode, setDueMode] = useState<DueMode>(rule?.kind ?? 'none');
+  const [dueMode, setDueMode] = useState<DueMode>(
+    isOnboarding && rule?.kind === 'milestone' ? 'none' : rule?.kind ?? 'none'
+  );
   const [amount, setAmount] = useState(rule?.kind === 'relative' ? String(rule.amount) : '3');
   const [unit, setUnit] = useState<'days' | 'weeks' | 'months'>(rule?.kind === 'relative' ? rule.unit : 'days');
   const [direction, setDirection] = useState<'before' | 'after'>(
@@ -169,9 +171,9 @@ export function CreateTask() {
         amount: Number(amount) || 1,
         unit,
         direction,
-        milestone: relativeMilestone
+        milestone: isOnboarding ? 'Hire Date' : relativeMilestone
       } :
-      dueMode === 'milestone' ?
+      dueMode === 'milestone' && !isOnboarding ?
       { kind: 'milestone', milestone: namedMilestone } :
       null,
       parentId: parentId || null,
@@ -396,11 +398,13 @@ export function CreateTask() {
                 checked={dueMode === 'relative'}
                 onChange={() => setDueMode('relative')} />
               
+              {/* Onboarding tasks only use offsets from the Hire Date; named milestones are offboarding only. */}
+              {!isOnboarding &&
               <RadioPill
                 label="Named milestone"
                 checked={dueMode === 'milestone'}
                 onChange={() => setDueMode('milestone')} />
-              
+              }
             </div>
 
             {dueMode === 'relative' &&

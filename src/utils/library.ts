@@ -59,9 +59,28 @@ export interface TemplatePhase {
 
 const UNSCHEDULED = 'No due date';
 
+const DAYS_PER_UNIT = { days: 1, weeks: 7, months: 30 } as const;
+
+/** Onboarding tasks all count from the Hire Date, so their phase follows how far from it they fall. */
+const onboardingPhases: {label: string;upTo: number;}[] = [
+{ label: 'Before Hire Date', upTo: -1 },
+{ label: 'On Hire Date', upTo: 0 },
+{ label: 'First Week', upTo: 7 },
+{ label: 'First Month', upTo: 31 },
+{ label: 'After First Month', upTo: Number.MAX_SAFE_INTEGER }];
+
+
 function phaseKey(task: Task): {label: string;order: number;} {
   const rule = task.dueRule;
   if (!rule) return { label: UNSCHEDULED, order: Number.MAX_SAFE_INTEGER };
+  if (rule.milestone === 'Hire Date') {
+    const days =
+    rule.kind === 'relative' ?
+    (rule.direction === 'before' ? -1 : 1) * rule.amount * DAYS_PER_UNIT[rule.unit] :
+    0;
+    const index = onboardingPhases.findIndex((phase) => days <= phase.upTo);
+    return { label: onboardingPhases[index].label, order: index };
+  }
   const index = [...milestones, ...offboardingMilestones].indexOf(rule.milestone as Milestone);
   if (rule.kind === 'relative' && rule.direction === 'before') {
     return { label: `Before ${rule.milestone}`, order: index * 2 };
