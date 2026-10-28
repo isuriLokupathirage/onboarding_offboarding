@@ -11,7 +11,7 @@ import {
 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 import { SearchInput } from '../ui/SearchInput';
-import { Avatar } from '../ui/Avatar';
+import { DemoAccessPanel } from './DemoAccessPanel';
 import { useAppData } from '../../contexts/AppDataContext';
 import type { OboPermission } from '../../types';
 import { canOpenTemplates } from '../../utils/library';
@@ -257,15 +257,7 @@ export function Sidebar() {
         </div>
       </nav>
 
-      <div className="border-t border-line p-3">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-          <Avatar name="Nimal Perera" size="md" />
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-[13px] font-medium text-ink">Nimal Perera</p>
-            <p className="truncate text-[11px] text-muted">HR Manager</p>
-          </div>
-        </div>
-      </div>
+      <DemoAccessPanel />
     </aside>);
 
 }

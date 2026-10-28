@@ -3,7 +3,7 @@ import type { Task } from '../types';
 export const seedTasks: Task[] = [
 {
   id: 't1',
-  code: 'ONB-0001',
+  code: 'ONB-001',
   kind: 'Onboarding',
   name: 'Offer Letter Signing',
   description: 'Share the signed offer letter and confirm the agreed start date with the candidate.',
@@ -24,7 +24,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't2',
-  code: 'ONB-0002',
+  code: 'ONB-002',
   kind: 'Onboarding',
   name: 'Collect Employee Documents',
   description: 'Send the employee data form and collect NIC, certificates and bank confirmation.',
@@ -42,7 +42,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't3',
-  code: 'ONB-0003',
+  code: 'ONB-003',
   kind: 'Onboarding',
   name: 'Verify NIC and Address Proof',
   description: 'Cross-check submitted identity documents against the Employee Management record.',
@@ -60,7 +60,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't4',
-  code: 'ONB-0004',
+  code: 'ONB-004',
   kind: 'Onboarding',
   name: 'Create Email and System Accounts',
   description: 'Provision the work email, VPN access and access to the tools used by the team.',
@@ -78,7 +78,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't5',
-  code: 'ONB-0005',
+  code: 'ONB-005',
   kind: 'Onboarding',
   name: 'Asset Handover',
   description: 'Hand over the laptop, charger, headset and access card, then record the serial numbers.',
@@ -96,7 +96,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't6',
-  code: 'ONB-0006',
+  code: 'ONB-006',
   kind: 'Onboarding',
   name: 'IT Setup Session',
   description: 'Walk the new joiner through email, VPN, ticketing and the internal security policy.',
@@ -114,7 +114,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't7',
-  code: 'ONB-0007',
+  code: 'ONB-007',
   kind: 'Onboarding',
   name: 'First Day Orientation',
   description: 'Company introduction, workplace tour and a walkthrough of HR policies.',
@@ -132,7 +132,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't8',
-  code: 'ONB-0008',
+  code: 'ONB-008',
   kind: 'Onboarding',
   name: 'Security Training',
   description: 'Information security induction, data handling rules and access card issuance.',
@@ -150,7 +150,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't9',
-  code: 'ONB-0009',
+  code: 'ONB-009',
   kind: 'Onboarding',
   name: 'Payroll and Bank Details Setup',
   description: 'Add the salary structure and verify the bank account before the first payroll run.',
@@ -168,7 +168,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't10',
-  code: 'ONB-0010',
+  code: 'ONB-010',
   kind: 'Onboarding',
   name: 'EPF and ETF Registration',
   description: 'Submit the statutory registration details to the Department of Labour.',
@@ -186,7 +186,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't11',
-  code: 'ONB-0011',
+  code: 'ONB-011',
   kind: 'Onboarding',
   name: 'Assign Onboarding Buddy',
   description: 'Pair the new joiner with a team member for their first two weeks.',
@@ -204,7 +204,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't12',
-  code: 'ONB-0012',
+  code: 'ONB-012',
   kind: 'Onboarding',
   name: 'Codebase Walkthrough',
   description: 'Repository access, branching model and a guided tour of the core services.',
@@ -222,7 +222,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't13',
-  code: 'ONB-0013',
+  code: 'ONB-013',
   kind: 'Onboarding',
   name: 'Team Welcome Lunch',
   description: 'Informal introduction to the wider team over lunch.',
@@ -240,7 +240,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't14',
-  code: 'ONB-0014',
+  code: 'ONB-014',
   kind: 'Onboarding',
   name: 'Schedule Probation Review',
   description: 'Book the probation review with the reporting manager and share the evaluation form.',
@@ -258,7 +258,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't20',
-  code: 'OFB-0001',
+  code: 'OFB-001',
   kind: 'Offboarding',
   name: 'Resignation Acknowledgement',
   description: 'Acknowledge the resignation letter and confirm the last working day.',
@@ -267,7 +267,7 @@ export const seedTasks: Task[] = [
   optional: false,
   showInCandidateEvents: false,
   ownerIds: ['u1'],
-  dueRule: { kind: 'relative', amount: 2, unit: 'days', direction: 'after', milestone: 'Hire Date' },
+  dueRule: { kind: 'relative', amount: 2, unit: 'days', direction: 'after', milestone: 'Resignation Effective Date' },
   parentId: null,
   parentCompletionRequired: false,
   notifyOnAssignment: 'Yes',
@@ -276,7 +276,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't21',
-  code: 'OFB-0002',
+  code: 'OFB-002',
   kind: 'Offboarding',
   name: 'Exit Interview',
   description: 'Capture feedback on the role, the team and the reasons for leaving.',
@@ -285,7 +285,7 @@ export const seedTasks: Task[] = [
   optional: false,
   showInCandidateEvents: true,
   ownerIds: ['u1', 'u3'],
-  dueRule: { kind: 'relative', amount: 3, unit: 'days', direction: 'before', milestone: 'Hire Date' },
+  dueRule: { kind: 'relative', amount: 3, unit: 'days', direction: 'before', milestone: 'Last Working Date' },
   parentId: null,
   parentCompletionRequired: false,
   notifyOnAssignment: 'Yes',
@@ -294,7 +294,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't22',
-  code: 'OFB-0003',
+  code: 'OFB-003',
   kind: 'Offboarding',
   name: 'Asset Return and Clearance',
   description: 'Collect the laptop, accessories and access card, then log the condition of each item.',
@@ -303,7 +303,7 @@ export const seedTasks: Task[] = [
   optional: false,
   showInCandidateEvents: true,
   ownerIds: ['u8'],
-  dueRule: { kind: 'relative', amount: 1, unit: 'days', direction: 'before', milestone: 'Hire Date' },
+  dueRule: { kind: 'relative', amount: 1, unit: 'days', direction: 'before', milestone: 'Last Working Date' },
   parentId: null,
   parentCompletionRequired: false,
   notifyOnAssignment: 'Yes',
@@ -312,7 +312,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't23',
-  code: 'OFB-0004',
+  code: 'OFB-004',
   kind: 'Offboarding',
   name: 'Revoke System Access',
   description: 'Disable email, VPN, repository and payroll system access on the last working day.',
@@ -321,7 +321,7 @@ export const seedTasks: Task[] = [
   optional: false,
   showInCandidateEvents: false,
   ownerIds: ['u6', 'u2'],
-  dueRule: { kind: 'milestone', milestone: 'Hire Date' },
+  dueRule: { kind: 'milestone', milestone: 'Actual Exit Date' },
   parentId: 't22',
   parentCompletionRequired: true,
   notifyOnAssignment: 'Yes',
@@ -330,7 +330,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't24',
-  code: 'OFB-0005',
+  code: 'OFB-005',
   kind: 'Offboarding',
   name: 'Final Settlement Calculation',
   description: 'Calculate the final salary, leave encashment and any outstanding deductions.',
@@ -339,7 +339,7 @@ export const seedTasks: Task[] = [
   optional: false,
   showInCandidateEvents: false,
   ownerIds: ['u5'],
-  dueRule: { kind: 'relative', amount: 5, unit: 'days', direction: 'after', milestone: 'Hire Date' },
+  dueRule: { kind: 'relative', amount: 5, unit: 'days', direction: 'after', milestone: 'Payroll Cut-off Date' },
   parentId: null,
   parentCompletionRequired: false,
   notifyOnAssignment: 'Yes',
@@ -348,7 +348,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't25',
-  code: 'OFB-0006',
+  code: 'OFB-006',
   kind: 'Offboarding',
   name: 'EPF and ETF Closure',
   description: 'Submit the closure documents and share the contribution statement with the employee.',
@@ -357,7 +357,7 @@ export const seedTasks: Task[] = [
   optional: false,
   showInCandidateEvents: false,
   ownerIds: ['u10'],
-  dueRule: { kind: 'relative', amount: 2, unit: 'weeks', direction: 'after', milestone: 'Hire Date' },
+  dueRule: { kind: 'relative', amount: 2, unit: 'weeks', direction: 'after', milestone: 'Actual Exit Date' },
   parentId: 't24',
   parentCompletionRequired: true,
   notifyOnAssignment: 'Yes',
@@ -366,7 +366,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't26',
-  code: 'OFB-0007',
+  code: 'OFB-007',
   kind: 'Offboarding',
   name: 'Knowledge Transfer Handover',
   description: 'Document ongoing work and hand over responsibilities to the nominated team member.',
@@ -375,7 +375,7 @@ export const seedTasks: Task[] = [
   optional: false,
   showInCandidateEvents: false,
   ownerIds: ['u4', 'u9'],
-  dueRule: { kind: 'relative', amount: 1, unit: 'weeks', direction: 'before', milestone: 'Hire Date' },
+  dueRule: { kind: 'relative', amount: 1, unit: 'weeks', direction: 'before', milestone: 'Last Working Date' },
   parentId: null,
   parentCompletionRequired: false,
   notifyOnAssignment: 'Yes',
@@ -384,7 +384,7 @@ export const seedTasks: Task[] = [
 },
 {
   id: 't27',
-  code: 'OFB-0008',
+  code: 'OFB-008',
   kind: 'Offboarding',
   name: 'Farewell Note to the Team',
   description: 'Share a short farewell announcement with the department.',

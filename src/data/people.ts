@@ -1,4 +1,4 @@
-import type { Department, Person } from '../types';
+import type { Department, Milestone, OffboardingMilestone, OnboardingMilestone, Person, TransitionKind } from '../types';
 
 export const departments: Department[] = ['HR', 'IT Ops', 'Engineering', 'Finance', 'Security'];
 
@@ -63,10 +63,23 @@ export const clients = [
 
 export const employmentTypes = ['Permanent', 'Contract', 'Internship', 'Consultant'] as const;
 
-export const milestones = [
+export const milestones: OnboardingMilestone[] = [
 'Hire Date',
 'First Working Day',
 'End of First Week',
 'End of First Month',
-'Probation End Date'] as
-const;
+'Probation End Date'];
+
+
+export const offboardingMilestones: OffboardingMilestone[] = [
+'Resignation Effective Date',
+'Notice Period Start Date',
+'Payroll Cut-off Date',
+'Actual Exit Date',
+'Last Working Date'];
+
+
+/** The milestones a task's due date can use: onboarding and offboarding each have their own. */
+export function milestonesFor(kind: TransitionKind): Milestone[] {
+  return kind === 'Onboarding' ? milestones : offboardingMilestones;
+}

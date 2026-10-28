@@ -19,12 +19,21 @@ export type Priority = 'Low' | 'Medium' | 'High';
 
 export type Department = 'HR' | 'IT Ops' | 'Engineering' | 'Finance' | 'Security';
 
-export type Milestone =
+export type OnboardingMilestone =
 'Hire Date' |
 'First Working Day' |
 'End of First Week' |
 'End of First Month' |
 'Probation End Date';
+
+export type OffboardingMilestone =
+'Resignation Effective Date' |
+'Notice Period Start Date' |
+'Payroll Cut-off Date' |
+'Actual Exit Date' |
+'Last Working Date';
+
+export type Milestone = OnboardingMilestone | OffboardingMilestone;
 
 export type DueRule =
 {

@@ -61,7 +61,9 @@ export function TaskTemplates() {
     transitions,
     hasOboPermission,
     addTemplate,
-    nextTemplateCode
+    nextTemplateCode,
+    addTask,
+    nextTaskCode
   } = useAppData();
   const screenInit = useScreenInit();
   const canManageTemplates = hasOboPermission('Manage Templates');
@@ -179,6 +181,20 @@ export function TaskTemplates() {
       taskIds: [...template.taskIds]
     });
     setNotice(`"${template.name}" was duplicated as ${code}.`);
+  };
+
+  const duplicateTask = (id: string) => {
+    const source = tasks.find((task) => task.id === id);
+    if (!source) return;
+    const code = nextTaskCode(source.kind);
+    addTask({
+      ...source,
+      id: `task-${Date.now()}`,
+      code,
+      name: `${source.name} (Copy)`,
+      files: source.files.map((file) => ({ ...file }))
+    });
+    setNotice(`"${source.name}" was duplicated as ${code}.`);
   };
 
   const countFor = (target: TransitionKind) =>
@@ -316,6 +332,10 @@ export function TaskTemplates() {
                   inUseNote={usage?.inUse ? taskUsageLabel(usage) : undefined}
                   onOpen={openTask}
                   onEdit={(id) => navigate(`/onboarding/templates/tasks/${id}/edit`, { state: backState })}
+                  onDuplicate={duplicateTask}
+                  onAddChild={(id) =>
+                  navigate('/onboarding/templates/new-task', { state: { ...backState, parentId: id } })
+                  }
                   onDelete={(id) => setDeletingTasks({ ids: [id], bulk: false })} />);
 
 

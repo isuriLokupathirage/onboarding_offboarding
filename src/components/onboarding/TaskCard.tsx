@@ -20,6 +20,8 @@ export function TaskCard({
   inUseNote,
   onOpen,
   onEdit,
+  onDuplicate,
+  onAddChild,
   onDelete
 
 
@@ -34,7 +36,7 @@ export function TaskCard({
 
 
 
-}: {task: Task;selected: boolean;onToggle: (id: string) => void;isChild?: boolean;selectable?: boolean;/** False for a restricted task the user may not open. */canOpen?: boolean;/** Whether the user holds Manage Task Library. */canManage?: boolean;/** Set when the task is in use, which blocks deleting it. */inUseNote?: string;onOpen?: (id: string) => void;onEdit?: (id: string) => void;onDelete?: (id: string) => void;}) {
+}: {task: Task;selected: boolean;onToggle: (id: string) => void;isChild?: boolean;selectable?: boolean;/** False for a restricted task the user may not open. */canOpen?: boolean;/** Whether the user holds Manage Task Library. */canManage?: boolean;/** Set when the task is in use, which blocks deleting it. */inUseNote?: string;onOpen?: (id: string) => void;onEdit?: (id: string) => void;onDuplicate?: (id: string) => void;onAddChild?: (id: string) => void;onDelete?: (id: string) => void;}) {
   const owners = task.ownerIds.map((id) => peopleById[id]?.name ?? 'Unassigned');
   const open = () => {
     if (canOpen) onOpen?.(task.id);
@@ -117,8 +119,19 @@ export function TaskCard({
           hint: !canManage ? TASK_PERMISSION_NOTE : RESTRICTED_PERMISSION_NOTE,
           onSelect: () => onEdit?.(task.id)
         },
-        { label: 'Duplicate task', disabled: !canManage, hint: TASK_PERMISSION_NOTE },
-        { label: 'Add child task', disabled: !canManage, hint: TASK_PERMISSION_NOTE },
+        {
+          label: 'Duplicate task',
+          disabled: !canManage || !canOpen,
+          hint: !canManage ? TASK_PERMISSION_NOTE : RESTRICTED_PERMISSION_NOTE,
+          onSelect: () => onDuplicate?.(task.id)
+        },
+        {
+          label: 'Add child task',
+          // Only top-level tasks can be parents.
+          disabled: !canManage || Boolean(task.parentId),
+          hint: !canManage ? TASK_PERMISSION_NOTE : 'A child task cannot have child tasks of its own',
+          onSelect: () => onAddChild?.(task.id)
+        },
         {
           label: 'Delete task',
           danger: true,

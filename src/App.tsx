@@ -48,7 +48,7 @@ export function App({
   canSendEmployeeForms = true,
   canManageEmployeeForms = true,
   oboPermissions,
-  oboModulePurchased = true
+  oboModulePurchased
 }: AppProps) {
   return (
     <AppDataProvider

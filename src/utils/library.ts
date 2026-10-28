@@ -1,5 +1,5 @@
 import type { Milestone, OboPermission, Task, Template, Transition } from '../types';
-import { milestones } from '../data/people';
+import { milestones, offboardingMilestones } from '../data/people';
 import { statusGroup } from './transitions';
 
 export const TEMPLATE_PERMISSION_NOTE = 'Requires the Manage Templates permission';
@@ -62,7 +62,7 @@ const UNSCHEDULED = 'No due date';
 function phaseKey(task: Task): {label: string;order: number;} {
   const rule = task.dueRule;
   if (!rule) return { label: UNSCHEDULED, order: Number.MAX_SAFE_INTEGER };
-  const index = milestones.indexOf(rule.milestone as Milestone);
+  const index = [...milestones, ...offboardingMilestones].indexOf(rule.milestone as Milestone);
   if (rule.kind === 'relative' && rule.direction === 'before') {
     return { label: `Before ${rule.milestone}`, order: index * 2 };
   }

@@ -14,8 +14,9 @@ import { Dialog } from '../../components/ui/Dialog';
 import { NoAccess } from '../../components/layout/AccessGate';
 import { FilePreviewButton, FileThumb } from '../../components/ui/FilePreview';
 import { Checkbox, FieldGroup, Input, Label, Select } from '../../components/ui/Field';
+import { Tooltip } from '../../components/ui/Tooltip';
 import { useAppData } from '../../contexts/AppDataContext';
-import { departments, milestones } from '../../data/people';
+import { departments, milestonesFor } from '../../data/people';
 import type { Department, Milestone, Priority, Task, TransitionKind } from '../../types';
 import { rememberFiles } from '../../utils/filePreview';
 import { wordCount } from '../../utils/format';
@@ -23,6 +24,25 @@ import { taskUsage, taskUsageLabel } from '../../utils/library';
 import type { TemplatesScreenState } from './TaskTemplates';
 
 type DueMode = 'none' | 'relative' | 'milestone';
+
+/** Files attached to one task may add up to 25 MB. */
+const MAX_TOTAL_BYTES = 25 * 1024 * 1024;
+
+type DraftFile = {id: string;name: string;size: string;bytes: number;};
+
+/** Reads a stored size such as "96 KB" or "1.4 MB" back into bytes. */
+function parseSize(size: string): number {
+  const match = /([\d.]+)\s*(KB|MB|GB)/i.exec(size);
+  if (!match) return 0;
+  const power = { KB: 1, MB: 2, GB: 3 }[match[2].toUpperCase() as 'KB' | 'MB' | 'GB'];
+  return Number(match[1]) * 1024 ** power;
+}
+
+function formatSize(bytes: number): string {
+  return bytes >= 1024 * 1024 ?
+  `${(bytes / (1024 * 1024)).toFixed(1)} MB` :
+  `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
 
 /** Creates a task, or edits one when the route has a task id. */
 export function CreateTask() {
@@ -32,12 +52,20 @@ export function CreateTask() {
   const { tasks, templates, transitions, addTask, updateTask, nextTaskCode, hasOboPermission } = useAppData();
   // Read once, so the form keeps its values while the user edits.
   const [editing] = useState<Task | undefined>(() => tasks.find((task) => task.id === taskId));
-  const backState = (location.state ?? {}) as TemplatesScreenState;
+  const backState = (location.state ?? {}) as TemplatesScreenState & {parentId?: string;};
   const kind: TransitionKind = editing?.kind ?? backState.kind ?? 'Onboarding';
+  const isOnboarding = kind === 'Onboarding';
+  const kindMilestones = milestonesFor(kind);
+  // Onboarding offsets always count from the Hire Date; offboarding offsets pick one of its dates.
+  const defaultAnchor: Milestone = isOnboarding ? 'Hire Date' : 'Last Working Date';
   const rule = editing?.dueRule ?? null;
   const editorRef = useRef<HTMLDivElement>(null);
-  const [files, setFiles] = useState<{id: string;name: string;size: string;}[]>(editing?.files ?? []);
+  const [files, setFiles] = useState<DraftFile[]>(
+    () => (editing?.files ?? []).map((file) => ({ ...file, bytes: parseSize(file.size) }))
+  );
+  const [fileError, setFileError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const canRestrict = hasOboPermission('View Restricted Tasks');
 
   const [name, setName] = useState(editing?.name ?? '');
   const [optional, setOptional] = useState(editing?.optional ?? false);
@@ -52,14 +80,14 @@ export function CreateTask() {
     rule?.kind === 'relative' ? rule.direction : 'after'
   );
   const [relativeMilestone, setRelativeMilestone] = useState<Milestone>(
-    rule?.kind === 'relative' ? rule.milestone : 'Hire Date'
+    rule?.kind === 'relative' ? rule.milestone : defaultAnchor
   );
   const [namedMilestone, setNamedMilestone] = useState<Milestone>(
-    rule?.kind === 'milestone' ? rule.milestone : 'First Working Day'
+    rule?.kind === 'milestone' ? rule.milestone : kindMilestones[isOnboarding ? 1 : 4]
   );
-  const [parentId, setParentId] = useState(editing?.parentId ?? '');
+  const [parentId, setParentId] = useState(editing?.parentId ?? backState.parentId ?? '');
   const [parentRequired, setParentRequired] = useState(editing?.parentCompletionRequired ?? false);
-  const [notify, setNotify] = useState<'Yes' | 'No'>(editing?.notifyOnAssignment ?? 'Yes');
+  const [notify, setNotify] = useState<'Yes' | 'No' | ''>(editing?.notifyOnAssignment ?? '');
   const [ownerOnly, setOwnerOnly] = useState(editing?.ownerOnlyVisible ?? false);
   const [submitted, setSubmitted] = useState(false);
   const [confirmNewTask, setConfirmNewTask] = useState(false);
@@ -81,12 +109,19 @@ export function CreateTask() {
     [tasks, kind, editing]
   );
   const selectedParent = parentOptions.find((task) => task.id === parentId);
-  const parentRequiredDisabled = !parentId || Boolean(selectedParent?.optional);
+  // An optional parent may never be completed, so nothing can wait on it.
+  const parentRequiredDisabled = Boolean(selectedParent?.optional);
 
   const words = wordCount(description);
+  const amountValid = Number.isInteger(Number(amount)) && Number(amount) >= 1;
   const nameError = submitted && !name.trim();
   const deptError = submitted && !department;
   const priorityError = submitted && !priority;
+  const notifyError = submitted && !notify;
+  const amountError = submitted && dueMode === 'relative' && !amountValid;
+  const parentError = submitted && parentRequired && !parentId;
+  const descriptionError = words > 100;
+  const usedBytes = files.reduce((total, file) => total + file.bytes, 0);
 
   const handleFormat = (command: 'bold' | 'italic' | 'insertUnorderedList') => {
     editorRef.current?.focus();
@@ -94,15 +129,27 @@ export function CreateTask() {
     setDescription(editorRef.current?.innerText ?? '');
   };
 
+  // Files that would take the task over 25 MB are rejected; files already attached stay attached.
   const addFiles = (incoming: FileList | null) => {
-    if (!incoming) return;
-    rememberFiles(Array.from(incoming));
-    const mapped = Array.from(incoming).map((file, index) => ({
-      id: `${Date.now()}-${index}`,
-      name: file.name,
-      size: `${Math.max(1, Math.round(file.size / 1024))} KB`
-    }));
-    setFiles((prev) => [...prev, ...mapped]);
+    if (!incoming || incoming.length === 0) return;
+    let total = usedBytes;
+    const accepted: DraftFile[] = [];
+    const rejected: string[] = [];
+    Array.from(incoming).forEach((file, index) => {
+      if (total + file.size > MAX_TOTAL_BYTES) {
+        rejected.push(file.name);
+        return;
+      }
+      total += file.size;
+      accepted.push({ id: `${Date.now()}-${index}`, name: file.name, size: formatSize(file.size), bytes: file.size });
+    });
+    rememberFiles(Array.from(incoming).filter((file) => !rejected.includes(file.name)));
+    setFiles((prev) => [...prev, ...accepted]);
+    setFileError(
+      rejected.length ?
+      `${rejected.join(', ')} ${rejected.length === 1 ? 'was' : 'were'} not attached: files can add up to 25 MB per task.` :
+      null
+    );
   };
 
   const listState: TemplatesScreenState = { kind, view: 'tasks' };
@@ -128,15 +175,23 @@ export function CreateTask() {
       { kind: 'milestone', milestone: namedMilestone } :
       null,
       parentId: parentId || null,
-      parentCompletionRequired: parentRequiredDisabled ? false : parentRequired,
-      notifyOnAssignment: notify,
+      parentCompletionRequired: Boolean(parentId) && !parentRequiredDisabled && parentRequired,
+      notifyOnAssignment: notify as 'Yes' | 'No',
       ownerOnlyVisible: ownerOnly,
-      files
+      files: files.map(({ id, name: fileName, size }) => ({ id, name: fileName, size }))
   });
 
   const valid = () => {
     setSubmitted(true);
-    return Boolean(name.trim() && department && priority);
+    return Boolean(
+      name.trim() &&
+      department &&
+      priority &&
+      notify &&
+      (dueMode !== 'relative' || amountValid) &&
+      !(parentRequired && !parentId) &&
+      !descriptionError
+    );
   };
 
   const createTask = (notice?: string) => {
@@ -148,7 +203,9 @@ export function CreateTask() {
         state: { ...listState, notice: notice.replace('{code}', code) }
       });
     } else {
-      navigate('/onboarding/templates', { state: listState });
+      navigate('/onboarding/templates', {
+        state: { ...listState, notice: `Task ${code} "${name.trim()}" was created.` }
+      });
     }
   };
 
@@ -193,7 +250,7 @@ export function CreateTask() {
   return (
     <div>
       <PageHeader
-        title={editing ? `Edit Task · ${editing.code}` : 'Create Task'}
+        title={editing ? `Edit Task · ${editing.code}` : 'Create New Task'}
         subtitle={
         editing ?
         `Change any detail of this ${kind.toLowerCase()} task.` :
@@ -233,17 +290,21 @@ export function CreateTask() {
           
 
           <Checkbox
-            label="Show in candidate's events"
-            description="The task appears on the candidate's My Events tab in the portal."
+            label={isOnboarding ? "Add to candidate's schedule" : "Add to employee's events"}
+            description={
+            isOnboarding ?
+            "The task appears on the candidate's My Schedule tab in the portal." :
+            "The task appears in the employee's events in the portal."
+            }
             checked={showInEvents}
             onChange={(event) => setShowInEvents(event.target.checked)} />
-          
+
 
           {showInEvents &&
           <div className="flex items-start gap-2.5 rounded-lg bg-sky-50 px-3.5 py-3 ring-1 ring-inset ring-sky-200">
               <InfoIcon className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
               <p className="text-[13px] leading-relaxed text-sky-900">
-                The candidate will see this as &ldquo;
+                The {isOnboarding ? 'candidate' : 'employee'} will see this as &ldquo;
                 <span className="font-medium">{name.trim() || 'Asset Handover'}</span>&rdquo;
               </p>
             </div>
@@ -278,8 +339,11 @@ export function CreateTask() {
                 data-placeholder="Describe what the owner needs to do."
                 onInput={(event) => setDescription((event.target as HTMLDivElement).innerText)}
                 className="rte min-h-[110px] px-3 py-2.5 text-sm leading-relaxed text-ink focus:outline-none" />
-              
+
             </div>
+            {descriptionError &&
+            <p className="mt-1.5 text-[12px] text-red-600">Keep the description to 100 words or fewer.</p>
+            }
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -347,7 +411,8 @@ export function CreateTask() {
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
                 aria-label="Offset amount"
-                className="w-20" />
+                aria-invalid={amountError}
+                className={`w-20 ${amountError ? 'border-red-300' : ''}`} />
               
                 <Select
                 value={unit}
@@ -368,18 +433,25 @@ export function CreateTask() {
                   <option value="before">before</option>
                   <option value="after">after</option>
                 </Select>
+                {isOnboarding ?
+                <span className="text-[13px] font-medium text-ink">the Hire Date</span> :
+
                 <Select
-                value={relativeMilestone}
-                onChange={(event) => setRelativeMilestone(event.target.value as Milestone)}
-                aria-label="Milestone"
-                className="w-52">
-                
-                  {milestones.map((milestone) =>
-                <option key={milestone} value={milestone}>
-                      {milestone}
-                    </option>
-                )}
-                </Select>
+                  value={relativeMilestone}
+                  onChange={(event) => setRelativeMilestone(event.target.value as Milestone)}
+                  aria-label="Milestone"
+                  className="w-56">
+
+                    {kindMilestones.map((milestone) =>
+                  <option key={milestone} value={milestone}>
+                        {milestone}
+                      </option>
+                  )}
+                  </Select>
+                }
+                {amountError &&
+                <p className="w-full text-[12px] text-red-600">Enter a whole number of 1 or more.</p>
+                }
               </div>
             }
 
@@ -389,8 +461,8 @@ export function CreateTask() {
                 value={namedMilestone}
                 onChange={(event) => setNamedMilestone(event.target.value as Milestone)}
                 aria-label="Named milestone">
-                
-                  {milestones.map((milestone) =>
+
+                  {kindMilestones.map((milestone) =>
                 <option key={milestone} value={milestone}>
                       {milestone}
                     </option>
@@ -407,6 +479,8 @@ export function CreateTask() {
                 <Select
                   value={parentId}
                   disabled={hasChildren}
+                  aria-invalid={parentError}
+                  className={parentError ? 'border-red-300' : ''}
                   onChange={(event) => setParentId(event.target.value)}>
                   <option value="">No parent task</option>
                   {parentOptions.map((task) =>
@@ -417,6 +491,11 @@ export function CreateTask() {
                   )}
                 </Select>
               </FieldGroup>
+              {parentError &&
+              <p className="mt-1.5 text-[12px] text-red-600">
+                  Select a parent task, or untick &ldquo;Parent task completion is required&rdquo;.
+                </p>
+              }
               {hasChildren &&
               <p className="mt-1.5 text-[12px] text-muted">
                   This task has child tasks, so it cannot have a parent task itself.
@@ -429,7 +508,7 @@ export function CreateTask() {
                 description={
                 selectedParent?.optional ?
                 'Unavailable because the selected parent task is optional.' :
-                'This task stays locked until the parent task is completed.'
+                'This task stays locked until the parent task is completed. Requires a parent task.'
                 }
                 checked={parentRequired && !parentRequiredDisabled}
                 disabled={parentRequiredDisabled}
@@ -439,14 +518,29 @@ export function CreateTask() {
           </fieldset>
 
           <FieldGroup label="Assignment Notifications" required className="max-w-xs">
-            <Select value={notify} onChange={(event) => setNotify(event.target.value as 'Yes' | 'No')}>
+            <Select
+              value={notify}
+              aria-invalid={notifyError}
+              className={notifyError ? 'border-red-300' : ''}
+              onChange={(event) => setNotify(event.target.value as 'Yes' | 'No')}>
+
+              <option value="">Select</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </Select>
+            {notifyError &&
+            <p className="mt-1.5 text-[12px] text-red-600">Choose whether owners are notified.</p>
+            }
           </FieldGroup>
 
           <div>
-            <Label hint={<span className="text-[12px] text-subtle">25 MB combined limit</span>}>
+            <Label
+              hint={
+              <span className="text-[12px] text-subtle">
+                  {formatSize(usedBytes)} of 25 MB used
+                </span>
+              }>
+              
               Upload Files
             </Label>
             <label
@@ -479,6 +573,11 @@ export function CreateTask() {
                 }} />
               
             </label>
+            {fileError &&
+            <p role="alert" className="mt-1.5 text-[12px] text-red-600">
+                {fileError}
+              </p>
+            }
             {files.length > 0 &&
             <ul className="mt-2 space-y-1.5">
                 {files.map((file) =>
@@ -504,11 +603,16 @@ export function CreateTask() {
             }
           </div>
 
-          <Checkbox
-            label="Visible only to task owner and admins"
-            checked={ownerOnly}
-            onChange={(event) => setOwnerOnly(event.target.checked)} />
-          
+          {canRestrict ?
+          <RestrictedCheckbox isOnboarding={isOnboarding} checked={ownerOnly} onChange={setOwnerOnly} /> :
+
+          <Tooltip label="Requires the View Restricted Tasks (obo.task.restricted) permission">
+              <span className="block">
+                <RestrictedCheckbox isOnboarding={isOnboarding} checked={ownerOnly} onChange={setOwnerOnly} disabled />
+              </span>
+            </Tooltip>
+          }
+
 
           <div className="flex justify-end gap-2 border-t border-line pt-5">
             <Button onClick={() => navigate(cancelTo, { state: listState })}>Cancel</Button>
@@ -546,6 +650,28 @@ export function CreateTask() {
         onConfirm={() => createTask(`Saved as a new task, {code}. ${editing.code} was left unchanged.`)} />
       }
     </div>);
+
+}
+
+function RestrictedCheckbox({
+  isOnboarding,
+  checked,
+  onChange,
+  disabled = false
+
+
+
+
+
+}: {isOnboarding: boolean;checked: boolean;onChange: (value: boolean) => void;disabled?: boolean;}) {
+  return (
+    <Checkbox
+      label={isOnboarding ? 'Restricted Task - sensitive or confidential' : 'Visible only to task owner and admins'}
+      description="Only users with the Restricted Tasks permission can see and work with this task."
+      checked={checked}
+      disabled={disabled}
+      onChange={(event) => onChange(event.target.checked)} />);
+
 
 }
 
