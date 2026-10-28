@@ -15,6 +15,7 @@ export function TaskCard({
   onToggle,
   isChild,
   selectable = true,
+  contextOnly = false,
   canOpen = true,
   canManage = true,
   inUseNote,
@@ -36,7 +37,7 @@ export function TaskCard({
 
 
 
-}: {task: Task;selected: boolean;onToggle: (id: string) => void;isChild?: boolean;selectable?: boolean;/** False for a restricted task the user may not open. */canOpen?: boolean;/** Whether the user holds Manage Task Library. */canManage?: boolean;/** Set when the task is in use, which blocks deleting it. */inUseNote?: string;onOpen?: (id: string) => void;onEdit?: (id: string) => void;onDuplicate?: (id: string) => void;onAddChild?: (id: string) => void;onDelete?: (id: string) => void;}) {
+}: {task: Task;selected: boolean;onToggle: (id: string) => void;isChild?: boolean;selectable?: boolean;/** A parent that does not match the search, shown only so its matching child has context. */contextOnly?: boolean;/** False for a restricted task the user may not open. */canOpen?: boolean;/** Whether the user holds Manage Task Library. */canManage?: boolean;/** Set when the task is in use, which blocks deleting it. */inUseNote?: string;onOpen?: (id: string) => void;onEdit?: (id: string) => void;onDuplicate?: (id: string) => void;onAddChild?: (id: string) => void;onDelete?: (id: string) => void;}) {
   const owners = task.ownerIds.map((id) => peopleById[id]?.name ?? 'Unassigned');
   const open = () => {
     if (canOpen) onOpen?.(task.id);
@@ -59,6 +60,7 @@ export function TaskCard({
         'group flex items-start gap-3 rounded-xl border bg-white px-4 py-3.5 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-200',
         selected ? 'border-brand-300 bg-brand-50/40' : 'border-line hover:border-slate-300',
         onOpen && canOpen && 'cursor-pointer',
+        contextOnly && 'border-dashed bg-slate-50/60 opacity-70',
         isChild && 'ml-9'
       )}>
       
@@ -71,7 +73,7 @@ export function TaskCard({
         <GripVerticalIcon className="h-4 w-4" />
       </button>
 
-      {selectable &&
+      {selectable && !contextOnly &&
       <input
         type="checkbox"
         checked={selected}
@@ -86,6 +88,9 @@ export function TaskCard({
           {isChild && <CornerDownRightIcon className="h-3.5 w-3.5 text-subtle" />}
           <span className="font-mono text-[11px] font-medium text-subtle">{task.code}</span>
           <h3 className="text-sm font-medium text-ink">{task.name}</h3>
+          {contextOnly &&
+          <span className="text-[11px] italic text-muted">Parent task, shown for context</span>
+          }
           {task.ownerOnlyVisible &&
           <Badge className="bg-violet-50 text-violet-700 ring-violet-200">
               <LockIcon className="h-3 w-3" />

@@ -21,12 +21,13 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { Badge } from '../../components/ui/Badge';
 import { Menu } from '../../components/ui/Menu';
 import { Tooltip } from '../../components/ui/Tooltip';
+import { FacetedFilter } from '../../components/ui/FacetedFilter';
 import { Toast } from '../../components/ui/Toast';
 import { TaskCard } from '../../components/onboarding/TaskCard';
 import { DeleteTasksDialog } from '../../components/onboarding/DeleteTasksDialog';
 import { DeleteTemplatesDialog } from '../../components/onboarding/DeleteTemplatesDialog';
 import { useAppData } from '../../contexts/AppDataContext';
-import type { Template, TransitionKind } from '../../types';
+import type { Priority, Task, Template, TransitionKind } from '../../types';
 import { sortWithChildren } from '../../utils/format';
 import {
   TASK_PERMISSION_NOTE,
@@ -83,7 +84,12 @@ export function TaskTemplates() {
     (screenInit.view as TemplatesView) ??
     'templates'
   );
-  const [query, setQuery] = useState('');
+  // Each list keeps its own search and filters. All of them reset when the transition type changes.
+  const [taskQuery, setTaskQuery] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState<string[]>([]);
+  const [templateQuery, setTemplateQuery] = useState('');
+  const [clientFilter, setClientFilter] = useState<string[]>([]);
+  const [employmentFilter, setEmploymentFilter] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
@@ -99,7 +105,7 @@ export function TaskTemplates() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => setPage(1), [kind, view, query]);
+  useEffect(() => setPage(1), [kind, view, templateQuery, clientFilter, employmentFilter]);
 
   useEffect(() => {
     if (!refreshing) return undefined;
@@ -110,33 +116,97 @@ export function TaskTemplates() {
     return () => clearTimeout(timer);
   }, [refreshing]);
 
-  const kindTasks = useMemo(() => tasks.filter((task) => task.kind === kind), [tasks, kind]);
+  // Restricted tasks do not exist for users without View Restricted Tasks: not listed, counted or found.
+  const canSeeTask = (task: Task) => !task.ownerOnlyVisible || canSeeRestricted;
+  const kindTasks = useMemo(
+    () => tasks.filter((task) => task.kind === kind && (!task.ownerOnlyVisible || canSeeRestricted)),
+    [tasks, kind, canSeeRestricted]
+  );
   const kindTemplates = useMemo(() => templates.filter((t) => t.kind === kind), [templates, kind]);
 
-  const visibleTasks = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    const matched = needle ?
-    kindTasks.filter(
-      (task) =>
-      task.name.toLowerCase().includes(needle) ||
-      task.code.toLowerCase().includes(needle) ||
-      task.department.toLowerCase().includes(needle)
-    ) :
-    kindTasks;
-    return sortWithChildren(matched);
-  }, [kindTasks, query]);
-
-  const visibleTemplates = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return kindTemplates;
-    return kindTemplates.filter(
-      (template) =>
-      template.name.toLowerCase().includes(needle) ||
-      template.code.toLowerCase().includes(needle) ||
-      template.client.toLowerCase().includes(needle) ||
-      template.employmentType.toLowerCase().includes(needle)
+  const taskNeedle = taskQuery.trim().toLowerCase();
+  const tasksMatchingSearch = useMemo(
+    () => kindTasks.filter((task) => !taskNeedle || task.name.toLowerCase().includes(taskNeedle)),
+    [kindTasks, taskNeedle]
+  );
+  const matchedTasks = useMemo(
+    () =>
+    tasksMatchingSearch.filter(
+      (task) => priorityFilter.length === 0 || priorityFilter.includes(task.priority)
+    ),
+    [tasksMatchingSearch, priorityFilter]
+  );
+  // A matched child task is shown under its parent, even when the parent itself does not match.
+  const contextParentIds = useMemo(() => {
+    const matchedIds = new Set(matchedTasks.map((task) => task.id));
+    return new Set(
+      matchedTasks.
+      map((task) => task.parentId).
+      filter((id): id is string => Boolean(id && !matchedIds.has(id) && kindTasks.some((t) => t.id === id)))
     );
-  }, [kindTemplates, query]);
+  }, [matchedTasks, kindTasks]);
+  const visibleTasks = useMemo(
+    () =>
+    sortWithChildren([...kindTasks.filter((task) => contextParentIds.has(task.id)), ...matchedTasks]),
+    [kindTasks, contextParentIds, matchedTasks]
+  );
+  const taskFiltersActive = Boolean(taskNeedle) || priorityFilter.length > 0;
+  const clearTaskFilters = () => {
+    setTaskQuery('');
+    setPriorityFilter([]);
+  };
+
+  const templateNeedle = templateQuery.trim().toLowerCase();
+  const templatesMatchingSearch = useMemo(
+    () =>
+    kindTemplates.filter(
+      (template) =>
+      !templateNeedle ||
+      template.name.toLowerCase().includes(templateNeedle) ||
+      template.code.toLowerCase().includes(templateNeedle)
+    ),
+    [kindTemplates, templateNeedle]
+  );
+  const visibleTemplates = useMemo(
+    () =>
+    templatesMatchingSearch.filter(
+      (template) =>
+      (clientFilter.length === 0 || clientFilter.includes(template.client)) && (
+      employmentFilter.length === 0 || employmentFilter.includes(template.employmentType))
+    ),
+    [templatesMatchingSearch, clientFilter, employmentFilter]
+  );
+  const templateFiltersActive = Boolean(templateNeedle) || clientFilter.length > 0 || employmentFilter.length > 0;
+  const clearTemplateFilters = () => {
+    setTemplateQuery('');
+    setClientFilter([]);
+    setEmploymentFilter([]);
+  };
+
+  // Filter options with how many records each would match, given the other criteria.
+  const facet = <T,>(records: T[], valueOf: (record: T) => string) =>
+  Array.from(new Set(records.map(valueOf))).
+  sort().
+  map((value) => ({ value, label: value, count: records.filter((record) => valueOf(record) === value).length }));
+  const priorityOptions = (['High', 'Medium', 'Low'] as Priority[]).map((priority) => ({
+    value: priority,
+    label: priority,
+    count: tasksMatchingSearch.filter((task) => task.priority === priority).length
+  }));
+  const clientOptions = facet(
+    templatesMatchingSearch.filter(
+      (template) => employmentFilter.length === 0 || employmentFilter.includes(template.employmentType)
+    ),
+    (template) => template.client
+  );
+  const employmentOptions = facet(
+    templatesMatchingSearch.filter((template) => clientFilter.length === 0 || clientFilter.includes(template.client)),
+    (template) => template.employmentType
+  );
+  // Keep a selected value listed even when nothing currently matches it, so it can be unticked.
+  const withSelected = (options: {value: string;label: string;count: number;}[], selected: string[]) => [
+  ...options,
+  ...selected.filter((value) => !options.some((option) => option.value === value)).map((value) => ({ value, label: value, count: 0 }))];
 
   const pageCount = Math.max(1, Math.ceil(visibleTemplates.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
@@ -150,8 +220,11 @@ export function TaskTemplates() {
   const tasksSelectable = canManageTasks || canManageTemplates;
   const selectedIds = view === 'tasks' ? selectedTasks : selectedTemplates;
   // "Visible" means every record the list currently shows (the current page for templates).
+  // Parents shown only for context are not part of the results, so Select all leaves them out.
   const visibleIds =
-  view === 'tasks' ? visibleTasks.map((task) => task.id) : pageTemplates.map((template) => template.id);
+  view === 'tasks' ?
+  matchedTasks.map((task) => task.id) :
+  pageTemplates.map((template) => template.id);
   const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
   const someSelected = !allSelected && visibleIds.some((id) => selectedIds.includes(id));
 
@@ -199,7 +272,7 @@ export function TaskTemplates() {
 
   const countFor = (target: TransitionKind) =>
   view === 'tasks' ?
-  tasks.filter((task) => task.kind === target).length :
+  tasks.filter((task) => task.kind === target && canSeeTask(task)).length :
   templates.filter((template) => template.kind === target).length;
 
   const canCreate = view === 'tasks' ? canManageTasks : canManageTemplates;
@@ -250,15 +323,17 @@ export function TaskTemplates() {
               value={kind}
               onChange={(next) => {
                 setKind(next);
-                // Selection never carries across transition types.
+                // Selection, search and filters never carry across transition types.
                 setSelectedTasks([]);
                 setSelectedTemplates([]);
+                clearTaskFilters();
+                clearTemplateFilters();
               }} />
 
             <Segmented
               options={[
-              { value: 'templates', label: 'Templates', count: kindTemplates.length },
-              { value: 'tasks', label: 'Tasks', count: kindTasks.length }]
+              { value: 'templates', label: 'Templates', count: visibleTemplates.length },
+              { value: 'tasks', label: 'Tasks', count: matchedTasks.length }]
               }
               value={view}
               onChange={(next) => setView(next)} />
@@ -266,11 +341,6 @@ export function TaskTemplates() {
           </div>
 
           <div className="flex items-center gap-2">
-            <SearchInput
-              value={query}
-              onChange={setQuery}
-              placeholder={view === 'tasks' ? 'Search tasks' : 'Search templates'}
-              className="w-64" />
 
             <Tooltip
               label={`Refresh · updated ${refreshedAt.toLocaleTimeString('en-GB', {
@@ -292,6 +362,59 @@ export function TaskTemplates() {
           </div>
         </div>
 
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {view === 'tasks' ?
+          <>
+              <SearchInput
+              value={taskQuery}
+              onChange={setTaskQuery}
+              placeholder="Search tasks by name"
+              className="w-64" />
+
+              <FacetedFilter
+              title="Priority"
+              options={withSelected(priorityOptions, priorityFilter)}
+              selected={priorityFilter}
+              onChange={setPriorityFilter}
+              searchable={false} />
+
+              {taskFiltersActive &&
+            <Button variant="ghost" size="sm" onClick={clearTaskFilters}>
+                  <XIcon className="h-3.5 w-3.5" />
+                  Clear all
+                </Button>
+            }
+            </> :
+
+          <>
+              <SearchInput
+              value={templateQuery}
+              onChange={setTemplateQuery}
+              placeholder="Search by name or code"
+              className="w-64" />
+
+              <FacetedFilter
+              title="Client"
+              options={withSelected(clientOptions, clientFilter)}
+              selected={clientFilter}
+              onChange={setClientFilter} />
+
+              <FacetedFilter
+              title="Employment Type"
+              options={withSelected(employmentOptions, employmentFilter)}
+              selected={employmentFilter}
+              onChange={setEmploymentFilter} />
+
+              {templateFiltersActive &&
+            <Button variant="ghost" size="sm" onClick={clearTemplateFilters}>
+                  <XIcon className="h-3.5 w-3.5" />
+                  Clear all
+                </Button>
+            }
+            </>
+          }
+        </div>
+
         {view === 'templates' && !canManageTemplates &&
         <div className="mt-4 rounded-lg bg-sky-50 px-3.5 py-3 text-[13px] text-sky-900 ring-1 ring-inset ring-sky-200">
             You have View Templates access. You can open and review templates, but creating, editing,
@@ -301,7 +424,7 @@ export function TaskTemplates() {
 
         {view === 'tasks' ?
         <div className="mt-5">
-            {tasksSelectable && visibleTasks.length > 0 && !refreshing &&
+            {tasksSelectable && matchedTasks.length > 0 && !refreshing &&
           <label className="mb-2 inline-flex cursor-pointer items-center gap-2 px-1 text-[12px] font-medium text-muted">
                 {selectAllBox('Select all tasks')}
                 Select all
@@ -310,11 +433,22 @@ export function TaskTemplates() {
             <div className="space-y-2">
               {refreshing ?
             <LoadingRows /> :
-            visibleTasks.length === 0 ?
+            kindTasks.length === 0 ?
             <EmptyState
               icon={ListChecksIcon}
-              title={query ? 'No tasks match your search' : `No ${kind.toLowerCase()} tasks yet`}
-              description={query ? 'Try a different task name, code or department.' : undefined} /> :
+              title={`No ${kind.toLowerCase()} tasks yet`}
+              description={
+              canManageTasks ?
+              'Create the first one with + New Task.' :
+              'Tasks appear here once someone with the Manage Task Library permission creates them.'
+              } /> :
+
+            matchedTasks.length === 0 ?
+            <EmptyState
+              icon={ListChecksIcon}
+              title="No tasks match your search and filters"
+              description="Try a different name or priority."
+              action={<Button onClick={clearTaskFilters}>Clear search and filters</Button>} /> :
 
 
             visibleTasks.map((task) => {
@@ -327,6 +461,7 @@ export function TaskTemplates() {
                   onToggle={toggleTask}
                   selectable={tasksSelectable}
                   isChild={Boolean(task.parentId && visibleTasks.some((t) => t.id === task.parentId))}
+                  contextOnly={contextParentIds.has(task.id)}
                   canOpen={!task.ownerOnlyVisible || canSeeRestricted}
                   canManage={canManageTasks}
                   inUseNote={usage?.inUse ? taskUsageLabel(usage) : undefined}
@@ -374,12 +509,18 @@ export function TaskTemplates() {
               pageTemplates.length === 0 ?
               <tr>
                     <td colSpan={6} className="p-5">
-                      <EmptyState
+                      {kindTemplates.length === 0 ?
+                  <EmptyState
                     icon={LayoutTemplateIcon}
-                    title={
-                    query ? 'No templates match your search' : `No ${kind.toLowerCase()} templates yet`
-                    }
-                    description={query ? 'Try a different name, code, client or employment type.' : undefined} />
+                    title={`No ${kind.toLowerCase()} templates yet`}
+                    description={canManageTemplates ? 'Create the first one with + New Template.' : undefined} /> :
+
+                  <EmptyState
+                    icon={LayoutTemplateIcon}
+                    title="No templates match your search and filters"
+                    description="Try a different name, code, client or employment type."
+                    action={<Button onClick={clearTemplateFilters}>Clear search and filters</Button>} />
+                  }
 
                     </td>
                   </tr> :
