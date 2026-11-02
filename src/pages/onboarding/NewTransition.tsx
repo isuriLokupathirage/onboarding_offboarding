@@ -20,29 +20,58 @@ import { PeoplePicker } from '../../components/common/PeoplePicker';
 import { TransitionTaskSetupCard } from '../../components/onboarding/TransitionTaskSetupCard';
 import { CandidatePicker } from '../../components/onboarding/CandidatePicker';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { SearchableSelect, type SearchableOption } from '../../components/ui/SearchableSelect';
 import { useAppData } from '../../contexts/AppDataContext';
+import { jobTitles } from '../../data/jobTitles';
 import { recruitmentCandidates } from '../../data/recruitmentCandidates';
 import type { Department, RecruitmentCandidate, TransitionKind, TransitionTask } from '../../types';
 import { resolveDueDate } from '../../utils/format';
 import { managePermissionFor, toTransitionTask } from '../../utils/transitions';
-import { onboardableCandidates } from '../../utils/recruitment';
+import { candidateCampaign, onboardableCandidates } from '../../utils/recruitment';
 
 const steps = ['Transition Type', 'Candidate Details', 'Tasks & Owners'];
 const ALL_KINDS: TransitionKind[] = ['Onboarding', 'Offboarding'];
 
-/** The Step 2 fields a recruitment candidate fills in. Blank when no candidate is picked. */
-function candidateDetails(candidate: RecruitmentCandidate | undefined) {
+interface Details {
+  firstName: string;
+  lastName: string;
+  email: string;
+  mobile: string;
+  jobTitle: string;
+  hireDate: string;
+  dob: string;
+  gender: string;
+  country: string;
+  address: string;
+}
+
+type DetailKey = keyof Details;
+
+const REQUIRED_DETAILS: DetailKey[] = ['firstName', 'lastName', 'email', 'mobile', 'jobTitle', 'hireDate'];
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const GENDERS = ['Male', 'Female', 'Other'];
+const COUNTRIES = ['Sri Lanka', 'India', 'Singapore', 'Australia'];
+const jobTitleOptions: SearchableOption[] = jobTitles.map((title) => ({ value: title, label: title }));
+
+/**
+ * Step 2 values from a recruitment candidate: their extracted details, and the Job Title from
+ * their campaign. Anything not extracted, or not in master data, is left blank.
+ */
+function candidateDetails(candidate: RecruitmentCandidate | undefined): Details {
+  const campaignTitle = candidate ? candidateCampaign(candidate)?.jobTitle : undefined;
+  const pick = (value: string | undefined, allowed?: string[]) =>
+  value && (!allowed || allowed.includes(value)) ? value : '';
   return {
-    firstName: candidate?.firstName ?? '',
-    lastName: candidate?.lastName ?? '',
-    email: candidate?.personalEmail ?? '',
-    mobile: candidate?.mobile ?? '',
-    position: candidate?.position ?? '',
-    hireDate: candidate?.offeredStartDate ?? '',
-    dob: candidate?.dateOfBirth ?? '',
-    gender: candidate?.gender ?? '',
-    country: candidate?.country ?? 'Sri Lanka',
-    address: candidate?.address ?? ''
+    firstName: pick(candidate?.firstName),
+    lastName: pick(candidate?.lastName),
+    email: pick(candidate?.personalEmail),
+    mobile: pick(candidate?.mobile),
+    jobTitle: pick(campaignTitle, jobTitles),
+    hireDate: pick(candidate?.offeredStartDate),
+    dob: pick(candidate?.dateOfBirth),
+    gender: pick(candidate?.gender, GENDERS),
+    country: pick(candidate?.country, COUNTRIES),
+    address: pick(candidate?.address)
   };
 }
 
@@ -72,8 +101,6 @@ export function NewTransition() {
     candidates.find((candidate) => candidate.id === id) :
     undefined;
   };
-  const [initialDetails] = useState(() => candidateDetails(initialCandidate()));
-
   const [step, setStep] = useState<number>(screenInit.step ?? 0);
   const [kind, setKind] = useState<TransitionKind | null>(initialKind);
   const [candidateId, setCandidateId] = useState<string>(() => initialCandidate()?.id ?? '');
@@ -82,23 +109,20 @@ export function NewTransition() {
   const [addingTask, setAddingTask] = useState(false);
   const [expanded, setExpanded] = useState<string[]>([]);
 
-  const [firstName, setFirstName] = useState(initialDetails.firstName);
-  const [lastName, setLastName] = useState(initialDetails.lastName);
-  const [email, setEmail] = useState(initialDetails.email);
-  const [mobile, setMobile] = useState(initialDetails.mobile);
-  const [position, setPosition] = useState(initialDetails.position);
-  const [hireDate, setHireDate] = useState(initialDetails.hireDate);
+  // What Recruitment supplied, kept so a field shows "from Recruitment" until it is edited.
+  const [prefill, setPrefill] = useState<Details>(() => candidateDetails(initialCandidate()));
+  const [details, setDetails] = useState<Details>(prefill);
   const [managerIds, setManagerIds] = useState<string[]>(screenInit.managerIds ?? []);
-  const [dob, setDob] = useState(initialDetails.dob);
-  const [gender, setGender] = useState(initialDetails.gender);
-  const [country, setCountry] = useState(initialDetails.country);
-  const [address, setAddress] = useState(initialDetails.address);
   const [formId, setFormId] = useState('frm1');
   const [setupTasks, setSetupTasks] = useState<TransitionTask[]>([]);
 
   // Past Step 1 a type is always chosen; the fallback only keeps the types simple.
   const chosenKind: TransitionKind = kind ?? 'Onboarding';
-  const fromCandidate = Boolean(candidateId);
+  const { firstName, lastName, email, mobile, jobTitle, hireDate, dob, gender, country, address } = details;
+  const setField = (key: DetailKey, value: string) => setDetails((prev) => ({ ...prev, [key]: value }));
+  const selectedCandidate = candidates.find((candidate) => candidate.id === candidateId);
+  const selectedCampaign = selectedCandidate ? candidateCampaign(selectedCandidate) : undefined;
+  const isPrefilled = (key: DetailKey) => Boolean(candidateId && prefill[key] && details[key] === prefill[key]);
   const activeTemplates = useMemo(
     () => templates.filter((t) => t.kind === kind && t.status === 'Active'),
     [templates, kind]
@@ -109,17 +133,9 @@ export function NewTransition() {
   /** Fills Step 2 from the picked candidate, or clears it for manual entry. */
   const selectCandidate = (id: string) => {
     setCandidateId(id);
-    const details = candidateDetails(candidates.find((candidate) => candidate.id === id));
-    setFirstName(details.firstName);
-    setLastName(details.lastName);
-    setEmail(details.email);
-    setMobile(details.mobile);
-    setPosition(details.position);
-    setHireDate(details.hireDate);
-    setDob(details.dob);
-    setGender(details.gender);
-    setCountry(details.country);
-    setAddress(details.address);
+    const next = candidateDetails(candidates.find((candidate) => candidate.id === id));
+    setPrefill(next);
+    setDetails(next);
   };
 
   const selectKind = (next: TransitionKind) => {
@@ -153,8 +169,14 @@ export function NewTransition() {
     return Array.from(map.entries());
   }, [setupTasks]);
 
-  const detailsValid =
-  firstName.trim() && lastName.trim() && email.trim() && mobile.trim() && position.trim() && hireDate && managerIds.length > 0;
+  const fieldError = (key: DetailKey): string | undefined => {
+    if (!REQUIRED_DETAILS.includes(key)) return undefined;
+    if (!details[key].trim()) return 'Required';
+    if (key === 'email' && !EMAIL_PATTERN.test(email.trim())) return 'Enter a valid email address';
+    return undefined;
+  };
+  const detailsValid = REQUIRED_DETAILS.every((key) => !fieldError(key));
+  const showError = (key: DetailKey) => submitted ? fieldError(key) : undefined;
 
   const handleNext = () => {
     setSubmitted(true);
@@ -191,17 +213,17 @@ export function NewTransition() {
       id,
       kind: chosenKind,
       candidate: {
-        firstName,
-        lastName,
-        personalEmail: email,
-        mobile,
-        position,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        personalEmail: email.trim(),
+        mobile: mobile.trim(),
+        position: jobTitle,
         hireDate,
         reportingManagerIds: managerIds,
         dateOfBirth: dob || undefined,
         gender: gender || undefined,
         country: country || undefined,
-        address: address || undefined,
+        address: address.trim() || undefined,
         employeeFormId: formId || undefined
       },
       templateId,
@@ -352,69 +374,119 @@ export function NewTransition() {
 
           {step === 1 &&
           <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
-              <FieldGroup label="First Name" required hint={fromCandidate && <FromRecruitment />}>
-                <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} />
+              {selectedCandidate &&
+            <div className="sm:col-span-2 flex items-start gap-2.5 rounded-lg bg-sky-50 px-3.5 py-2.5 text-[13px] leading-relaxed text-sky-900 ring-1 ring-inset ring-sky-200">
+                  <SparklesIcon className="mt-0.5 h-4 w-4 shrink-0 text-sky-700" />
+                  <span>
+                    Pre-filled from {selectedCandidate.firstName} {selectedCandidate.lastName}&apos;s application
+                    {selectedCampaign && <> and the {selectedCampaign.name} campaign</>}. Check the values and
+                    complete anything left blank. Every field can be edited.
+                  </span>
+                </div>
+            }
+
+              <FieldGroup label="First Name" required hint={<PrefillHint show={isPrefilled('firstName')} />}>
+                <Input
+                value={firstName}
+                onChange={(event) => setField('firstName', event.target.value)}
+                aria-invalid={Boolean(showError('firstName'))}
+                className={showError('firstName') ? 'border-red-300' : ''} />
+                <FieldError message={showError('firstName')} />
               </FieldGroup>
-              <FieldGroup label="Last Name" required hint={fromCandidate && <FromRecruitment />}>
-                <Input value={lastName} onChange={(event) => setLastName(event.target.value)} />
+              <FieldGroup label="Last Name" required hint={<PrefillHint show={isPrefilled('lastName')} />}>
+                <Input
+                value={lastName}
+                onChange={(event) => setField('lastName', event.target.value)}
+                aria-invalid={Boolean(showError('lastName'))}
+                className={showError('lastName') ? 'border-red-300' : ''} />
+                <FieldError message={showError('lastName')} />
               </FieldGroup>
-              <FieldGroup label="Personal Email" required hint={fromCandidate && <FromRecruitment />}>
-                <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+              <FieldGroup label="Personal Email" required hint={<PrefillHint show={isPrefilled('email')} />}>
+                <Input
+                type="email"
+                value={email}
+                onChange={(event) => setField('email', event.target.value)}
+                placeholder="name@example.com"
+                aria-invalid={Boolean(showError('email'))}
+                className={showError('email') ? 'border-red-300' : ''} />
+                <FieldError message={showError('email')} />
               </FieldGroup>
-              <FieldGroup label="Mobile Number" required hint={fromCandidate && <FromRecruitment />}>
+              <FieldGroup label="Mobile Number" required hint={<PrefillHint show={isPrefilled('mobile')} />}>
                 <Input
                 value={mobile}
-                onChange={(event) => setMobile(event.target.value)}
-                placeholder="+94 7X XXX XXXX" />
-              
+                onChange={(event) => setField('mobile', event.target.value)}
+                placeholder="+94 7X XXX XXXX"
+                aria-invalid={Boolean(showError('mobile'))}
+                className={showError('mobile') ? 'border-red-300' : ''} />
+                <FieldError message={showError('mobile')} />
               </FieldGroup>
-              <FieldGroup label="Position" required hint={fromCandidate && <FromRecruitment />}>
-                <Input value={position} onChange={(event) => setPosition(event.target.value)} />
+              <FieldGroup
+              label="Job Title"
+              required
+              hint={<PrefillHint show={isPrefilled('jobTitle')} label="from campaign" />}>
+                <SearchableSelect
+                options={jobTitleOptions}
+                value={jobTitle}
+                onChange={(value) => setField('jobTitle', value)}
+                placeholder="Select a job title"
+                searchPlaceholder="Search job titles"
+                invalid={Boolean(showError('jobTitle'))} />
+                <FieldError message={showError('jobTitle')} />
               </FieldGroup>
               <FieldGroup
               label={chosenKind === 'Offboarding' ? 'Last Working Date' : 'Hire Date'}
               required
-              hint={fromCandidate && <FromRecruitment />}>
-                <Input type="date" value={hireDate} onChange={(event) => setHireDate(event.target.value)} />
+              hint={<PrefillHint show={isPrefilled('hireDate')} />}>
+                <Input
+                type="date"
+                value={hireDate}
+                onChange={(event) => setField('hireDate', event.target.value)}
+                aria-invalid={Boolean(showError('hireDate'))}
+                className={showError('hireDate') ? 'border-red-300' : ''} />
+                <FieldError message={showError('hireDate')} />
+              </FieldGroup>
+
+              <FieldGroup label="Date of Birth" hint={<PrefillHint show={isPrefilled('dob')} />}>
+                <Input type="date" value={dob} onChange={(event) => setField('dob', event.target.value)} />
+              </FieldGroup>
+              <FieldGroup label="Gender" hint={<PrefillHint show={isPrefilled('gender')} />}>
+                <Select value={gender} onChange={(event) => setField('gender', event.target.value)}>
+                  <option value="">Select gender</option>
+                  {GENDERS.map((item) =>
+                <option key={item} value={item}>
+                      {item}
+                    </option>
+                )}
+                </Select>
+              </FieldGroup>
+              <FieldGroup label="Country" hint={<PrefillHint show={isPrefilled('country')} />}>
+                <Select value={country} onChange={(event) => setField('country', event.target.value)}>
+                  <option value="">Select country</option>
+                  {COUNTRIES.map((item) =>
+                <option key={item} value={item}>
+                      {item}
+                    </option>
+                )}
+                </Select>
+              </FieldGroup>
+              <FieldGroup label="Address" hint={<PrefillHint show={isPrefilled('address')} />}>
+                <Input
+                value={address}
+                onChange={(event) => setField('address', event.target.value)}
+                placeholder="e.g. 18 Galle Road, Colombo 03" />
+
               </FieldGroup>
 
               <div className="sm:col-span-2">
-                <FieldGroup label="Reporting Managers" required>
+                <FieldGroup label="Reporting Managers">
                   <PeoplePicker
                   selectedIds={managerIds}
                   onChange={setManagerIds}
                   placeholder="Search managers by name or department"
-                  emptyHint="Add at least one reporting manager" />
-                
+                  emptyHint="No reporting managers added" />
+
                 </FieldGroup>
               </div>
-
-              <FieldGroup label="Date of Birth">
-                <Input type="date" value={dob} onChange={(event) => setDob(event.target.value)} />
-              </FieldGroup>
-              <FieldGroup label="Gender">
-                <Select value={gender} onChange={(event) => setGender(event.target.value)}>
-                  <option value="">Select gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </Select>
-              </FieldGroup>
-              <FieldGroup label="Country">
-                <Select value={country} onChange={(event) => setCountry(event.target.value)}>
-                  <option value="Sri Lanka">Sri Lanka</option>
-                  <option value="India">India</option>
-                  <option value="Singapore">Singapore</option>
-                  <option value="Australia">Australia</option>
-                </Select>
-              </FieldGroup>
-              <FieldGroup label="Address">
-                <Input
-                value={address}
-                onChange={(event) => setAddress(event.target.value)}
-                placeholder="e.g. 18 Galle Road, Colombo 03" />
-              
-              </FieldGroup>
 
               <div className="sm:col-span-2">
                 <FieldGroup label="Employee Form">
@@ -432,9 +504,7 @@ export function NewTransition() {
               </div>
 
               {submitted && !detailsValid &&
-            <p className="sm:col-span-2 text-[12px] text-red-600">
-                  Fill in every required field and add at least one reporting manager.
-                </p>
+            <p className="sm:col-span-2 text-[12px] text-red-600">Complete the highlighted fields to continue.</p>
             }
             </div>
           }
@@ -574,13 +644,20 @@ export function NewTransition() {
 
 }
 
-function FromRecruitment() {
+/** Marks a field still holding the value Recruitment supplied. Disappears once it is edited. */
+function PrefillHint({ show, label = 'from Recruitment' }: {show: boolean;label?: string;}) {
+  if (!show) return null;
   return (
     <span className="inline-flex items-center gap-1 text-[11px] text-sky-700">
       <SparklesIcon className="h-3 w-3" />
-      from Recruitment
+      {label}
     </span>);
 
+}
+
+function FieldError({ message }: {message?: string;}) {
+  if (!message) return null;
+  return <p className="mt-1 text-[12px] text-red-600">{message}</p>;
 }
 
 function KindCard({

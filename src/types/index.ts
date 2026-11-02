@@ -94,18 +94,27 @@ export interface Template {
   status: TemplateStatus;
 }
 
-/** A candidate who has completed a recruitment workflow and can be onboarded. */
+export interface RecruitmentCampaign {
+  id: string;
+  name: string;
+  /** From Job Title master data. */
+  jobTitle: string;
+}
+
+/**
+ * A candidate who has completed a recruitment workflow and can be onboarded. Apart from the
+ * name, the details are extracted from their application, so any of them can be missing.
+ */
 export interface RecruitmentCandidate {
   id: string;
   firstName: string;
   lastName: string;
-  personalEmail: string;
-  mobile: string;
-  position: string;
-  campaignName: string;
-  /** Start date agreed in the offer. */
-  offeredStartDate: string;
+  campaignId: string;
   workflowCompletedOn: string;
+  personalEmail?: string;
+  mobile?: string;
+  /** Start date agreed in the offer. */
+  offeredStartDate?: string;
   dateOfBirth?: string;
   gender?: string;
   country?: string;
