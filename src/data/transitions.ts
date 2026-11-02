@@ -68,7 +68,7 @@ const baseTransitions: TransitionSeed[] = [
     t6: { status: 'Open' },
     t7: { status: 'Completed' },
     t8: { status: 'Open' },
-    t9: { status: 'In Progress', ownerIds: ['u5', 'u10', 'u1'] },
+    t9: { status: 'In Progress', ownerIds: ['u5', 'u10', 'u14', 'u1'] },
     t14: { dueDate: null, calculatedDueDate: null }
   }),
   emails: [

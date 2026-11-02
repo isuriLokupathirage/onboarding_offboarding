@@ -24,6 +24,7 @@ import { SubmissionPanel } from '../../components/onboarding/SubmissionPanel';
 import { SendTransitionFormDialog } from '../../components/onboarding/SendTransitionFormDialog';
 import { TaskStatusBadge } from '../../components/tasks/TaskStatusBadge';
 import { dueLabel } from '../../components/tasks/OboTaskCard';
+import { NoSignInBadge } from '../../components/common/NoSignInBadge';
 import { useAppData } from '../../contexts/AppDataContext';
 import { peopleById } from '../../data/people';
 import type {
@@ -244,6 +245,14 @@ function TransitionView({ transition }: {transition: Transition;}) {
                                 <AvatarGroup
                             names={task.ownerIds.map((id) => peopleById[id]?.name ?? '')}
                             size="xs" />
+                                {task.ownerIds.
+                          filter((id) => peopleById[id] && !peopleById[id].hasSignInAccess).
+                          map((id) =>
+                          <span key={id} className="inline-flex items-center gap-1.5 text-[12px] text-muted">
+                                      {peopleById[id].name}
+                                      <NoSignInBadge />
+                                    </span>
+                          )}
 
                                 <PriorityBadge priority={task.priority} />
                                 <span className="inline-flex items-center gap-1.5 text-[12px] text-muted">

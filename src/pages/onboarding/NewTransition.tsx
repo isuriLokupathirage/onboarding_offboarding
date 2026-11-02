@@ -24,7 +24,14 @@ import { SearchableSelect, type SearchableOption } from '../../components/ui/Sea
 import { useAppData } from '../../contexts/AppDataContext';
 import { jobTitles } from '../../data/jobTitles';
 import { recruitmentCandidates } from '../../data/recruitmentCandidates';
-import type { Department, RecruitmentCandidate, TransitionKind, TransitionTask } from '../../types';
+import type { RecruitmentCandidate, TransitionKind, TransitionTask } from '../../types';
+import { Segmented } from '../../components/ui/Segmented';
+import {
+  baseDateLabel,
+  groupSetupTasks,
+  setupTaskProblem,
+  type SetupGrouping } from
+'../../utils/taskSetup';
 import { resolveDueDate } from '../../utils/format';
 import { managePermissionFor, toTransitionTask } from '../../utils/transitions';
 import { candidateCampaign, onboardableCandidates } from '../../utils/recruitment';
@@ -107,7 +114,8 @@ export function NewTransition() {
   const [templateId, setTemplateId] = useState<string>(screenInit.templateId ?? '');
   const [submitted, setSubmitted] = useState(false);
   const [addingTask, setAddingTask] = useState(false);
-  const [expanded, setExpanded] = useState<string[]>([]);
+  const [grouping, setGrouping] = useState<SetupGrouping>(screenInit.grouping ?? 'department');
+  const [collapsed, setCollapsed] = useState<string[]>([]);
 
   // What Recruitment supplied, kept so a field shows "from Recruitment" until it is edited.
   const [prefill, setPrefill] = useState<Details>(() => candidateDetails(initialCandidate()));
@@ -160,13 +168,11 @@ export function NewTransition() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const grouped = useMemo(() => {
-    const map = new Map<Department, TransitionTask[]>();
-    setupTasks.forEach((task) => {
-      map.set(task.department, [...(map.get(task.department) ?? []), task]);
-    });
-    return Array.from(map.entries());
-  }, [setupTasks]);
+  const groups = useMemo(
+    () => groupSetupTasks(setupTasks, grouping, chosenKind, hireDate),
+    [setupTasks, grouping, chosenKind, hireDate]
+  );
+  const departmentCount = new Set(setupTasks.map((task) => task.department)).size;
 
   const fieldError = (key: DetailKey): string | undefined => {
     if (!REQUIRED_DETAILS.includes(key)) return undefined;
@@ -188,18 +194,18 @@ export function NewTransition() {
     if (step === 1) {
       if (!detailsValid) return;
       setSetupTasks(buildTasks(templateId, hireDate));
-      setExpanded([]);
+      setCollapsed([]);
       setStep(2);
       setSubmitted(false);
     }
   };
 
-  const missingEventDates = setupTasks.filter((task) => task.showInCandidateEvents && !task.dueDate);
+  const blockedTasks = setupTasks.filter((task) => setupTaskProblem(task));
 
   const handleCreate = () => {
     setSubmitted(true);
-    if (missingEventDates.length > 0) {
-      setExpanded([]);
+    if (setupTasks.length === 0 || blockedTasks.length > 0) {
+      setCollapsed([]);
       return;
     }
     const id = `tr-${Date.now()}`;
@@ -498,26 +504,46 @@ export function NewTransition() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-[13px] font-medium text-ink">
-                    {setupTasks.length} tasks across {grouped.length} departments
+                    {setupTasks.length} tasks across {departmentCount} departments
                   </p>
                   <p className="text-[12px] text-muted">
-                    Due dates are calculated from the hire date and can be overridden per task. Changes
-                    apply to this transition only.
+                    Due dates are calculated from the {baseDateLabel(chosenKind).toLowerCase()} and can be
+                    overridden per task. Adding or removing tasks changes this transition only, not the
+                    template.
                   </p>
                 </div>
-                <Button size="sm" onClick={() => setAddingTask((prev) => !prev)}>
-                  <PlusIcon className="h-3.5 w-3.5" />
-                  Add Task
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Segmented
+                  size="sm"
+                  options={[
+                  { value: 'department', label: 'Department' },
+                  { value: 'timeline', label: 'Timeline' }]
+                  }
+                  value={grouping}
+                  onChange={(next) => {
+                    setGrouping(next);
+                    setCollapsed([]);
+                  }} />
+
+                  <Button size="sm" onClick={() => setAddingTask((prev) => !prev)}>
+                    <PlusIcon className="h-3.5 w-3.5" />
+                    Add Task
+                  </Button>
+                </div>
               </div>
 
-              {submitted && missingEventDates.length > 0 &&
+              {submitted && (blockedTasks.length > 0 || setupTasks.length === 0) &&
             <div className="mt-3 flex items-start gap-2.5 rounded-lg bg-red-50 px-3.5 py-3 ring-1 ring-inset ring-red-200">
                   <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                   <p className="text-[13px] leading-relaxed text-red-800">
-                    {missingEventDates.length} task
-                    {missingEventDates.length === 1 ? '' : 's'} shown in the candidate&apos;s events still
-                    need a date: {missingEventDates.map((task) => task.name).join(', ')}.
+                    {setupTasks.length === 0 ?
+                'Add at least one task to start the transition.' :
+                <>
+                        {blockedTasks.length === 1 ? '1 task still needs' : `${blockedTasks.length} tasks still need`}{' '}
+                        attention:{' '}
+                        {blockedTasks.map((task) => `${task.name} (${setupTaskProblem(task)})`).join(', ')}.
+                      </>
+                }
                   </p>
                 </div>
             }
@@ -554,39 +580,42 @@ export function NewTransition() {
             }
 
               <div className="mt-4 space-y-3">
-                {grouped.map(([department, deptTasks]) => {
-                const collapsed = expanded.includes(department);
+                {groups.map((group) => {
+                const isCollapsed = collapsed.includes(group.key);
                 return (
-                  <section key={department} className="overflow-hidden rounded-xl border border-line">
+                  <section key={group.key} className="overflow-hidden rounded-xl border border-line">
                       <button
                       type="button"
-                      aria-expanded={!collapsed}
+                      aria-expanded={!isCollapsed}
                       onClick={() =>
-                      setExpanded((prev) =>
-                      prev.includes(department) ?
-                      prev.filter((d) => d !== department) :
-                      [...prev, department]
+                      setCollapsed((prev) =>
+                      prev.includes(group.key) ? prev.filter((key) => key !== group.key) : [...prev, group.key]
                       )
                       }
                       className="flex w-full items-center gap-2.5 bg-slate-50/70 px-4 py-2.5 text-left transition-colors duration-150 ease-out hover:bg-slate-100/70">
-                      
+
                         <ChevronDownIcon
                         className={`h-4 w-4 text-subtle transition-transform duration-150 ease-out ${
-                        collapsed ? '-rotate-90' : ''}`
+                        isCollapsed ? '-rotate-90' : ''}`
                         } />
-                      
-                        <span className="text-[13px] font-medium text-ink">{department}</span>
-                        <Badge>{deptTasks.length} tasks</Badge>
+
+                        <span className="text-[13px] font-medium text-ink">{group.label}</span>
+                        <Badge>
+                          {group.tasks.length} task{group.tasks.length === 1 ? '' : 's'}
+                        </Badge>
                       </button>
-                      {!collapsed &&
+                      {!isCollapsed &&
                     <div className="space-y-2 bg-white p-3">
-                          {deptTasks.map((task) =>
+                          {group.tasks.length === 0 &&
+                      <p className="px-1 py-2 text-[12px] text-subtle">No tasks in this group.</p>
+                      }
+                          {group.tasks.map((task) =>
                       <TransitionTaskSetupCard
                         key={task.id}
                         task={task}
                         kind={chosenKind}
                         hireDate={hireDate}
-                        showDateError={submitted}
+                        showErrors={submitted}
                         onChange={(patch) =>
                         setSetupTasks((prev) =>
                         prev.map((item) => item.id === task.id ? { ...item, ...patch } : item)

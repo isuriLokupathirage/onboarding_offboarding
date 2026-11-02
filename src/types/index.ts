@@ -50,7 +50,10 @@ export interface Person {
   name: string;
   role: string;
   department: Department;
+  /** Holds Update Task Progress (obo.task.progress), so can own transition tasks. */
   canUpdateTaskProgress: boolean;
+  /** False for an employee with no system login: they get task emails but cannot open tasks. */
+  hasSignInAccess: boolean;
 }
 
 export interface TaskFile {

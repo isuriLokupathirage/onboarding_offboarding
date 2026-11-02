@@ -5,7 +5,7 @@ export const oboPermissionCatalogue: {permission: OboPermission;key?: string;}[]
 { permission: 'View All Transitions' },
 { permission: 'Manage Onboarding Transitions' },
 { permission: 'Manage Offboarding Transitions' },
-{ permission: 'Update Task Progress' },
+{ permission: 'Update Task Progress', key: 'obo.task.progress' },
 { permission: 'View Restricted Tasks', key: 'obo.task.restricted' },
 { permission: 'View Templates', key: 'obo.template.view' },
 { permission: 'Manage Templates', key: 'obo.template.manage' },
