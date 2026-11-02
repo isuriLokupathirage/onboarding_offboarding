@@ -78,7 +78,7 @@ function candidateDetails(candidate: RecruitmentCandidate | undefined): Details 
 export function NewTransition() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { tasks, templates, transitions, addTransition, forms, hasOboPermission, recruitmentModulePurchased } =
+  const { tasks, templates, transitions, addTransition, hasOboPermission, recruitmentModulePurchased } =
   useAppData();
 
   const screenInit = useScreenInit();
@@ -113,7 +113,6 @@ export function NewTransition() {
   const [prefill, setPrefill] = useState<Details>(() => candidateDetails(initialCandidate()));
   const [details, setDetails] = useState<Details>(prefill);
   const [managerIds, setManagerIds] = useState<string[]>(screenInit.managerIds ?? []);
-  const [formId, setFormId] = useState('frm1');
   const [setupTasks, setSetupTasks] = useState<TransitionTask[]>([]);
 
   // Past Step 1 a type is always chosen; the fallback only keeps the types simple.
@@ -223,8 +222,8 @@ export function NewTransition() {
         dateOfBirth: dob || undefined,
         gender: gender || undefined,
         country: country || undefined,
-        address: address.trim() || undefined,
-        employeeFormId: formId || undefined
+        address: address.trim() || undefined
+        // No employee form yet: one is linked when it is sent with Send Form.
       },
       templateId,
       templateName: template?.name ?? '',
@@ -485,21 +484,6 @@ export function NewTransition() {
                   placeholder="Search managers by name or department"
                   emptyHint="No reporting managers added" />
 
-                </FieldGroup>
-              </div>
-
-              <div className="sm:col-span-2">
-                <FieldGroup label="Employee Form">
-                  <Select value={formId} onChange={(event) => setFormId(event.target.value)}>
-                    <option value="">No form — collect details later</option>
-                    {forms.
-                  filter((form) => form.status === 'Active').
-                  map((form) =>
-                  <option key={form.id} value={form.id}>
-                          {form.code} — {form.name}
-                        </option>
-                  )}
-                  </Select>
                 </FieldGroup>
               </div>
 
