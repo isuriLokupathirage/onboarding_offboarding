@@ -69,6 +69,7 @@ export function Transitions() {
   const attention = isAttentionFilter(attentionParam) ? attentionParam : null;
   const canSeeRestricted = hasOboPermission('View Restricted Tasks');
   const canSendForms = hasOboPermission('Manage Onboarding Transitions');
+  const canStartTransition = canSendForms || hasOboPermission('Manage Offboarding Transitions');
   const isSelectable = (transition: Transition) => canSendForms && canReceiveForm(transition);
   const closeSendForm = useCallback(() => setSendingTo(null), []);
 
@@ -152,6 +153,7 @@ export function Transitions() {
         title="Transitions"
         subtitle="Every joiner and leaver moving through a template, with progress and task owners."
         actions={
+        canStartTransition &&
         <Button variant="primary" onClick={() => navigate('/onboarding/transitions/new')}>
             <PlusIcon className="h-4 w-4" />
             New Transition

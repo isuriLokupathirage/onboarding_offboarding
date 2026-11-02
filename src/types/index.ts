@@ -80,6 +80,9 @@ export interface Task {
 
 export type EmploymentType = 'Permanent' | 'Contract' | 'Internship' | 'Consultant';
 
+/** Only Active templates can be picked when starting a transition. */
+export type TemplateStatus = 'Active' | 'Inactive';
+
 export interface Template {
   id: string;
   code: string;
@@ -88,6 +91,25 @@ export interface Template {
   client: string;
   employmentType: EmploymentType;
   taskIds: string[];
+  status: TemplateStatus;
+}
+
+/** A candidate who has completed a recruitment workflow and can be onboarded. */
+export interface RecruitmentCandidate {
+  id: string;
+  firstName: string;
+  lastName: string;
+  personalEmail: string;
+  mobile: string;
+  position: string;
+  campaignName: string;
+  /** Start date agreed in the offer. */
+  offeredStartDate: string;
+  workflowCompletedOn: string;
+  dateOfBirth?: string;
+  gender?: string;
+  country?: string;
+  address?: string;
 }
 
 export type TransitionTaskStatus = 'Open' | 'In Progress' | 'On Hold' | 'Completed' | 'Cancelled';

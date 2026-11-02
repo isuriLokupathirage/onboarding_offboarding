@@ -43,6 +43,9 @@ interface AppData {
   /** Prototype only: lets testers try the module as different roles. */
   setOboPermissions: (permissions: OboPermission[]) => void;
   setOboModulePurchased: (purchased: boolean) => void;
+  /** Whether the tenant has purchased the Recruitment module. Recruitment candidates can only be picked when it has. */
+  recruitmentModulePurchased: boolean;
+  setRecruitmentModulePurchased: (purchased: boolean) => void;
   updateTaskStatus: (transitionId: string, taskId: string, status: TransitionTaskStatus) => void;
   cancelTransition: (transitionId: string, date: string, reason: string) => void;
   createForm: () => string;
@@ -97,7 +100,13 @@ const AppDataContext = createContext<AppData | null>(null);
 const DEMO_ACCESS_KEY = 'obo-demo-access';
 
 /** The role a tester picked, kept for this browser tab so a reload does not reset it. */
-function storedAccess(): {permissions?: OboPermission[];purchased?: boolean;} {
+interface DemoAccess {
+  permissions: OboPermission[];
+  purchased: boolean;
+  recruitmentPurchased: boolean;
+}
+
+function storedAccess(): Partial<DemoAccess> {
   try {
     return JSON.parse(sessionStorage.getItem(DEMO_ACCESS_KEY) ?? '{}');
   } catch {
@@ -105,7 +114,7 @@ function storedAccess(): {permissions?: OboPermission[];purchased?: boolean;} {
   }
 }
 
-function storeAccess(access: {permissions: OboPermission[];purchased: boolean;}): void {
+function storeAccess(access: DemoAccess): void {
   try {
     sessionStorage.setItem(DEMO_ACCESS_KEY, JSON.stringify(access));
   } catch {
@@ -159,12 +168,14 @@ export function AppDataProvider({
   children,
   canManageForms = true,
   oboModulePurchased: initialPurchased,
+  recruitmentModulePurchased: initialRecruitmentPurchased,
   currentUserId = 'u1',
   oboPermissions: initialPermissions
 }: {
   children: React.ReactNode;
   canManageForms?: boolean;
   oboModulePurchased?: boolean;
+  recruitmentModulePurchased?: boolean;
   currentUserId?: string;
   oboPermissions?: OboPermission[];
 }) {
@@ -179,19 +190,29 @@ export function AppDataProvider({
   const [oboModulePurchased, setPurchasedState] = useState<boolean>(
     () => initialPurchased ?? storedAccess().purchased ?? true
   );
+  const [recruitmentModulePurchased, setRecruitmentPurchasedState] = useState<boolean>(
+    () => initialRecruitmentPurchased ?? storedAccess().recruitmentPurchased ?? true
+  );
   const setOboPermissions = useCallback(
     (permissions: OboPermission[]) => {
       setPermissionsState(permissions);
-      storeAccess({ permissions, purchased: oboModulePurchased });
+      storeAccess({ permissions, purchased: oboModulePurchased, recruitmentPurchased: recruitmentModulePurchased });
     },
-    [oboModulePurchased]
+    [oboModulePurchased, recruitmentModulePurchased]
   );
   const setOboModulePurchased = useCallback(
     (purchased: boolean) => {
       setPurchasedState(purchased);
-      storeAccess({ permissions: oboPermissions, purchased });
+      storeAccess({ permissions: oboPermissions, purchased, recruitmentPurchased: recruitmentModulePurchased });
     },
-    [oboPermissions]
+    [oboPermissions, recruitmentModulePurchased]
+  );
+  const setRecruitmentModulePurchased = useCallback(
+    (recruitmentPurchased: boolean) => {
+      setRecruitmentPurchasedState(recruitmentPurchased);
+      storeAccess({ permissions: oboPermissions, purchased: oboModulePurchased, recruitmentPurchased });
+    },
+    [oboPermissions, oboModulePurchased]
   );
 // Every task and template code ever issued, including deleted ones, so a code is never reused.
   const [issuedCodes, setIssuedCodes] = useState<string[]>(() => [
@@ -657,6 +678,8 @@ export function AppDataProvider({
       hasOboPermission,
       setOboPermissions,
       setOboModulePurchased,
+      recruitmentModulePurchased,
+      setRecruitmentModulePurchased,
       updateTaskStatus,
       cancelTransition,
       createForm,
@@ -696,6 +719,8 @@ export function AppDataProvider({
     hasOboPermission,
     setOboPermissions,
     setOboModulePurchased,
+    recruitmentModulePurchased,
+    setRecruitmentModulePurchased,
     updateTaskStatus,
     cancelTransition,
     createForm,

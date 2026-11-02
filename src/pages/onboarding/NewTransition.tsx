@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useScreenInit } from '../../useScreenInit.js';
 import {
   AlertCircleIcon,
   ChevronDownIcon,
+  LockIcon,
   PlusIcon,
+  ShieldOffIcon,
   SparklesIcon,
   UserMinusIcon,
   UserPlusIcon } from
@@ -16,41 +18,116 @@ import { WizardSteps } from '../../components/ui/WizardSteps';
 import { Badge } from '../../components/ui/Badge';
 import { PeoplePicker } from '../../components/common/PeoplePicker';
 import { TransitionTaskSetupCard } from '../../components/onboarding/TransitionTaskSetupCard';
+import { CandidatePicker } from '../../components/onboarding/CandidatePicker';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { useAppData } from '../../contexts/AppDataContext';
-import type { Department, TransitionKind, TransitionTask } from '../../types';
+import { recruitmentCandidates } from '../../data/recruitmentCandidates';
+import type { Department, RecruitmentCandidate, TransitionKind, TransitionTask } from '../../types';
 import { resolveDueDate } from '../../utils/format';
-import { toTransitionTask } from '../../utils/transitions';
+import { managePermissionFor, toTransitionTask } from '../../utils/transitions';
+import { onboardableCandidates } from '../../utils/recruitment';
 
 const steps = ['Transition Type', 'Candidate Details', 'Tasks & Owners'];
+const ALL_KINDS: TransitionKind[] = ['Onboarding', 'Offboarding'];
+
+/** The Step 2 fields a recruitment candidate fills in. Blank when no candidate is picked. */
+function candidateDetails(candidate: RecruitmentCandidate | undefined) {
+  return {
+    firstName: candidate?.firstName ?? '',
+    lastName: candidate?.lastName ?? '',
+    email: candidate?.personalEmail ?? '',
+    mobile: candidate?.mobile ?? '',
+    position: candidate?.position ?? '',
+    hireDate: candidate?.offeredStartDate ?? '',
+    dob: candidate?.dateOfBirth ?? '',
+    gender: candidate?.gender ?? '',
+    country: candidate?.country ?? 'Sri Lanka',
+    address: candidate?.address ?? ''
+  };
+}
 
 export function NewTransition() {
   const navigate = useNavigate();
-  const { tasks, templates, addTransition, forms } = useAppData();
+  const [searchParams] = useSearchParams();
+  const { tasks, templates, transitions, addTransition, forms, hasOboPermission, recruitmentModulePurchased } =
+  useAppData();
 
   const screenInit = useScreenInit();
+  const manageableKinds = ALL_KINDS.filter((item) => hasOboPermission(managePermissionFor(item)));
+  // Recruitment opens this screen with ?from=recruitment&candidateId=…
+  const fromRecruitment = searchParams.get('from') === 'recruitment' || screenInit.from === 'recruitment';
+
+  const initialKind = (): TransitionKind | null => {
+    if (manageableKinds.length === 1) return manageableKinds[0];
+    if (fromRecruitment && manageableKinds.includes('Onboarding')) return 'Onboarding';
+    if (screenInit.kind) return screenInit.kind;
+    return screenInit.step ? 'Onboarding' : null;
+  };
+
+  // Recruitment candidates without an active onboarding transition.
+  const candidates = useMemo(() => onboardableCandidates(recruitmentCandidates, transitions), [transitions]);
+  const initialCandidate = (): RecruitmentCandidate | undefined => {
+    const id = searchParams.get('candidateId') ?? screenInit.candidateId;
+    return recruitmentModulePurchased && initialKind() === 'Onboarding' ?
+    candidates.find((candidate) => candidate.id === id) :
+    undefined;
+  };
+  const [initialDetails] = useState(() => candidateDetails(initialCandidate()));
+
   const [step, setStep] = useState<number>(screenInit.step ?? 0);
-  const [kind, setKind] = useState<TransitionKind>('Onboarding');
+  const [kind, setKind] = useState<TransitionKind | null>(initialKind);
+  const [candidateId, setCandidateId] = useState<string>(() => initialCandidate()?.id ?? '');
   const [templateId, setTemplateId] = useState<string>(screenInit.templateId ?? '');
   const [submitted, setSubmitted] = useState(false);
   const [addingTask, setAddingTask] = useState(false);
   const [expanded, setExpanded] = useState<string[]>([]);
 
-  const [firstName, setFirstName] = useState('Sachini');
-  const [lastName, setLastName] = useState('Herath');
-  const [email, setEmail] = useState('sachini.herath@gmail.com');
-  const [mobile, setMobile] = useState('+94 77 903 4416');
-  const [position, setPosition] = useState('Frontend Engineer');
-  const [hireDate, setHireDate] = useState('2026-10-01');
-  const [managerIds, setManagerIds] = useState<string[]>(['u4']);
-  const [dob, setDob] = useState('');
-  const [gender, setGender] = useState('');
-  const [country, setCountry] = useState('Sri Lanka');
-  const [address, setAddress] = useState('');
+  const [firstName, setFirstName] = useState(initialDetails.firstName);
+  const [lastName, setLastName] = useState(initialDetails.lastName);
+  const [email, setEmail] = useState(initialDetails.email);
+  const [mobile, setMobile] = useState(initialDetails.mobile);
+  const [position, setPosition] = useState(initialDetails.position);
+  const [hireDate, setHireDate] = useState(initialDetails.hireDate);
+  const [managerIds, setManagerIds] = useState<string[]>(screenInit.managerIds ?? []);
+  const [dob, setDob] = useState(initialDetails.dob);
+  const [gender, setGender] = useState(initialDetails.gender);
+  const [country, setCountry] = useState(initialDetails.country);
+  const [address, setAddress] = useState(initialDetails.address);
   const [formId, setFormId] = useState('frm1');
   const [setupTasks, setSetupTasks] = useState<TransitionTask[]>([]);
 
-  const kindTemplates = useMemo(() => templates.filter((t) => t.kind === kind), [templates, kind]);
+  // Past Step 1 a type is always chosen; the fallback only keeps the types simple.
+  const chosenKind: TransitionKind = kind ?? 'Onboarding';
+  const fromCandidate = Boolean(candidateId);
+  const activeTemplates = useMemo(
+    () => templates.filter((t) => t.kind === kind && t.status === 'Active'),
+    [templates, kind]
+  );
   const template = templates.find((t) => t.id === templateId);
+  const step1Complete = Boolean(kind && activeTemplates.some((t) => t.id === templateId));
+
+  /** Fills Step 2 from the picked candidate, or clears it for manual entry. */
+  const selectCandidate = (id: string) => {
+    setCandidateId(id);
+    const details = candidateDetails(candidates.find((candidate) => candidate.id === id));
+    setFirstName(details.firstName);
+    setLastName(details.lastName);
+    setEmail(details.email);
+    setMobile(details.mobile);
+    setPosition(details.position);
+    setHireDate(details.hireDate);
+    setDob(details.dob);
+    setGender(details.gender);
+    setCountry(details.country);
+    setAddress(details.address);
+  };
+
+  const selectKind = (next: TransitionKind) => {
+    if (next === kind) return;
+    setKind(next);
+    setTemplateId('');
+    if (next === 'Offboarding' && candidateId) selectCandidate('');
+  };
 
   const buildTasks = (id: string, hire: string): TransitionTask[] => {
     const selected = templates.find((t) => t.id === id);
@@ -82,7 +159,7 @@ export function NewTransition() {
   const handleNext = () => {
     setSubmitted(true);
     if (step === 0) {
-      if (!templateId) return;
+      if (!step1Complete) return;
       setStep(1);
       setSubmitted(false);
       return;
@@ -112,7 +189,7 @@ export function NewTransition() {
     );
     addTransition({
       id,
-      kind,
+      kind: chosenKind,
       candidate: {
         firstName,
         lastName,
@@ -155,8 +232,29 @@ export function NewTransition() {
   };
 
   const availableToAdd = tasks.filter(
-    (task) => task.kind === kind && !setupTasks.some((t) => t.taskId === task.id)
+    (task) => task.kind === chosenKind && !setupTasks.some((t) => t.taskId === task.id)
   );
+
+  if (manageableKinds.length === 0) {
+    return (
+      <div>
+        <PageHeader title="New Transition" backTo="/onboarding/transitions" backLabel="Back to Transitions" />
+        <div className="px-8 py-6">
+          <div className="max-w-4xl">
+            <EmptyState
+              icon={ShieldOffIcon}
+              title="You can't start a transition"
+              description="Starting a transition needs the Manage Onboarding Transitions or Manage Offboarding Transitions permission."
+              action={<Button onClick={() => navigate('/onboarding/transitions')}>Back to Transitions</Button>} />
+
+          </div>
+        </div>
+      </div>);
+
+  }
+
+  const noPermissionReason = (item: TransitionKind) =>
+  `You need the ${managePermissionFor(item)} permission to start this type.`;
 
   return (
     <div>
@@ -176,79 +274,107 @@ export function NewTransition() {
         <div className="max-w-4xl rounded-xl border border-line bg-white p-6 shadow-card">
           {step === 0 &&
           <div>
-              <p className="text-[13px] font-medium text-ink">What kind of transition is this?</p>
+              {fromRecruitment &&
+            <div className="mb-5 flex items-center gap-2 rounded-lg bg-sky-50 px-3.5 py-2.5 text-[13px] text-sky-900 ring-1 ring-inset ring-sky-200">
+                  <SparklesIcon className="h-4 w-4 shrink-0 text-sky-700" />
+                  Started from Recruitment.
+                </div>
+            }
+
+              <p className="text-[13px] font-medium text-ink">
+                What kind of transition is this?<span className="ml-0.5 text-red-500">*</span>
+              </p>
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <KindCard
                 icon={UserPlusIcon}
                 title="Onboarding"
                 description="A new joiner starting with the company."
                 selected={kind === 'Onboarding'}
-                onSelect={() => {
-                  setKind('Onboarding');
-                  setTemplateId('');
-                }} />
-              
+                disabledReason={manageableKinds.includes('Onboarding') ? undefined : noPermissionReason('Onboarding')}
+                onSelect={() => selectKind('Onboarding')} />
+
                 <KindCard
                 icon={UserMinusIcon}
                 title="Offboarding"
                 description="An employee leaving or finishing a contract."
                 selected={kind === 'Offboarding'}
-                onSelect={() => {
-                  setKind('Offboarding');
-                  setTemplateId('');
-                }} />
-              
+                disabledReason={manageableKinds.includes('Offboarding') ? undefined : noPermissionReason('Offboarding')}
+                onSelect={() => selectKind('Offboarding')} />
+
               </div>
 
-              <div className="mt-6 max-w-md">
-                <FieldGroup label={`Select ${kind} Template`} required>
-                  <Select
-                  value={templateId}
-                  onChange={(event) => setTemplateId(event.target.value)}
-                  className={submitted && !templateId ? 'border-red-300' : ''}>
-                  
-                    <option value="">Select a template</option>
-                    {kindTemplates.map((item) =>
-                  <option key={item.id} value={item.id}>
-                        {item.code} — {item.name} ({item.taskIds.length} tasks)
-                      </option>
-                  )}
-                  </Select>
-                </FieldGroup>
-                {submitted && !templateId &&
-              <p className="mt-1.5 text-[12px] text-red-600">A template is required to continue.</p>
+              {kind &&
+            <div className="mt-6 max-w-md space-y-5">
+                  {kind === 'Onboarding' &&
+              <div>
+                      <FieldGroup
+                  label="Select Candidate"
+                  hint={<span className="text-[11px] text-subtle">Optional</span>}>
+
+                        <CandidatePicker
+                    candidates={candidates}
+                    value={candidateId}
+                    onChange={selectCandidate}
+                    disabled={!recruitmentModulePurchased} />
+
+                      </FieldGroup>
+                      <p className="mt-1.5 text-[12px] text-muted">
+                        {recruitmentModulePurchased ?
+                  'Candidates who have completed a recruitment workflow. Picking one fills in their details in the next step; leave it blank to enter them yourself.' :
+                  'Available when your organisation has the Recruitment module. Enter the candidate’s details in the next step.'}
+                      </p>
+                    </div>
               }
-                {template &&
-              <p className="mt-2 text-[12px] text-muted">
-                    {template.client} · {template.employmentType} · {template.taskIds.length} tasks
-                  </p>
-              }
-              </div>
+
+                  <div>
+                    <FieldGroup label={`Select ${kind} Template`} required>
+                      <Select value={templateId} onChange={(event) => setTemplateId(event.target.value)}>
+                        <option value="">Select a template</option>
+                        {activeTemplates.map((item) =>
+                    <option key={item.id} value={item.id}>
+                            {item.code} — {item.name} ({item.taskIds.length} tasks)
+                          </option>
+                    )}
+                      </Select>
+                    </FieldGroup>
+                    {template ?
+                <p className="mt-1.5 text-[12px] text-muted">
+                        {template.client} · {template.employmentType} · {template.taskIds.length} tasks
+                      </p> :
+
+                <p className="mt-1.5 text-[12px] text-muted">Only active templates are listed.</p>
+                }
+                  </div>
+                </div>
+            }
             </div>
           }
 
           {step === 1 &&
           <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
-              <FieldGroup label="First Name" required hint={<FromRecruitment />}>
+              <FieldGroup label="First Name" required hint={fromCandidate && <FromRecruitment />}>
                 <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} />
               </FieldGroup>
-              <FieldGroup label="Last Name" required hint={<FromRecruitment />}>
+              <FieldGroup label="Last Name" required hint={fromCandidate && <FromRecruitment />}>
                 <Input value={lastName} onChange={(event) => setLastName(event.target.value)} />
               </FieldGroup>
-              <FieldGroup label="Personal Email" required hint={<FromRecruitment />}>
+              <FieldGroup label="Personal Email" required hint={fromCandidate && <FromRecruitment />}>
                 <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
               </FieldGroup>
-              <FieldGroup label="Mobile Number" required hint={<FromRecruitment />}>
+              <FieldGroup label="Mobile Number" required hint={fromCandidate && <FromRecruitment />}>
                 <Input
                 value={mobile}
                 onChange={(event) => setMobile(event.target.value)}
                 placeholder="+94 7X XXX XXXX" />
               
               </FieldGroup>
-              <FieldGroup label="Position" required>
+              <FieldGroup label="Position" required hint={fromCandidate && <FromRecruitment />}>
                 <Input value={position} onChange={(event) => setPosition(event.target.value)} />
               </FieldGroup>
-              <FieldGroup label={kind === 'Offboarding' ? 'Last Working Date' : 'Hire Date'} required>
+              <FieldGroup
+              label={chosenKind === 'Offboarding' ? 'Last Working Date' : 'Hire Date'}
+              required
+              hint={fromCandidate && <FromRecruitment />}>
                 <Input type="date" value={hireDate} onChange={(event) => setHireDate(event.target.value)} />
               </FieldGroup>
 
@@ -404,7 +530,7 @@ export function NewTransition() {
                       <TransitionTaskSetupCard
                         key={task.id}
                         task={task}
-                        kind={kind}
+                        kind={chosenKind}
                         hireDate={hireDate}
                         showDateError={submitted}
                         onChange={(patch) =>
@@ -433,12 +559,12 @@ export function NewTransition() {
               {step === 0 ? 'Cancel' : 'Back'}
             </Button>
             {step < 2 ?
-            <Button variant="primary" onClick={handleNext}>
-                Continue
+            <Button variant="primary" onClick={handleNext} disabled={step === 0 && !step1Complete}>
+                Next
               </Button> :
 
             <Button variant="primary" onClick={handleCreate}>
-                Create &amp; Start {kind}
+                Create &amp; Start {chosenKind}
               </Button>
             }
           </div>
@@ -462,6 +588,7 @@ function KindCard({
   title,
   description,
   selected,
+  disabledReason,
   onSelect
 
 
@@ -469,19 +596,30 @@ function KindCard({
 
 
 
-}: {icon: React.ComponentType<{className?: string;}>;title: string;description: string;selected: boolean;onSelect: () => void;}) {
+
+}: {icon: React.ComponentType<{className?: string;}>;title: string;description: string;selected: boolean;disabledReason?: string;onSelect: () => void;}) {
+  const disabled = Boolean(disabledReason);
   return (
     <button
       type="button"
       aria-pressed={selected}
+      disabled={disabled}
+      title={disabledReason}
       onClick={onSelect}
       className={`rounded-xl border p-4 text-left transition-colors duration-150 ease-out ${
-      selected ? 'border-brand-400 bg-brand-50/50 ring-1 ring-brand-200' : 'border-line hover:border-slate-300'}`
+      disabled ?
+      'cursor-not-allowed border-line bg-slate-50 opacity-70' :
+      selected ?
+      'border-brand-400 bg-brand-50/50 ring-1 ring-brand-200' :
+      'border-line hover:border-slate-300'}`
       }>
-      
-      <Icon className={`h-5 w-5 ${selected ? 'text-brand-600' : 'text-subtle'}`} />
+
+      <span className="flex items-start justify-between gap-2">
+        <Icon className={`h-5 w-5 ${selected ? 'text-brand-600' : 'text-subtle'}`} />
+        {disabled && <LockIcon className="h-3.5 w-3.5 text-subtle" aria-hidden />}
+      </span>
       <p className="mt-3 text-sm font-medium text-ink">{title}</p>
-      <p className="mt-0.5 text-[12px] text-muted">{description}</p>
+      <p className="mt-0.5 text-[12px] text-muted">{disabled ? disabledReason : description}</p>
     </button>);
 
 }

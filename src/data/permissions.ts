@@ -22,6 +22,11 @@ export const demoRoles: {name: string;description: string;permissions: OboPermis
   permissions: ALL_OBO_PERMISSIONS
 },
 {
+  name: 'Onboarding Coordinator',
+  description: 'Starts and manages onboarding transitions only',
+  permissions: ['Manage Onboarding Transitions', 'Update Task Progress', 'View Templates']
+},
+{
   name: 'Template Viewer',
   description: 'Can open templates and tasks but not change them',
   permissions: ['View All Transitions', 'View Templates']

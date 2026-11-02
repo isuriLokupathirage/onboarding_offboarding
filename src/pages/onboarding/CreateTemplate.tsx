@@ -96,7 +96,7 @@ export function CreateTemplate() {
   const createTemplate = (notice?: string) => {
     const id = `tpl-${Date.now()}`;
     const code = nextTemplateCode(kind);
-    addTemplate({ id, code, kind, ...fields() });
+    addTemplate({ id, code, kind, status: 'Active', ...fields() });
     if (notice) {
       navigate(`/onboarding/templates/${id}`, { state: { ...listState, notice: notice.replace('{code}', code) } });
     } else {

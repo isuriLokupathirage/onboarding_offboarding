@@ -37,6 +37,8 @@ interface AppProps {
   oboPermissions?: OboPermission[];
   /** Simulate whether the tenant has purchased the Onboarding & Offboarding module. */
   oboModulePurchased?: boolean;
+  /** Simulate whether the tenant has purchased the Recruitment module. */
+  recruitmentModulePurchased?: boolean;
 }
 
 const canOpenTransitions = (permissions: OboPermission[]) =>
@@ -59,13 +61,15 @@ export function App({
   canSendEmployeeForms = true,
   canManageEmployeeForms = true,
   oboPermissions,
-  oboModulePurchased
+  oboModulePurchased,
+  recruitmentModulePurchased
 }: AppProps) {
   return (
     <AppDataProvider
       canManageForms={canManageEmployeeForms}
       oboPermissions={oboPermissions}
-      oboModulePurchased={oboModulePurchased}>
+      oboModulePurchased={oboModulePurchased}
+      recruitmentModulePurchased={recruitmentModulePurchased}>
       <EmployeeDataProvider canSendForms={canSendEmployeeForms}>
       <BrowserRouter>
         <Routes>
