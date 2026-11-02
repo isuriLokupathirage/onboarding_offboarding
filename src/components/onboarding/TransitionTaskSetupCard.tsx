@@ -18,14 +18,16 @@ export function TransitionTaskSetupCard({
   hireDate,
   showErrors,
   onChange,
-  onRemove
+  onRemove,
+  ownerSearch
 
 
 
 
 
 
-}: {task: TransitionTask;kind?: TransitionKind;hireDate: string;/** Set once the user has tried to create the transition. */showErrors: boolean;onChange: (patch: Partial<TransitionTask>) => void;onRemove: () => void;}) {
+
+}: {task: TransitionTask;kind?: TransitionKind;hireDate: string;/** Set once the user has tried to create the transition. */showErrors: boolean;onChange: (patch: Partial<TransitionTask>) => void;onRemove: () => void;/** Design canvas only: opens the owner picker with this search typed. */ownerSearch?: string;}) {
   const [editing, setEditing] = useState(false);
   const [mode, setMode] = useState<'relative' | 'exact'>('relative');
   const [amount, setAmount] = useState('3');
@@ -254,7 +256,8 @@ export function TransitionTaskSetupCard({
           placeholder="Search to add an owner"
           emptyHint="No owners assigned yet"
           isEligible={canOwnTasks}
-          invalid={ownersInvalid} />
+          invalid={ownersInvalid}
+          initialQuery={ownerSearch} />
         {ownersInvalid ?
         <p className="mt-1.5 text-[12px] text-red-600">Add at least one owner.</p> :
 

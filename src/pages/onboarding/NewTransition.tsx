@@ -163,7 +163,13 @@ export function NewTransition() {
 
   useEffect(() => {
     if (screenInit.step === 2 && screenInit.templateId) {
-      setSetupTasks(buildTasks(screenInit.templateId, hireDate));
+      // Design canvas screens can preset owners per library task id, e.g. { t1: ['u1', 'u13'] }.
+      const presetOwners: Record<string, string[]> = screenInit.taskOwners ?? {};
+      setSetupTasks(
+        buildTasks(screenInit.templateId, hireDate).map((task) =>
+        presetOwners[task.taskId] ? { ...task, ownerIds: presetOwners[task.taskId] } : task
+        )
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -616,6 +622,7 @@ export function NewTransition() {
                         kind={chosenKind}
                         hireDate={hireDate}
                         showErrors={submitted}
+                        ownerSearch={screenInit.ownerSearch?.taskId === task.taskId ? screenInit.ownerSearch.query : undefined}
                         onChange={(patch) =>
                         setSetupTasks((prev) =>
                         prev.map((item) => item.id === task.id ? { ...item, ...patch } : item)

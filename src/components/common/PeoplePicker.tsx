@@ -11,7 +11,8 @@ export function PeoplePicker({
   placeholder = 'Search people',
   emptyHint,
   isEligible,
-  invalid = false
+  invalid = false,
+  initialQuery
 }: {
   selectedIds: string[];
   onChange: (ids: string[]) => void;
@@ -19,9 +20,11 @@ export function PeoplePicker({
   emptyHint?: string;
   isEligible?: (person: Person) => boolean;
   invalid?: boolean;
+  /** Design canvas only: opens the picker with this search already typed. */
+  initialQuery?: string;
 }) {
-  const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(initialQuery ?? '');
+  const [open, setOpen] = useState(initialQuery !== undefined);
 
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase();

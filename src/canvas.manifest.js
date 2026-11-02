@@ -21,6 +21,9 @@ export const manifest = {
     scr_nt1cnd: { name: "New Transition – Candidate Selected", route: "/onboarding/transitions/new", state: { "step": 0, "kind": "Onboarding", "candidateId": "rc1", "templateId": "tpl1" }, position: { "x": 25360, "y": 220 } },
     scr_nt2rec: { name: "New Transition – From Recruitment", route: "/onboarding/transitions/new", state: { "step": 0, "from": "recruitment", "candidateId": "rc2" }, position: { "x": 26760, "y": 220 } },
     scr_nt3tml: { name: "New Transition – Tasks by Timeline", route: "/onboarding/transitions/new", state: { "step": 2, "templateId": "tpl1", "candidateId": "rc1", "managerIds": ["u4"], "grouping": "timeline" }, position: { "x": 28160, "y": 220 } },
+    scr_ns1pkr: { name: "New Transition – Owner Picker (No Sign-in)", route: "/onboarding/transitions/new", state: { "step": 2, "templateId": "tpl1", "candidateId": "rc1", "managerIds": ["u4"], "ownerSearch": { "taskId": "t1", "query": "la" } }, position: { "x": 29560, "y": 220 } },
+    scr_ns2not: { name: "New Transition – Owner without Sign-in", route: "/onboarding/transitions/new", state: { "step": 2, "templateId": "tpl1", "candidateId": "rc1", "managerIds": ["u4"], "taskOwners": { "t1": ["u1", "u13"] } }, position: { "x": 30960, "y": 220 } },
+    scr_ns3trn: { name: "Transition – Owner without Sign-in", route: "/onboarding/transitions/tr1", state: { "view": "tasks", "openTask": "tpl1-t9" }, position: { "x": 32360, "y": 220 } },
     scr_k6sk4f: { name: "Templates – Onboarding Tasks", route: "/onboarding/templates", state: { "kind": "Onboarding", "view": "tasks" }, position: { "x": 160, "y": 2200 } },
     scr_8fhwxw: { name: "Templates – Onboarding Templates", route: "/onboarding/templates", state: { "kind": "Onboarding", "view": "templates" }, position: { "x": 1560, "y": 2200 } },
     scr_9x51nl: { name: "Templates – Offboarding Tasks", route: "/onboarding/templates", state: { "kind": "Offboarding", "view": "tasks" }, position: { "x": 2960, "y": 2200 } },
@@ -55,7 +58,7 @@ export const manifest = {
     scr_mt3pnl: { name: "My Tasks – Task Detail (Blocked)", route: "/tasks/my-tasks", state: { "tab": "obo", "openTask": "tr2:tpl1-t3" }, position: { "x": 2960, "y": 16060 } }
   },
   sections: {
-    sec_h9tl61: { name: "Onboarding – Overview & Transitions", x: 0, y: 0, width: 29520, height: 1180 },
+    sec_h9tl61: { name: "Onboarding – Overview & Transitions", x: 0, y: 0, width: 33720, height: 1180 },
     sec_sv0spb: { name: "Onboarding – Templates", x: 0, y: 1980, width: 9920, height: 1180 },
     sec_gut05a: { name: "Employee Management", x: 0, y: 3960, width: 4320, height: 1180 },
     sec_luokg9: { name: "Form Templates – Employee", x: 0, y: 5940, width: 8520, height: 1180 },
@@ -87,7 +90,10 @@ export const manifest = {
     { kind: "screen", id: "scr_cx2don" },
     { kind: "screen", id: "scr_nt1cnd" },
     { kind: "screen", id: "scr_nt2rec" },
-    { kind: "screen", id: "scr_nt3tml" }]
+    { kind: "screen", id: "scr_nt3tml" },
+    { kind: "screen", id: "scr_ns1pkr" },
+    { kind: "screen", id: "scr_ns2not" },
+    { kind: "screen", id: "scr_ns3trn" }]
   },
   { kind: "section", id: "sec_sv0spb", children: [
     { kind: "screen", id: "scr_k6sk4f" },
