@@ -24,7 +24,9 @@ import { SearchableSelect, type SearchableOption } from '../../components/ui/Sea
 import { useAppData } from '../../contexts/AppDataContext';
 import { jobTitles } from '../../data/jobTitles';
 import { recruitmentCandidates } from '../../data/recruitmentCandidates';
-import type { RecruitmentCandidate, TransitionKind, TransitionTask } from '../../types';
+import { useEmployeeData } from '../../contexts/EmployeeDataContext';
+import { people } from '../../data/people';
+import type { Employee, RecruitmentCandidate, TransitionKind, TransitionTask } from '../../types';
 import { Segmented } from '../../components/ui/Segmented';
 import {
   baseDateLabel,
@@ -35,6 +37,7 @@ import {
 import { resolveDueDate } from '../../utils/format';
 import { managePermissionFor, toTransitionTask } from '../../utils/transitions';
 import { candidateCampaign, onboardableCandidates } from '../../utils/recruitment';
+import { offboardableEmployees } from '../../utils/employees';
 
 const steps = ['Transition Type', 'Candidate Details', 'Tasks & Owners'];
 const ALL_KINDS: TransitionKind[] = ['Onboarding', 'Offboarding'];
@@ -64,10 +67,11 @@ const jobTitleOptions: SearchableOption[] = jobTitles.map((title) => ({ value: t
  * Step 2 values from a recruitment candidate: their extracted details, and the Job Title from
  * their campaign. Anything not extracted, or not in master data, is left blank.
  */
+const pick = (value: string | undefined, allowed?: string[]) =>
+value && (!allowed || allowed.includes(value)) ? value : '';
+
 function candidateDetails(candidate: RecruitmentCandidate | undefined): Details {
   const campaignTitle = candidate ? candidateCampaign(candidate)?.jobTitle : undefined;
-  const pick = (value: string | undefined, allowed?: string[]) =>
-  value && (!allowed || allowed.includes(value)) ? value : '';
   return {
     firstName: pick(candidate?.firstName),
     lastName: pick(candidate?.lastName),
@@ -82,6 +86,31 @@ function candidateDetails(candidate: RecruitmentCandidate | undefined): Details 
   };
 }
 
+/**
+ * Step 2 values from an employee record when offboarding. The Last Working Date isn't on the
+ * record, so it is left for the user to enter.
+ */
+function employeeDetails(employee: Employee | undefined): Details {
+  return {
+    firstName: pick(employee?.firstName),
+    lastName: pick(employee?.lastName),
+    email: pick(employee?.personalEmail),
+    mobile: pick(employee?.mobile),
+    jobTitle: pick(employee?.jobTitle, jobTitles),
+    hireDate: '',
+    dob: pick(employee?.record.dob),
+    gender: '',
+    country: '',
+    address: pick(employee?.record.permAddress)
+  };
+}
+
+/** The employee's reporting manager as a person id, when they are in the people directory. */
+function employeeManagerIds(employee: Employee | undefined): string[] {
+  const manager = employee ? people.find((person) => person.name === employee.reportingManager) : undefined;
+  return manager ? [manager.id] : [];
+}
+
 export function NewTransition() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -92,10 +121,13 @@ export function NewTransition() {
   const manageableKinds = ALL_KINDS.filter((item) => hasOboPermission(managePermissionFor(item)));
   // Recruitment opens this screen with ?from=recruitment&candidateId=…
   const fromRecruitment = searchParams.get('from') === 'recruitment' || screenInit.from === 'recruitment';
+  // An employee record opens this screen with ?from=employee&employeeId=…
+  const fromEmployee = searchParams.get('from') === 'employee' || screenInit.from === 'employee';
 
   const initialKind = (): TransitionKind | null => {
     if (manageableKinds.length === 1) return manageableKinds[0];
     if (fromRecruitment && manageableKinds.includes('Onboarding')) return 'Onboarding';
+    if (fromEmployee && manageableKinds.includes('Offboarding')) return 'Offboarding';
     if (screenInit.kind) return screenInit.kind;
     return screenInit.step ? 'Onboarding' : null;
   };
@@ -108,19 +140,43 @@ export function NewTransition() {
     candidates.find((candidate) => candidate.id === id) :
     undefined;
   };
+
+  // Active employees without an offboarding transition in progress.
+  const { employees } = useEmployeeData();
+  const leavers = useMemo(() => offboardableEmployees(employees, transitions), [employees, transitions]);
+  const employeeOptions: SearchableOption[] = useMemo(
+    () =>
+    leavers.map((employee) => ({
+      value: employee.id,
+      label: `${employee.firstName} ${employee.lastName}`,
+      description: `${employee.code} · ${employee.jobTitle}`,
+      keywords: [employee.code, employee.officialEmail, employee.department]
+    })),
+    [leavers]
+  );
+  const initialEmployee = (): Employee | undefined => {
+    const id = searchParams.get('employeeId') ?? screenInit.employeeId;
+    return initialKind() === 'Offboarding' ? leavers.find((employee) => employee.id === id) : undefined;
+  };
   const [step, setStep] = useState<number>(screenInit.step ?? 0);
   const [kind, setKind] = useState<TransitionKind | null>(initialKind);
   const [candidateId, setCandidateId] = useState<string>(() => initialCandidate()?.id ?? '');
+  const [employeeId, setEmployeeId] = useState<string>(() => initialEmployee()?.id ?? '');
   const [templateId, setTemplateId] = useState<string>(screenInit.templateId ?? '');
   const [submitted, setSubmitted] = useState(false);
   const [addingTask, setAddingTask] = useState(false);
   const [grouping, setGrouping] = useState<SetupGrouping>(screenInit.grouping ?? 'department');
   const [collapsed, setCollapsed] = useState<string[]>([]);
 
-  // What Recruitment supplied, kept so a field shows "from Recruitment" until it is edited.
-  const [prefill, setPrefill] = useState<Details>(() => candidateDetails(initialCandidate()));
+  // What Recruitment or the employee record supplied, kept so a field shows its source until edited.
+  const [prefill, setPrefill] = useState<Details>(() => {
+    const employee = initialEmployee();
+    return employee ? employeeDetails(employee) : candidateDetails(initialCandidate());
+  });
   const [details, setDetails] = useState<Details>(prefill);
-  const [managerIds, setManagerIds] = useState<string[]>(screenInit.managerIds ?? []);
+  const [managerIds, setManagerIds] = useState<string[]>(
+    () => screenInit.managerIds ?? employeeManagerIds(initialEmployee())
+  );
   const [setupTasks, setSetupTasks] = useState<TransitionTask[]>([]);
 
   // Past Step 1 a type is always chosen; the fallback only keeps the types simple.
@@ -129,7 +185,11 @@ export function NewTransition() {
   const setField = (key: DetailKey, value: string) => setDetails((prev) => ({ ...prev, [key]: value }));
   const selectedCandidate = candidates.find((candidate) => candidate.id === candidateId);
   const selectedCampaign = selectedCandidate ? candidateCampaign(selectedCandidate) : undefined;
-  const isPrefilled = (key: DetailKey) => Boolean(candidateId && prefill[key] && details[key] === prefill[key]);
+  const selectedEmployee = leavers.find((employee) => employee.id === employeeId);
+  const isPrefilled = (key: DetailKey) =>
+  Boolean((candidateId || employeeId) && prefill[key] && details[key] === prefill[key]);
+  const prefillHint = (key: DetailKey, label?: string) =>
+  <PrefillHint show={isPrefilled(key)} label={selectedEmployee ? 'from employee record' : label} />;
   const activeTemplates = useMemo(
     () => templates.filter((t) => t.kind === kind && t.status === 'Active'),
     [templates, kind]
@@ -145,11 +205,22 @@ export function NewTransition() {
     setDetails(next);
   };
 
+  /** Fills Step 2 from the picked employee, or clears it for manual entry. */
+  const selectEmployee = (id: string) => {
+    setEmployeeId(id);
+    const employee = leavers.find((item) => item.id === id);
+    const next = employeeDetails(employee);
+    setPrefill(next);
+    setDetails(next);
+    setManagerIds(employeeManagerIds(employee));
+  };
+
   const selectKind = (next: TransitionKind) => {
     if (next === kind) return;
     setKind(next);
     setTemplateId('');
     if (next === 'Offboarding' && candidateId) selectCandidate('');
+    if (next === 'Onboarding' && employeeId) selectEmployee('');
   };
 
   const buildTasks = (id: string, hire: string): TransitionTask[] => {
@@ -313,6 +384,12 @@ export function NewTransition() {
                   Started from Recruitment.
                 </div>
             }
+              {fromEmployee && selectedEmployee &&
+            <div className="mb-5 flex items-center gap-2 rounded-lg bg-sky-50 px-3.5 py-2.5 text-[13px] text-sky-900 ring-1 ring-inset ring-sky-200">
+                  <SparklesIcon className="h-4 w-4 shrink-0 text-sky-700" />
+                  Started from {selectedEmployee.firstName} {selectedEmployee.lastName}&apos;s employee record.
+                </div>
+            }
 
               <p className="text-[13px] font-medium text-ink">
                 What kind of transition is this?<span className="ml-0.5 text-red-500">*</span>
@@ -358,6 +435,29 @@ export function NewTransition() {
                       </p>
                     </div>
               }
+                  {kind === 'Offboarding' &&
+              <div>
+                      <FieldGroup
+                  label="Select Employee"
+                  hint={<span className="text-[11px] text-subtle">Optional</span>}>
+
+                        <SearchableSelect
+                    options={employeeOptions}
+                    value={employeeId}
+                    onChange={selectEmployee}
+                    placeholder="Select an employee"
+                    searchPlaceholder="Search by name, code or email"
+                    emptyText="No active employees without an offboarding in progress"
+                    clearable
+                    withAvatars />
+
+                      </FieldGroup>
+                      <p className="mt-1.5 text-[12px] text-muted">
+                        Active employees without an offboarding in progress. Picking one fills in their details
+                        in the next step; leave it blank to enter them yourself.
+                      </p>
+                    </div>
+              }
 
                   <div>
                     <FieldGroup label={`Select ${kind} Template`} required>
@@ -395,8 +495,18 @@ export function NewTransition() {
                   </span>
                 </div>
             }
+              {selectedEmployee &&
+            <div className="sm:col-span-2 flex items-start gap-2.5 rounded-lg bg-sky-50 px-3.5 py-2.5 text-[13px] leading-relaxed text-sky-900 ring-1 ring-inset ring-sky-200">
+                  <SparklesIcon className="mt-0.5 h-4 w-4 shrink-0 text-sky-700" />
+                  <span>
+                    Pre-filled from {selectedEmployee.firstName} {selectedEmployee.lastName}&apos;s employee record (
+                    {selectedEmployee.code}). Enter the last working date and check the other values. Every field
+                    can be edited.
+                  </span>
+                </div>
+            }
 
-              <FieldGroup label="First Name" required hint={<PrefillHint show={isPrefilled('firstName')} />}>
+              <FieldGroup label="First Name" required hint={prefillHint('firstName')}>
                 <Input
                 value={firstName}
                 onChange={(event) => setField('firstName', event.target.value)}
@@ -404,7 +514,7 @@ export function NewTransition() {
                 className={showError('firstName') ? 'border-red-300' : ''} />
                 <FieldError message={showError('firstName')} />
               </FieldGroup>
-              <FieldGroup label="Last Name" required hint={<PrefillHint show={isPrefilled('lastName')} />}>
+              <FieldGroup label="Last Name" required hint={prefillHint('lastName')}>
                 <Input
                 value={lastName}
                 onChange={(event) => setField('lastName', event.target.value)}
@@ -412,7 +522,7 @@ export function NewTransition() {
                 className={showError('lastName') ? 'border-red-300' : ''} />
                 <FieldError message={showError('lastName')} />
               </FieldGroup>
-              <FieldGroup label="Personal Email" required hint={<PrefillHint show={isPrefilled('email')} />}>
+              <FieldGroup label="Personal Email" required hint={prefillHint('email')}>
                 <Input
                 type="email"
                 value={email}
@@ -422,7 +532,7 @@ export function NewTransition() {
                 className={showError('email') ? 'border-red-300' : ''} />
                 <FieldError message={showError('email')} />
               </FieldGroup>
-              <FieldGroup label="Mobile Number" required hint={<PrefillHint show={isPrefilled('mobile')} />}>
+              <FieldGroup label="Mobile Number" required hint={prefillHint('mobile')}>
                 <Input
                 value={mobile}
                 onChange={(event) => setField('mobile', event.target.value)}
@@ -434,7 +544,7 @@ export function NewTransition() {
               <FieldGroup
               label="Job Title"
               required
-              hint={<PrefillHint show={isPrefilled('jobTitle')} label="from campaign" />}>
+              hint={prefillHint('jobTitle', 'from campaign')}>
                 <SearchableSelect
                 options={jobTitleOptions}
                 value={jobTitle}
@@ -447,7 +557,7 @@ export function NewTransition() {
               <FieldGroup
               label={chosenKind === 'Offboarding' ? 'Last Working Date' : 'Hire Date'}
               required
-              hint={<PrefillHint show={isPrefilled('hireDate')} />}>
+              hint={prefillHint('hireDate')}>
                 <Input
                 type="date"
                 value={hireDate}
@@ -457,10 +567,10 @@ export function NewTransition() {
                 <FieldError message={showError('hireDate')} />
               </FieldGroup>
 
-              <FieldGroup label="Date of Birth" hint={<PrefillHint show={isPrefilled('dob')} />}>
+              <FieldGroup label="Date of Birth" hint={prefillHint('dob')}>
                 <Input type="date" value={dob} onChange={(event) => setField('dob', event.target.value)} />
               </FieldGroup>
-              <FieldGroup label="Gender" hint={<PrefillHint show={isPrefilled('gender')} />}>
+              <FieldGroup label="Gender" hint={prefillHint('gender')}>
                 <Select value={gender} onChange={(event) => setField('gender', event.target.value)}>
                   <option value="">Select gender</option>
                   {GENDERS.map((item) =>
@@ -470,7 +580,7 @@ export function NewTransition() {
                 )}
                 </Select>
               </FieldGroup>
-              <FieldGroup label="Country" hint={<PrefillHint show={isPrefilled('country')} />}>
+              <FieldGroup label="Country" hint={prefillHint('country')}>
                 <Select value={country} onChange={(event) => setField('country', event.target.value)}>
                   <option value="">Select country</option>
                   {COUNTRIES.map((item) =>
@@ -480,7 +590,7 @@ export function NewTransition() {
                 )}
                 </Select>
               </FieldGroup>
-              <FieldGroup label="Address" hint={<PrefillHint show={isPrefilled('address')} />}>
+              <FieldGroup label="Address" hint={prefillHint('address')}>
                 <Input
                 value={address}
                 onChange={(event) => setField('address', event.target.value)}
@@ -664,7 +774,7 @@ export function NewTransition() {
 
 }
 
-/** Marks a field still holding the value Recruitment supplied. Disappears once it is edited. */
+/** Marks a field still holding the value Recruitment or the employee record supplied. Disappears once edited. */
 function PrefillHint({ show, label = 'from Recruitment' }: {show: boolean;label?: string;}) {
   if (!show) return null;
   return (

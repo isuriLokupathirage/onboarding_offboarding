@@ -34,6 +34,12 @@ export const manifest = {
     scr_a99fk6: { name: "All Employees", route: "/employees", position: { "x": 160, "y": 4180 } },
     scr_5801ds: { name: "Employee – Basic Info", route: "/employees/emp1", state: { "tab": "basic" }, position: { "x": 1560, "y": 4180 } },
     scr_npfjp1: { name: "Employee – Form Access", route: "/employees/emp1", state: { "tab": "access" }, position: { "x": 2960, "y": 4180 } },
+    scr_so1rec: { name: "Employee – Start Offboarding", route: "/employees/emp1", state: { "tab": "basic" }, position: { "x": 4360, "y": 4180 } },
+    scr_so2inv: { name: "Start Offboarding – Deactivated Employee", route: "/employees/emp8", state: { "tab": "basic" }, position: { "x": 5760, "y": 4180 } },
+    scr_so3act: { name: "Start Offboarding – Offboarding in Progress", route: "/employees/emp9", state: { "tab": "basic" }, position: { "x": 7160, "y": 4180 } },
+    scr_so4prm: { name: "Start Offboarding – No Permission", route: "/employees/emp1", state: { "tab": "basic", "withoutOffboardingPermission": true }, position: { "x": 8560, "y": 4180 } },
+    scr_so5wiz: { name: "New Transition – Offboarding from Employee", route: "/onboarding/transitions/new", state: { "from": "employee", "employeeId": "emp1" }, position: { "x": 9960, "y": 4180 } },
+    scr_so6det: { name: "New Transition – Employee Details Pre-filled", route: "/onboarding/transitions/new", state: { "from": "employee", "employeeId": "emp1", "step": 1, "templateId": "tpl5" }, position: { "x": 11360, "y": 4180 } },
     scr_r1lgnr: { name: "Employee Forms", route: "/templates/forms/employee", position: { "x": 160, "y": 6160 } },
     scr_wx26x6: { name: "Form – Details", route: "/templates/forms/employee/frm1", state: { "tab": "details" }, position: { "x": 1560, "y": 6160 } },
     scr_uf15z8: { name: "Form – Employee Details", route: "/templates/forms/employee/frm1", state: { "tab": "employee" }, position: { "x": 2960, "y": 6160 } },
@@ -60,7 +66,7 @@ export const manifest = {
   sections: {
     sec_h9tl61: { name: "Onboarding – Overview & Transitions", x: 0, y: 0, width: 33720, height: 1180 },
     sec_sv0spb: { name: "Onboarding – Templates", x: 0, y: 1980, width: 9920, height: 1180 },
-    sec_gut05a: { name: "Employee Management", x: 0, y: 3960, width: 4320, height: 1180 },
+    sec_gut05a: { name: "Employee Management", x: 0, y: 3960, width: 12720, height: 1180 },
     sec_luokg9: { name: "Form Templates – Employee", x: 0, y: 5940, width: 8520, height: 1180 },
     sec_ieuhgd: { name: "Form Templates – Other", x: 0, y: 7920, width: 1520, height: 1180 },
     sec_8pff57: { name: "Email Templates", x: 0, y: 9900, width: 1520, height: 1180 },
@@ -107,7 +113,13 @@ export const manifest = {
   { kind: "section", id: "sec_gut05a", children: [
     { kind: "screen", id: "scr_a99fk6" },
     { kind: "screen", id: "scr_5801ds" },
-    { kind: "screen", id: "scr_npfjp1" }]
+    { kind: "screen", id: "scr_npfjp1" },
+    { kind: "screen", id: "scr_so1rec" },
+    { kind: "screen", id: "scr_so2inv" },
+    { kind: "screen", id: "scr_so3act" },
+    { kind: "screen", id: "scr_so4prm" },
+    { kind: "screen", id: "scr_so5wiz" },
+    { kind: "screen", id: "scr_so6det" }]
   },
   { kind: "section", id: "sec_luokg9", children: [
     { kind: "screen", id: "scr_r1lgnr" },

@@ -250,6 +250,37 @@ const baseEmployees: Omit<Employee, 'portalToken'>[] = [
     accNumber: '8044120075',
     accName: 'N R Gunawardena'
   }
+},
+{
+  id: 'emp9',
+  code: 'EMP58830',
+  firstName: 'Malith',
+  lastName: 'Senanayake',
+  jobTitle: 'Senior Accountant',
+  department: 'Finance',
+  employmentType: 'Permanent',
+  client: 'Accxis Holdings (Pvt) Ltd',
+  officialEmail: 'malith.senanayake@accxis.lk',
+  personalEmail: 'malith.sena@gmail.com',
+  mobile: '+94 76 221 7734',
+  reportingManager: 'Thilini Gunasekara',
+  status: 'Active',
+  joinedOn: '2021-02-01',
+  record: {
+    firstName: 'Malith',
+    lastName: 'Senanayake',
+    nic: '902215774V',
+    dob: '1990-08-09',
+    nationality: 'Sri Lankan',
+    marital: 'Married',
+    permAddress: '41 Temple Road, Maharagama',
+    mobile: '+94 76 221 7734',
+    email: 'malith.sena@gmail.com',
+    bankName: 'Sampath Bank',
+    branchName: 'Maharagama',
+    accNumber: '1029 5530 4471',
+    accName: 'M D Senanayake'
+  }
 }];
 
 export const employees: Employee[] = baseEmployees.map((employee, index) => ({

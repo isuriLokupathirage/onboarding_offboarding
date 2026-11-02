@@ -4,7 +4,7 @@ import type { OboPermission } from '../types';
 export const oboPermissionCatalogue: {permission: OboPermission;key?: string;}[] = [
 { permission: 'View All Transitions' },
 { permission: 'Manage Onboarding Transitions' },
-{ permission: 'Manage Offboarding Transitions' },
+{ permission: 'Manage Offboarding Transitions', key: 'obo.offboarding.transition.manage' },
 { permission: 'Update Task Progress', key: 'obo.task.progress' },
 { permission: 'View Restricted Tasks', key: 'obo.task.restricted' },
 { permission: 'View Templates', key: 'obo.template.view' },

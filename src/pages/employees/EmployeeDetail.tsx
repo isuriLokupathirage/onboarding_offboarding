@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
-import { ClipboardListIcon, MailIcon, PhoneIcon, UserMinusIcon } from 'lucide-react';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { ClipboardListIcon, LogOutIcon, MailIcon, PhoneIcon, UserMinusIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -10,6 +10,8 @@ import { Tooltip } from '../../components/ui/Tooltip';
 import { FormAccessPanel, PERMISSION_NOTE } from '../../components/employees/FormAccessPanel';
 import { SendFormDialog } from '../../components/employees/SendFormDialog';
 import { useEmployeeData } from '../../contexts/EmployeeDataContext';
+import { useAppData } from '../../contexts/AppDataContext';
+import { startOffboardingBlockReason } from '../../utils/employees';
 import { formatDate } from '../../utils/format';
 import { useScreenInit } from '../../useScreenInit.js';
 
@@ -17,7 +19,9 @@ type Tab = 'basic' | 'access';
 
 export function EmployeeDetail() {
   const { employeeId } = useParams();
+  const navigate = useNavigate();
   const { employees, assignmentsFor, canSendForms } = useEmployeeData();
+  const { transitions, hasOboPermission } = useAppData();
   const screenInit = useScreenInit();
   const [tab, setTab] = useState<Tab>(screenInit.tab as Tab ?? 'basic');
   const [sending, setSending] = useState(false);
@@ -28,6 +32,10 @@ export function EmployeeDetail() {
 
   const fullName = `${employee.firstName} ${employee.lastName}`;
   const assignments = assignmentsFor(employee.id);
+  // Design canvas only: `withoutOffboardingPermission` shows the record as a user without it.
+  const canManageOffboarding =
+  hasOboPermission('Manage Offboarding Transitions') && !screenInit.withoutOffboardingPermission;
+  const offboardingBlockReason = startOffboardingBlockReason(employee, transitions, canManageOffboarding);
 
   return (
     <div>
@@ -93,6 +101,24 @@ export function EmployeeDetail() {
               <ClipboardListIcon className="h-4 w-4" />
               Audit Trail
             </Button>
+            {offboardingBlockReason ?
+            <Tooltip label={offboardingBlockReason}>
+                <span>
+                  <Button disabled>
+                    <LogOutIcon className="h-4 w-4" />
+                    Start Offboarding
+                  </Button>
+                </span>
+              </Tooltip> :
+
+            <Button
+              onClick={() =>
+              navigate(`/onboarding/transitions/new?from=employee&employeeId=${encodeURIComponent(employee.id)}`)
+              }>
+                <LogOutIcon className="h-4 w-4" />
+                Start Offboarding
+              </Button>
+            }
             <Button className="text-red-600 ring-red-200 hover:bg-red-50">
               <UserMinusIcon className="h-4 w-4" />
               {employee.status === 'Active' ? 'Deactivate' : 'Activate'}
