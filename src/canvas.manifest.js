@@ -44,6 +44,12 @@ export const manifest = {
     scr_ex2err: { name: "Exit Details – Missing Required Fields", route: "/onboarding/transitions/new", state: { "from": "employee", "employeeId": "emp1", "step": 1, "templateId": "tpl5", "showErrors": true, "exit": { "type": "Voluntary", "reason": "", "dates": { "Resignation Effective Date": "2026-10-30" }, "documents": [] } }, position: { "x": 14160, "y": 4180 } },
     scr_ex3int: { name: "Exit Details – Intern Template (Fewer Mandatory Dates)", route: "/onboarding/transitions/new", state: { "from": "employee", "employeeId": "emp1", "step": 1, "templateId": "tpl7" }, position: { "x": 15560, "y": 4180 } },
     scr_ex4tsk: { name: "New Transition – Offboarding Tasks from Exit Dates", route: "/onboarding/transitions/new", state: { "from": "employee", "employeeId": "emp1", "step": 2, "templateId": "tpl5", "exit": { "type": "Voluntary", "reason": "Better Employment Opportunity", "dates": { "Resignation Effective Date": "2026-10-30", "Notice Period Start Date": "2026-10-30", "Payroll Cut-off Date": "2026-11-25", "Last Working Date": "2026-11-28", "Actual Exit Date": "2026-11-30" }, "documents": [] } }, position: { "x": 16960, "y": 4180 } },
+    scr_ob1det: { name: "Employee – Offboarding Details", route: "/employees/emp9", state: { "tab": "offboarding" }, position: { "x": 18360, "y": 4180 } },
+    scr_ob2doc: { name: "Employee – Offboarding Documents", route: "/employees/emp9", state: { "tab": "documents" }, position: { "x": 19760, "y": 4180 } },
+    scr_ob3off: { name: "Deactivated Employee – Offboarding Details", route: "/employees/emp8", state: { "tab": "offboarding" }, position: { "x": 21160, "y": 4180 } },
+    scr_ob4aud: { name: "Employee – Audit Trail (Offboarding)", route: "/employees/emp9", state: { "tab": "audit" }, position: { "x": 22560, "y": 4180 } },
+    scr_ob5nop: { name: "Employee – Without View Employee Profiles", route: "/employees/emp9", state: { "tab": "documents", "withoutEmployeeViewPermission": true }, position: { "x": 23960, "y": 4180 } },
+    scr_ob6edt: { name: "Transition – Edit Exit Details", route: "/onboarding/transitions/tr3", state: { "editExit": true }, position: { "x": 25360, "y": 4180 } },
     scr_r1lgnr: { name: "Employee Forms", route: "/templates/forms/employee", position: { "x": 160, "y": 6160 } },
     scr_wx26x6: { name: "Form – Details", route: "/templates/forms/employee/frm1", state: { "tab": "details" }, position: { "x": 1560, "y": 6160 } },
     scr_uf15z8: { name: "Form – Employee Details", route: "/templates/forms/employee/frm1", state: { "tab": "employee" }, position: { "x": 2960, "y": 6160 } },
@@ -127,7 +133,13 @@ export const manifest = {
     { kind: "screen", id: "scr_ex1oth" },
     { kind: "screen", id: "scr_ex2err" },
     { kind: "screen", id: "scr_ex3int" },
-    { kind: "screen", id: "scr_ex4tsk" }]
+    { kind: "screen", id: "scr_ex4tsk" },
+    { kind: "screen", id: "scr_ob1det" },
+    { kind: "screen", id: "scr_ob2doc" },
+    { kind: "screen", id: "scr_ob3off" },
+    { kind: "screen", id: "scr_ob4aud" },
+    { kind: "screen", id: "scr_ob5nop" },
+    { kind: "screen", id: "scr_ob6edt" }]
   },
   { kind: "section", id: "sec_luokg9", children: [
     { kind: "screen", id: "scr_r1lgnr" },

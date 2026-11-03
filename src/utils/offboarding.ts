@@ -9,7 +9,7 @@ import type {
 '../types';
 import { offboardingMilestones } from '../data/people';
 import { OTHER_EXIT_REASON } from '../data/exitReasons';
-import { applyDueRuleOffset } from './format';
+import { applyDueRuleOffset, formatDate } from './format';
 
 export type ExitDates = ExitDetails['dates'];
 
@@ -115,4 +115,31 @@ picked: {name: string;size: number;}[])
 
     error: errors.length > 0 ? errors.join(' ') : undefined
   };
+}
+
+/* ---------- Employee record ---------- */
+
+/** One line for the audit trail: template, type and reason, and the last working date when set. */
+export function exitSummary(exit: ExitDetailsDraft, templateName: string): string {
+  const lastDay = exit.dates['Last Working Date'];
+  return [templateName, `${exit.type}: ${exitReasonLabel(exit)}`, lastDay && `Last Working Date ${formatDate(lastDay)}`].
+  filter(Boolean).
+  join(' · ');
+}
+
+/** What changed between two versions of the exit details, one readable line per change. */
+export function describeExitChanges(before: ExitDetailsDraft, after: ExitDetailsDraft): string[] {
+  const changes: string[] = [];
+  if (before.type !== after.type) changes.push(`Offboarding Type: ${before.type} → ${after.type}`);
+  const beforeReason = exitReasonLabel(before);
+  const afterReason = exitReasonLabel(after);
+  if (beforeReason !== afterReason) changes.push(`Exit Reason: ${beforeReason || '—'} → ${afterReason || '—'}`);
+  offboardingMilestones.forEach((milestone) => {
+    const from = before.dates[milestone];
+    const to = after.dates[milestone];
+    if ((from ?? '') !== (to ?? '')) {
+      changes.push(`${milestone}: ${from ? formatDate(from) : 'not set'} → ${to ? formatDate(to) : 'not set'}`);
+    }
+  });
+  return changes;
 }

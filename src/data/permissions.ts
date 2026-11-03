@@ -9,7 +9,8 @@ export const oboPermissionCatalogue: {permission: OboPermission;key?: string;}[]
 { permission: 'View Restricted Tasks', key: 'obo.task.restricted' },
 { permission: 'View Templates', key: 'obo.template.view' },
 { permission: 'Manage Templates', key: 'obo.template.manage' },
-{ permission: 'Manage Task Library', key: 'obo.task.manage' }];
+{ permission: 'Manage Task Library', key: 'obo.task.manage' },
+{ permission: 'View Employee Profiles', key: 'employee.view' }];
 
 
 export const ALL_OBO_PERMISSIONS: OboPermission[] = oboPermissionCatalogue.map((item) => item.permission);

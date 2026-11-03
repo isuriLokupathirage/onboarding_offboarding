@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type {
   EmployeeForm,
+  ExitDetailsDraft,
   FieldState,
   FormPart,
   FormSection,
@@ -31,6 +32,7 @@ import {
   statusGroup } from
 '../utils/transitions';
 import { addDays, nextCode } from '../utils/format';
+import { describeExitChanges, exitTargetDate, resolveExitDueDate } from '../utils/offboarding';
 import { formParts, partLabels } from '../utils/portal';
 
 interface AppData {
@@ -69,6 +71,11 @@ interface AppData {
   /** The next unused template code. Codes of deleted templates are never issued again. */
   nextTemplateCode: (kind: TransitionKind) => string;
   addTransition: (transition: Transition) => void;
+  /**
+   * Saves new exit details on an offboarding in progress. Due dates still calculated from the
+   * exit dates are recalculated; overridden ones are kept. Returns what changed, empty when nothing did.
+   */
+  updateTransitionExit: (transitionId: string, next: ExitDetailsDraft) => string[];
   setFieldState: (formId: string, fieldId: string, state: FieldState) => void;
   toggleSection: (formId: string, sectionId: string) => void;
   setEmployeeDetailsEnabled: (formId: string, enabled: boolean) => void;
@@ -239,6 +246,51 @@ export function AppDataProvider({
       );
     },
     []
+  );
+
+  const updateTransitionExit = useCallback(
+    (transitionId: string, next: ExitDetailsDraft): string[] => {
+      const current = transitions.find((transition) => transition.id === transitionId);
+      if (
+      !current?.exit ||
+      statusGroup(current) !== 'Active' ||
+      !oboPermissions.includes(managePermissionFor(current.kind)))
+
+      return [];
+      const changes = describeExitChanges(current.exit, next);
+      if (changes.length === 0) return [];
+      const actor = peopleById[currentUserId]?.name ?? currentUserId;
+      const exit = { ...current.exit, ...next, otherReason: next.otherReason?.trim() || undefined };
+      const targetDate = exitTargetDate(exit.dates) || current.targetDate;
+      setTransitions((prev) =>
+      prev.map((transition) => {
+        if (transition.id !== transitionId) return transition;
+        return {
+          ...transition,
+          exit,
+          targetDate,
+          candidate: { ...transition.candidate, hireDate: targetDate },
+          tasks: transition.tasks.map((task) => {
+            if (task.dueSource !== 'calculated' || !isTaskOpen(task)) return task;
+            const due = resolveExitDueDate(tasks.find((item) => item.id === task.taskId)?.dueRule ?? null, exit.dates);
+            return { ...task, dueDate: due, calculatedDueDate: due };
+          }),
+          auditTrail: [
+          ...transition.auditTrail,
+          {
+            id: `au-${Date.now()}`,
+            action: 'Exit details updated',
+            actor,
+            at: new Date().toISOString(),
+            detail: changes.join('; ')
+          }]
+
+        };
+      })
+      );
+      return changes;
+    },
+    [transitions, tasks, currentUserId, oboPermissions]
   );
 
   const cancelTransition = useCallback(
@@ -698,6 +750,7 @@ export function AppDataProvider({
       nextTaskCode,
       nextTemplateCode,
       addTransition,
+      updateTransitionExit,
       setFieldState,
       toggleSection,
       setEmployeeDetailsEnabled,
@@ -739,6 +792,7 @@ export function AppDataProvider({
     nextTaskCode,
     nextTemplateCode,
     addTransition,
+    updateTransitionExit,
     setFieldState,
     toggleSection,
     setEmployeeDetailsEnabled,

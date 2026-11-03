@@ -13,7 +13,9 @@ export type OboPermission =
 'View Restricted Tasks' |
 'View Templates' |
 'Manage Templates' |
-'Manage Task Library';
+'Manage Task Library' |
+/** Employee Management (employee.view). Needed to see a leaver's offboarding details. */
+'View Employee Profiles';
 
 export type Priority = 'Low' | 'Medium' | 'High';
 

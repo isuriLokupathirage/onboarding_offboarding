@@ -28,7 +28,9 @@ export function ExitDetailsStep({
   dateUsage,
   templateName,
   errors,
-  showErrors
+  showErrors,
+  showDocuments = true,
+  compact = false
 
 
 
@@ -38,7 +40,10 @@ export function ExitDetailsStep({
 
 
 
-}: {employee: Employee;exit: ExitDetailsDraft;onChange: (next: ExitDetailsDraft) => void; /** How many template tasks calculate their due date from each exit date. */dateUsage: Partial<Record<OffboardingMilestone, number>>;templateName: string;errors: ExitDetailsErrors;showErrors: boolean;}) {
+
+
+
+}: { /** Omit to hide the read-only employee section. */employee?: Employee;exit: ExitDetailsDraft;onChange: (next: ExitDetailsDraft) => void; /** How many template tasks calculate their due date from each exit date. */dateUsage: Partial<Record<OffboardingMilestone, number>>;templateName: string;errors: ExitDetailsErrors;showErrors: boolean;showDocuments?: boolean; /** One column, for a side panel. */compact?: boolean;}) {
   const [uploadError, setUploadError] = useState<string>();
   const update = (patch: Partial<ExitDetailsDraft>) => onChange({ ...exit, ...patch });
   const reasonOptions: SearchableOption[] = exitReasons[exit.type].map((reason) => ({ value: reason, label: reason }));
@@ -52,9 +57,11 @@ export function ExitDetailsStep({
 
   const reasonError = showErrors ? errors.reason : undefined;
   const otherReasonError = showErrors ? errors.otherReason : undefined;
+  const grid = compact ? 'grid grid-cols-1 gap-y-5' : 'grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2';
 
   return (
     <div className="space-y-6">
+      {employee &&
       <section>
         <SectionTitle title="Employee" description="From the employee record. Change these in Employee Management." />
         <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg bg-slate-50 px-4 py-3.5 ring-1 ring-inset ring-line sm:grid-cols-4">
@@ -64,10 +71,11 @@ export function ExitDetailsStep({
           <ReadOnlyValue label="Department" value={employee.department} />
         </div>
       </section>
+      }
 
       <section>
         <SectionTitle title="Exit" />
-        <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+        <div className={grid}>
           <FieldGroup label="Offboarding Type" required className="sm:col-span-2">
             <Segmented
               options={OFFBOARDING_TYPES.map((type) => ({ value: type, label: type }))}
@@ -108,7 +116,7 @@ export function ExitDetailsStep({
           title="Exit Dates"
           description={`Dates used by a task in ${templateName} are mandatory. Task due dates are calculated from these dates.`} />
 
-        <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+        <div className={grid}>
           {offboardingMilestones.map((milestone) => {
             const used = dateUsage[milestone] ?? 0;
             const missing = showErrors && errors.dates.includes(milestone);
@@ -137,6 +145,7 @@ export function ExitDetailsStep({
         </div>
       </section>
 
+      {showDocuments &&
       <section>
         <SectionTitle
           title="Documents"
@@ -201,6 +210,7 @@ export function ExitDetailsStep({
           </>
         }
       </section>
+      }
     </div>);
 
 }

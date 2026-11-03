@@ -7,6 +7,7 @@ import {
   CircleDashedIcon,
   ClockIcon,
   HistoryIcon,
+  PencilIcon,
   MinusCircleIcon,
   SendIcon,
   XCircleIcon } from
@@ -16,6 +17,7 @@ import { Button } from '../../components/ui/Button';
 import { Avatar, AvatarGroup } from '../../components/ui/Avatar';
 import { Badge, PriorityBadge } from '../../components/ui/Badge';
 import { CancelTransitionDialog } from '../../components/onboarding/CancelTransitionDialog';
+import { EditExitDetailsDrawer } from '../../components/onboarding/EditExitDetailsDrawer';
 import { Progress } from '../../components/ui/Progress';
 import { Tabs } from '../../components/ui/Segmented';
 import { TaskDetailPanel } from '../../components/tasks/TaskDetailPanel';
@@ -26,7 +28,7 @@ import { TaskStatusBadge } from '../../components/tasks/TaskStatusBadge';
 import { dueLabel } from '../../components/tasks/OboTaskCard';
 import { NoSignInBadge } from '../../components/common/NoSignInBadge';
 import { useAppData } from '../../contexts/AppDataContext';
-import { peopleById } from '../../data/people';
+import { offboardingMilestones, peopleById } from '../../data/people';
 import type {
   Department,
   Transition,
@@ -70,6 +72,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
     submission?: boolean;
     sendForm?: boolean;
     cancel?: boolean;
+    editExit?: boolean;
   };
   const [submissionEmailId, setSubmissionEmailId] = useState<string | null>(
     screenInit.submission ? transition.submissions[0]?.emailId ?? null : null
@@ -84,6 +87,10 @@ function TransitionView({ transition }: {transition: Transition;}) {
   const active = statusGroup(transition) === 'Active';
   const overdue = isOverdue(transition);
   const canCancel = active && hasOboPermission(managePermissionFor(transition.kind));
+  // Exit details can change while the offboarding is in progress, by whoever can manage it.
+  const canEditExit = Boolean(transition.exit) && canCancel;
+  const [editingExit, setEditingExit] = useState(Boolean(screenInit.editExit) && canEditExit);
+  const closeEditExit = useCallback(() => setEditingExit(false), []);
   const canSendForm = canReceiveForm(transition) && hasOboPermission('Manage Onboarding Transitions');
   const [sendingForm, setSendingForm] = useState(Boolean(screenInit.sendForm) && canSendForm);
 
@@ -314,6 +321,36 @@ function TransitionView({ transition }: {transition: Transition;}) {
             </section>
 
 
+            {transition.exit &&
+            <section className="rounded-xl border border-line bg-white p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-[13px] font-medium text-ink">Exit details</h2>
+                  {canEditExit &&
+                <Button size="sm" onClick={() => setEditingExit(true)}>
+                      <PencilIcon className="h-3.5 w-3.5" />
+                      Edit
+                    </Button>
+                }
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
+                  <Detail label="Offboarding type" value={transition.exit.type} />
+                  <Detail
+                  label="Exit reason"
+                  value={
+                  transition.exit.reason === 'Other' && transition.exit.otherReason ?
+                  `Other: ${transition.exit.otherReason}` :
+                  transition.exit.reason
+                  } />
+
+                  {offboardingMilestones.
+                filter((milestone) => transition.exit?.dates[milestone]).
+                map((milestone) =>
+                <Detail key={milestone} label={milestone} value={formatDate(transition.exit?.dates[milestone])} />
+                )}
+                </dl>
+              </section>
+            }
+
             <section className="rounded-xl border border-line bg-white p-5">
               <h2 className="text-[13px] font-medium text-ink">Key dates</h2>
               <ul className="mt-3 space-y-2.5 text-[13px]">
@@ -383,6 +420,21 @@ function TransitionView({ transition }: {transition: Transition;}) {
         submission={shownSubmission}
         onClose={closeSubmission} />
 
+
+      {transition.exit &&
+      <EditExitDetailsDrawer
+        open={editingExit}
+        transition={transition}
+        onClose={closeEditExit}
+        onSaved={(changes) => {
+          setEditingExit(false);
+          setNotice(
+            changes.length > 0 ?
+            `Exit details updated on the transition and ${fullName}'s employee record.` :
+            'No changes to the exit details.'
+          );
+        }} />
+      }
 
       <CancelTransitionDialog
         open={confirmingCancel}

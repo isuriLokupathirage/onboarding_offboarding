@@ -46,3 +46,18 @@ export function offboardableEmployees(employees: Employee[], transitions: Transi
     (employee) => employee.status === 'Active' && !activeOffboardingFor(employee, transitions)
   );
 }
+
+/**
+ * The offboarding recorded against this employee: the latest one in progress or completed.
+ * A cancelled offboarding is not kept on the record.
+ */
+export function offboardingRecordFor(employee: Employee, transitions: Transition[]): Transition | undefined {
+  return transitions.
+  filter(
+    (transition) =>
+    transition.kind === 'Offboarding' &&
+    transition.exit?.employeeId === employee.id &&
+    statusGroup(transition) !== 'Cancelled'
+  ).
+  sort((a, b) => b.startedOn.localeCompare(a.startedOn))[0];
+}

@@ -49,7 +49,7 @@ import { offboardableEmployees } from '../../utils/employees';
 import {
   exitDateUsage,
   exitDetailsErrors,
-  exitReasonLabel,
+  exitSummary,
   exitTargetDate,
   hasExitErrors,
   resolveExitDueDate } from
@@ -142,7 +142,7 @@ export function NewTransition() {
   };
 
   // Active employees without an offboarding transition in progress.
-  const { employees } = useEmployeeData();
+  const { employees, logEmployeeChange } = useEmployeeData();
   const leavers = useMemo(() => offboardableEmployees(employees, transitions), [employees, transitions]);
   const employeeOptions: SearchableOption[] = useMemo(
     () =>
@@ -361,10 +361,17 @@ export function NewTransition() {
         action: 'Transition started',
         actor: 'Nimal Perera',
         at: new Date().toISOString(),
-        detail: leaver ? `${template?.name} · ${exit.type}: ${exitReasonLabel(exit)}` : template?.name
+        detail: leaver ? exitSummary(exit, template?.name ?? '') : template?.name
       }],
       formStatus: 'Not Sent'
     });
+    if (leaver) {
+      // The exit details and documents are kept on the employee record from now on.
+      logEmployeeChange(leaver.id, 'Offboarding started', exitSummary(exit, template?.name ?? ''));
+      if (exit.documents.length > 0) {
+        logEmployeeChange(leaver.id, 'Offboarding documents added', exit.documents.map((doc) => doc.name).join(', '));
+      }
+    }
     navigate(`/onboarding/transitions/${id}`);
   };
 

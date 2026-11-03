@@ -200,6 +200,22 @@ const baseTransitions: TransitionSeed[] = [
   },
   templateId: 'tpl5',
   templateName: 'Standard Resignation Offboarding',
+  exit: {
+    employeeId: 'emp9',
+    type: 'Voluntary',
+    reason: 'Better Employment Opportunity',
+    dates: {
+      'Resignation Effective Date': '2026-08-19',
+      'Notice Period Start Date': '2026-08-19',
+      'Payroll Cut-off Date': '2026-09-15',
+      'Last Working Date': '2026-09-18',
+      'Actual Exit Date': '2026-09-19'
+    },
+    documents: [
+    { id: 'exd-tr3-1', name: 'Resignation_Letter_Malith_Senanayake.pdf', bytes: 217088 },
+    { id: 'exd-tr3-2', name: 'Resignation_Acceptance_Letter.pdf', bytes: 154624 }]
+
+  },
   status: 'At Risk',
   startedOn: '2026-08-29',
   targetDate: '2026-09-18',
@@ -372,6 +388,7 @@ interface CompactSeed {
   completedTasks: number | 'all';
   managerIds: string[];
   cancellation?: TransitionCancellation;
+  exit?: Transition['exit'];
 }
 
 function compactSeed(seed: CompactSeed): TransitionSeed {
@@ -405,7 +422,8 @@ function compactSeed(seed: CompactSeed): TransitionSeed {
     tasks,
     emails: [],
     formStatus: 'Not Sent',
-    cancellation: seed.cancellation
+    cancellation: seed.cancellation,
+    exit: seed.exit
   };
 }
 
@@ -421,7 +439,17 @@ const compactSeeds: CompactSeed[] = [
 { id: 'tr15', kind: 'Onboarding', name: ['Supun', 'Abeywickrama'], position: 'Mobile Engineer', templateId: 'tpl2', status: 'Cancelled', startedOn: '2026-08-12', targetDate: '2026-09-01', daysRemaining: 0, completedTasks: 1, managerIds: ['u9'],
   cancellation: { date: '2026-08-21', reason: 'The candidate declined the offer after accepting a counter-offer from their current employer.', cancelledBy: 'Nimal Perera', recordedAt: '2026-08-21T11:40:00' } },
 { id: 'tr16', kind: 'Offboarding', name: ['Pavithra', 'Liyanage'], position: 'HR Assistant', templateId: 'tpl5', status: 'Cancelled', startedOn: '2026-08-18', targetDate: '2026-09-08', daysRemaining: 0, completedTasks: 2, managerIds: ['u1'],
-  cancellation: { date: '2026-08-27', reason: 'Resignation withdrawn after a discussion with the reporting manager. Pavithra will continue in her current role.', cancelledBy: 'Dilani Jayawardena', recordedAt: '2026-08-27T15:05:00' } }];
+  cancellation: { date: '2026-08-27', reason: 'Resignation withdrawn after a discussion with the reporting manager. Pavithra will continue in her current role.', cancelledBy: 'Dilani Jayawardena', recordedAt: '2026-08-27T15:05:00' } },
+{ id: 'tr17', kind: 'Offboarding', name: ['Nethmi', 'Gunawardena'], position: 'Security Analyst', templateId: 'tpl5', status: 'Completed', startedOn: '2026-06-02', targetDate: '2026-06-30', daysRemaining: 0, completedTasks: 'all', managerIds: ['u6'],
+  exit: {
+    employeeId: 'emp8',
+    type: 'Involuntary',
+    reason: 'Redundancy',
+    dates: { 'Resignation Effective Date': '2026-06-01', 'Payroll Cut-off Date': '2026-06-25', 'Last Working Date': '2026-06-30', 'Actual Exit Date': '2026-06-30' },
+    documents: [
+    { id: 'exd-tr17-1', name: 'Redundancy_Notice_Nethmi_Gunawardena.pdf', bytes: 301056 },
+    { id: 'exd-tr17-2', name: 'Final_Settlement_Statement.docx', bytes: 88064 }]
+  } }];
 
 const compactTransitions: TransitionSeed[] = compactSeeds.map(compactSeed);
 
