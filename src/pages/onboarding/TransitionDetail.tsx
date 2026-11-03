@@ -28,6 +28,7 @@ import { TaskStatusBadge } from '../../components/tasks/TaskStatusBadge';
 import { dueLabel } from '../../components/tasks/OboTaskCard';
 import { NoSignInBadge } from '../../components/common/NoSignInBadge';
 import { useAppData } from '../../contexts/AppDataContext';
+import { useEmployeeData } from '../../contexts/EmployeeDataContext';
 import { offboardingMilestones, peopleById } from '../../data/people';
 import type {
   Department,
@@ -66,6 +67,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
     forms,
     templates
   } = useAppData();
+  const { logEmployeeChange } = useEmployeeData();
   const screenInit = useScreenInit() as {
     view?: View;
     openTask?: string;
@@ -197,12 +199,13 @@ function TransitionView({ transition }: {transition: Transition;}) {
         <div className="mb-5 flex items-start gap-3 rounded-xl bg-slate-50 px-4 py-3.5 ring-1 ring-inset ring-slate-200">
             <XCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
             <div className="min-w-0 text-[13px]">
-              <p className="font-medium text-ink">
-                Cancelled on {formatDate(transition.cancellation.date)} by{' '}
-                {transition.cancellation.cancelledBy}
-              </p>
+              <p className="font-medium text-ink">Cancelled on {formatDate(transition.cancellation.date)}</p>
               <p className="mt-1 whitespace-pre-line break-words leading-relaxed text-muted">
                 <span className="font-medium text-ink">Reason:</span> {transition.cancellation.reason}
+              </p>
+              <p className="mt-1.5 text-[12px] text-muted">
+                Cancelled by {transition.cancellation.cancelledBy} · recorded{' '}
+                {formatDateTime(transition.cancellation.recordedAt)}
               </p>
             </div>
           </div>
@@ -443,6 +446,14 @@ function TransitionView({ transition }: {transition: Transition;}) {
         onClose={closeCancel}
         onConfirm={(date, reason) => {
           cancelTransition(transition.id, date, reason);
+          // A leaver's record shows the offboarding was stopped.
+          if (transition.exit) {
+            logEmployeeChange(
+              transition.exit.employeeId,
+              'Offboarding cancelled',
+              `Cancellation date ${formatDate(date)} · ${reason}`
+            );
+          }
           setConfirmingCancel(false);
           setNotice(`${fullName}'s ${transition.kind.toLowerCase()} was cancelled.`);
         }} />

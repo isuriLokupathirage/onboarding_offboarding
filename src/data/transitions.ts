@@ -3,7 +3,7 @@ import { peopleById } from './people';
 import { seedTasks } from './tasks';
 import { seedTemplates } from './templates';
 import { seedForms } from './forms';
-import { addDays } from '../utils/format';
+import { addDays, formatDate } from '../utils/format';
 import { FORM_LINK_EXPIRY_DAYS, toTransitionTask } from '../utils/transitions';
 
 type TransitionSeed = Omit<
@@ -478,7 +478,7 @@ function seedAudit(transition: TransitionSeed): AuditEntry[] {
       action: 'Transition cancelled',
       actor: transition.cancellation.cancelledBy,
       at: transition.cancellation.recordedAt,
-      detail: transition.cancellation.reason
+      detail: `Cancellation date ${formatDate(transition.cancellation.date)} · ${transition.cancellation.reason}`
     });
   }
   return entries;

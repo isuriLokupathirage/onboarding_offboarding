@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangleIcon } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -75,7 +75,7 @@ export function CancelTransitionDialog({
           <motion.div
           role="dialog"
           aria-modal="true"
-          aria-label="Cancel Transition"
+          aria-label={`Cancel the ${kind} of ${fullName}`}
           initial={{ opacity: 0, scale: 0.96, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.98, y: 4 }}
@@ -83,10 +83,12 @@ export function CancelTransitionDialog({
           className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-xl bg-white shadow-pop">
 
             <div className="border-b border-line px-6 py-4">
-              <h2 className="text-base font-semibold text-ink">Cancel {kind}?</h2>
-              <p className="mt-1 text-[13px] text-muted">
-                You are cancelling the {kind} for{' '}
-                <span className="font-medium text-ink">{fullName}</span>.
+              <h2 className="text-base font-semibold text-ink">
+                Cancel the {kind} of {fullName}?
+              </h2>
+              <p className="mt-1 text-[13px] leading-relaxed text-muted">
+                All remaining tasks will be cancelled and removed from their owners&apos; task lists. Any portal or
+                form link already sent will stop working.
               </p>
             </div>
 
@@ -144,11 +146,7 @@ export function CancelTransitionDialog({
 
               <div className="mt-5 flex items-start gap-2.5 rounded-lg bg-red-50 px-3.5 py-3 ring-1 ring-inset ring-red-200">
                 <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
-                <p className="text-[13px] leading-relaxed text-red-900">
-                  <span className="font-medium">This action cannot be undone.</span> The remaining tasks are
-                  cancelled and removed from their owners&apos; My Tasks, and the candidate portal and any open
-                  form link stop working.
-                </p>
+                <p className="text-[13px] font-medium leading-relaxed text-red-900">This action cannot be undone.</p>
               </div>
             </div>
 

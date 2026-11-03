@@ -31,7 +31,7 @@ import {
   openFormEmail,
   statusGroup } from
 '../utils/transitions';
-import { addDays, nextCode } from '../utils/format';
+import { addDays, formatDate, nextCode } from '../utils/format';
 import { describeExitChanges, exitTargetDate, resolveExitDueDate } from '../utils/offboarding';
 import { formParts, partLabels } from '../utils/portal';
 
@@ -319,7 +319,7 @@ export function AppDataProvider({
             action: 'Transition cancelled',
             actor,
             at: recordedAt,
-            detail: reason
+            detail: `Cancellation date ${formatDate(date)} · ${reason}`
           }]
 
         };
