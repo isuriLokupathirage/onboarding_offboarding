@@ -34,6 +34,7 @@ import {
   hasTaskOwnedBy,
   isOverdue,
   statusGroup,
+  taskOwnerIds,
   transitionProgress,
   visibleKinds,
   type TransitionStatusGroup } from
@@ -444,7 +445,7 @@ function TransitionRow({
       </span>
 
       <span>
-        <AvatarGroup names={transition.ownerIds.map((id) => peopleById[id]?.name ?? '')} size="xs" />
+        <AvatarGroup names={taskOwnerIds(transition).map((id) => peopleById[id]?.name ?? id)} size="xs" />
       </span>
 
       <span className="text-[12px]">

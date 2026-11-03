@@ -118,6 +118,11 @@ export function visibleKinds(permissions: OboPermission[]): TransitionKind[] {
   return kinds;
 }
 
+/** Everyone who owns at least one task in the transition, in the order they first appear. */
+export function taskOwnerIds(transition: Transition): string[] {
+  return [...new Set(transition.tasks.flatMap((task) => task.ownerIds))];
+}
+
 export function hasTaskOwnedBy(transition: Transition, userId: string): boolean {
   return transition.tasks.some((task) => task.ownerIds.includes(userId));
 }
