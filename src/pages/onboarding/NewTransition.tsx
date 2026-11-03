@@ -19,14 +19,22 @@ import { Badge } from '../../components/ui/Badge';
 import { PeoplePicker } from '../../components/common/PeoplePicker';
 import { TransitionTaskSetupCard } from '../../components/onboarding/TransitionTaskSetupCard';
 import { CandidatePicker } from '../../components/onboarding/CandidatePicker';
+import { ExitDetailsStep } from '../../components/onboarding/ExitDetailsStep';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchableSelect, type SearchableOption } from '../../components/ui/SearchableSelect';
 import { useAppData } from '../../contexts/AppDataContext';
 import { jobTitles } from '../../data/jobTitles';
 import { recruitmentCandidates } from '../../data/recruitmentCandidates';
 import { useEmployeeData } from '../../contexts/EmployeeDataContext';
-import { people } from '../../data/people';
-import type { Employee, RecruitmentCandidate, TransitionKind, TransitionTask } from '../../types';
+import { offboardingMilestones, people } from '../../data/people';
+import type {
+  DueRule,
+  Employee,
+  ExitDetailsDraft,
+  RecruitmentCandidate,
+  TransitionKind,
+  TransitionTask } from
+'../../types';
 import { Segmented } from '../../components/ui/Segmented';
 import {
   baseDateLabel,
@@ -38,8 +46,19 @@ import { resolveDueDate } from '../../utils/format';
 import { managePermissionFor, toTransitionTask } from '../../utils/transitions';
 import { candidateCampaign, onboardableCandidates } from '../../utils/recruitment';
 import { offboardableEmployees } from '../../utils/employees';
+import {
+  exitDateUsage,
+  exitDetailsErrors,
+  exitReasonLabel,
+  exitTargetDate,
+  hasExitErrors,
+  resolveExitDueDate } from
+'../../utils/offboarding';
 
-const steps = ['Transition Type', 'Candidate Details', 'Tasks & Owners'];
+const stepsFor = (kind: TransitionKind | null) => [
+'Transition Type',
+kind === 'Offboarding' ? 'Exit Details' : 'Candidate Details',
+'Tasks & Owners'];
 const ALL_KINDS: TransitionKind[] = ['Onboarding', 'Offboarding'];
 
 interface Details {
@@ -83,25 +102,6 @@ function candidateDetails(candidate: RecruitmentCandidate | undefined): Details 
     gender: pick(candidate?.gender, GENDERS),
     country: pick(candidate?.country, COUNTRIES),
     address: pick(candidate?.address)
-  };
-}
-
-/**
- * Step 2 values from an employee record when offboarding. The Last Working Date isn't on the
- * record, so it is left for the user to enter.
- */
-function employeeDetails(employee: Employee | undefined): Details {
-  return {
-    firstName: pick(employee?.firstName),
-    lastName: pick(employee?.lastName),
-    email: pick(employee?.personalEmail),
-    mobile: pick(employee?.mobile),
-    jobTitle: pick(employee?.jobTitle, jobTitles),
-    hireDate: '',
-    dob: pick(employee?.record.dob),
-    gender: '',
-    country: '',
-    address: pick(employee?.record.permAddress)
   };
 }
 
@@ -163,21 +163,27 @@ export function NewTransition() {
   const [candidateId, setCandidateId] = useState<string>(() => initialCandidate()?.id ?? '');
   const [employeeId, setEmployeeId] = useState<string>(() => initialEmployee()?.id ?? '');
   const [templateId, setTemplateId] = useState<string>(screenInit.templateId ?? '');
-  const [submitted, setSubmitted] = useState(false);
+  // Design canvas screens can open a step with its validation already shown.
+  const [submitted, setSubmitted] = useState<boolean>(Boolean(screenInit.showErrors));
   const [addingTask, setAddingTask] = useState(false);
   const [grouping, setGrouping] = useState<SetupGrouping>(screenInit.grouping ?? 'department');
   const [collapsed, setCollapsed] = useState<string[]>([]);
 
-  // What Recruitment or the employee record supplied, kept so a field shows its source until edited.
-  const [prefill, setPrefill] = useState<Details>(() => {
-    const employee = initialEmployee();
-    return employee ? employeeDetails(employee) : candidateDetails(initialCandidate());
-  });
+  // What Recruitment supplied, kept so a field shows its source until edited.
+  const [prefill, setPrefill] = useState<Details>(() => candidateDetails(initialCandidate()));
   const [details, setDetails] = useState<Details>(prefill);
   const [managerIds, setManagerIds] = useState<string[]>(
     () => screenInit.managerIds ?? employeeManagerIds(initialEmployee())
   );
   const [setupTasks, setSetupTasks] = useState<TransitionTask[]>([]);
+  // Offboarding Step 2. Design canvas screens can preset any part of it.
+  const [exit, setExit] = useState<ExitDetailsDraft>(() => ({
+    type: 'Voluntary',
+    reason: '',
+    dates: {},
+    documents: [],
+    ...screenInit.exit
+  }));
 
   // Past Step 1 a type is always chosen; the fallback only keeps the types simple.
   const chosenKind: TransitionKind = kind ?? 'Onboarding';
@@ -186,16 +192,30 @@ export function NewTransition() {
   const selectedCandidate = candidates.find((candidate) => candidate.id === candidateId);
   const selectedCampaign = selectedCandidate ? candidateCampaign(selectedCandidate) : undefined;
   const selectedEmployee = leavers.find((employee) => employee.id === employeeId);
-  const isPrefilled = (key: DetailKey) =>
-  Boolean((candidateId || employeeId) && prefill[key] && details[key] === prefill[key]);
-  const prefillHint = (key: DetailKey, label?: string) =>
-  <PrefillHint show={isPrefilled(key)} label={selectedEmployee ? 'from employee record' : label} />;
+  const isPrefilled = (key: DetailKey) => Boolean(candidateId && prefill[key] && details[key] === prefill[key]);
+  const prefillHint = (key: DetailKey, label?: string) => <PrefillHint show={isPrefilled(key)} label={label} />;
   const activeTemplates = useMemo(
     () => templates.filter((t) => t.kind === kind && t.status === 'Active'),
     [templates, kind]
   );
   const template = templates.find((t) => t.id === templateId);
-  const step1Complete = Boolean(kind && activeTemplates.some((t) => t.id === templateId));
+  // An offboarding is always for an employee on record: Step 2 shows their details read-only.
+  const step1Complete = Boolean(
+    kind && activeTemplates.some((t) => t.id === templateId) && (kind !== 'Offboarding' || selectedEmployee)
+  );
+
+  const templateTasks = useMemo(
+    () => (template?.taskIds ?? []).flatMap((taskId) => tasks.filter((task) => task.id === taskId)),
+    [template, tasks]
+  );
+  // A date is mandatory only when a task in the selected template calculates its due date from it.
+  const dateUsage = useMemo(() => exitDateUsage(templateTasks), [templateTasks]);
+  const requiredExitDates = offboardingDatesIn(dateUsage);
+  const exitErrors = exitDetailsErrors(exit, requiredExitDates);
+  // Timeline groups are measured from this date.
+  const baseDate = chosenKind === 'Offboarding' ? exit.dates['Last Working Date'] ?? '' : hireDate;
+  const resolveRule = (rule: DueRule | null): string | null =>
+  chosenKind === 'Offboarding' ? resolveExitDueDate(rule, exit.dates) : resolveDueDate(rule, hireDate);
 
   /** Fills Step 2 from the picked candidate, or clears it for manual entry. */
   const selectCandidate = (id: string) => {
@@ -205,14 +225,10 @@ export function NewTransition() {
     setDetails(next);
   };
 
-  /** Fills Step 2 from the picked employee, or clears it for manual entry. */
+  /** The leaving employee. Their reporting manager becomes the transition owner. */
   const selectEmployee = (id: string) => {
     setEmployeeId(id);
-    const employee = leavers.find((item) => item.id === id);
-    const next = employeeDetails(employee);
-    setPrefill(next);
-    setDetails(next);
-    setManagerIds(employeeManagerIds(employee));
+    setManagerIds(employeeManagerIds(leavers.find((item) => item.id === id)));
   };
 
   const selectKind = (next: TransitionKind) => {
@@ -223,13 +239,14 @@ export function NewTransition() {
     if (next === 'Onboarding' && employeeId) selectEmployee('');
   };
 
-  const buildTasks = (id: string, hire: string): TransitionTask[] => {
+  const buildTasks = (id: string): TransitionTask[] => {
     const selected = templates.find((t) => t.id === id);
     if (!selected) return [];
-    return selected.taskIds.map((taskId) => {
-      const task = tasks.find((t) => t.id === taskId)!;
-      return toTransitionTask(task, `st-${taskId}`, resolveDueDate(task.dueRule, hire));
-    });
+    return selected.taskIds.flatMap((taskId) =>
+    tasks.
+    filter((t) => t.id === taskId).
+    map((task) => toTransitionTask(task, `st-${taskId}`, resolveRule(task.dueRule)))
+    );
   };
 
   useEffect(() => {
@@ -237,7 +254,7 @@ export function NewTransition() {
       // Design canvas screens can preset owners per library task id, e.g. { t1: ['u1', 'u13'] }.
       const presetOwners: Record<string, string[]> = screenInit.taskOwners ?? {};
       setSetupTasks(
-        buildTasks(screenInit.templateId, hireDate).map((task) =>
+        buildTasks(screenInit.templateId).map((task) =>
         presetOwners[task.taskId] ? { ...task, ownerIds: presetOwners[task.taskId] } : task
         )
       );
@@ -245,9 +262,11 @@ export function NewTransition() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Without the hire date or last working date there is nothing to place tasks before or after.
+  const canGroupByTimeline = Boolean(baseDate);
   const groups = useMemo(
-    () => groupSetupTasks(setupTasks, grouping, chosenKind, hireDate),
-    [setupTasks, grouping, chosenKind, hireDate]
+    () => groupSetupTasks(setupTasks, canGroupByTimeline ? grouping : 'department', chosenKind, baseDate),
+    [setupTasks, grouping, canGroupByTimeline, chosenKind, baseDate]
   );
   const departmentCount = new Set(setupTasks.map((task) => task.department)).size;
 
@@ -269,8 +288,8 @@ export function NewTransition() {
       return;
     }
     if (step === 1) {
-      if (!detailsValid) return;
-      setSetupTasks(buildTasks(templateId, hireDate));
+      if (chosenKind === 'Offboarding' ? hasExitErrors(exitErrors) : !detailsValid) return;
+      setSetupTasks(buildTasks(templateId));
       setCollapsed([]);
       setStep(2);
       setSubmitted(false);
@@ -286,15 +305,28 @@ export function NewTransition() {
       return;
     }
     const id = `tr-${Date.now()}`;
-    const target = new Date(hireDate);
-    const days = Math.max(
-      0,
-      Math.round((target.getTime() - new Date('2026-09-16').getTime()) / (1000 * 60 * 60 * 24))
-    );
+    const leaver = chosenKind === 'Offboarding' ? selectedEmployee : undefined;
+    const targetDate = leaver ? exitTargetDate(exit.dates) : hireDate;
+    const target = new Date(targetDate);
+    const days = Number.isNaN(target.getTime()) ?
+    0 :
+    Math.max(0, Math.round((target.getTime() - new Date('2026-09-16').getTime()) / (1000 * 60 * 60 * 24)));
     addTransition({
       id,
       kind: chosenKind,
-      candidate: {
+      candidate: leaver ?
+      {
+        firstName: leaver.firstName,
+        lastName: leaver.lastName,
+        personalEmail: leaver.personalEmail,
+        mobile: leaver.mobile,
+        position: leaver.jobTitle,
+        hireDate: targetDate,
+        reportingManagerIds: managerIds,
+        dateOfBirth: leaver.record.dob || undefined,
+        address: leaver.record.permAddress || undefined
+      } :
+      {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         personalEmail: email.trim(),
@@ -308,6 +340,7 @@ export function NewTransition() {
         address: address.trim() || undefined
         // No employee form yet: one is linked when it is sent with Send Form.
       },
+      exit: leaver ? { ...exit, employeeId: leaver.id, otherReason: exit.otherReason?.trim() || undefined } : undefined,
       templateId,
       templateName: template?.name ?? '',
       status: 'On Track',
@@ -315,7 +348,7 @@ export function NewTransition() {
       portalAccess: 'Active',
       portalExpiresAt: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
       startedOn: new Date().toISOString().slice(0, 10),
-      targetDate: hireDate,
+      targetDate,
       daysRemaining: days,
       ownerIds: managerIds,
       tasks: setupTasks,
@@ -328,7 +361,7 @@ export function NewTransition() {
         action: 'Transition started',
         actor: 'Nimal Perera',
         at: new Date().toISOString(),
-        detail: template?.name
+        detail: leaver ? `${template?.name} · ${exit.type}: ${exitReasonLabel(exit)}` : template?.name
       }],
       formStatus: 'Not Sent'
     });
@@ -369,7 +402,7 @@ export function NewTransition() {
         backLabel="Back to Transitions"
         meta={
         <div className="mt-4">
-            <WizardSteps steps={steps} current={step} />
+            <WizardSteps steps={stepsFor(kind)} current={step} />
           </div>
         } />
       
@@ -437,9 +470,7 @@ export function NewTransition() {
               }
                   {kind === 'Offboarding' &&
               <div>
-                      <FieldGroup
-                  label="Select Employee"
-                  hint={<span className="text-[11px] text-subtle">Optional</span>}>
+                      <FieldGroup label="Select Employee" required>
 
                         <SearchableSelect
                     options={employeeOptions}
@@ -448,13 +479,12 @@ export function NewTransition() {
                     placeholder="Select an employee"
                     searchPlaceholder="Search by name, code or email"
                     emptyText="No active employees without an offboarding in progress"
-                    clearable
                     withAvatars />
 
                       </FieldGroup>
                       <p className="mt-1.5 text-[12px] text-muted">
-                        Active employees without an offboarding in progress. Picking one fills in their details
-                        in the next step; leave it blank to enter them yourself.
+                        Active employees without an offboarding in progress. Their details are shown for
+                        reference in the next step.
                       </p>
                     </div>
               }
@@ -483,7 +513,24 @@ export function NewTransition() {
             </div>
           }
 
-          {step === 1 &&
+          {step === 1 && chosenKind === 'Offboarding' && selectedEmployee &&
+          <>
+              <ExitDetailsStep
+              employee={selectedEmployee}
+              exit={exit}
+              onChange={setExit}
+              dateUsage={dateUsage}
+              templateName={template?.name ?? 'the selected template'}
+              errors={exitErrors}
+              showErrors={submitted} />
+
+              {submitted && hasExitErrors(exitErrors) &&
+            <p className="mt-5 text-[12px] text-red-600">Complete the highlighted fields to continue.</p>
+            }
+            </>
+          }
+
+          {step === 1 && chosenKind === 'Onboarding' &&
           <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
               {selectedCandidate &&
             <div className="sm:col-span-2 flex items-start gap-2.5 rounded-lg bg-sky-50 px-3.5 py-2.5 text-[13px] leading-relaxed text-sky-900 ring-1 ring-inset ring-sky-200">
@@ -492,16 +539,6 @@ export function NewTransition() {
                     Pre-filled from {selectedCandidate.firstName} {selectedCandidate.lastName}&apos;s application
                     {selectedCampaign && <> and the {selectedCampaign.name} campaign</>}. Check the values and
                     complete anything left blank. Every field can be edited.
-                  </span>
-                </div>
-            }
-              {selectedEmployee &&
-            <div className="sm:col-span-2 flex items-start gap-2.5 rounded-lg bg-sky-50 px-3.5 py-2.5 text-[13px] leading-relaxed text-sky-900 ring-1 ring-inset ring-sky-200">
-                  <SparklesIcon className="mt-0.5 h-4 w-4 shrink-0 text-sky-700" />
-                  <span>
-                    Pre-filled from {selectedEmployee.firstName} {selectedEmployee.lastName}&apos;s employee record (
-                    {selectedEmployee.code}). Enter the last working date and check the other values. Every field
-                    can be edited.
                   </span>
                 </div>
             }
@@ -555,7 +592,7 @@ export function NewTransition() {
                 <FieldError message={showError('jobTitle')} />
               </FieldGroup>
               <FieldGroup
-              label={chosenKind === 'Offboarding' ? 'Last Working Date' : 'Hire Date'}
+              label="Hire Date"
               required
               hint={prefillHint('hireDate')}>
                 <Input
@@ -623,8 +660,9 @@ export function NewTransition() {
                     {setupTasks.length} tasks across {departmentCount} departments
                   </p>
                   <p className="text-[12px] text-muted">
-                    Due dates are calculated from the {baseDateLabel(chosenKind).toLowerCase()} and can be
-                    overridden per task. Adding or removing tasks changes this transition only, not the
+                    Due dates are calculated from the{' '}
+                    {chosenKind === 'Offboarding' ? 'exit dates' : baseDateLabel(chosenKind).toLowerCase()} and can
+                    be overridden per task. Adding or removing tasks changes this transition only, not the
                     template.
                   </p>
                 </div>
@@ -633,9 +671,9 @@ export function NewTransition() {
                   size="sm"
                   options={[
                   { value: 'department', label: 'Department' },
-                  { value: 'timeline', label: 'Timeline' }]
+                  ...(canGroupByTimeline ? [{ value: 'timeline' as const, label: 'Timeline' }] : [])]
                   }
-                  value={grouping}
+                  value={canGroupByTimeline ? grouping : 'department'}
                   onChange={(next) => {
                     setGrouping(next);
                     setCollapsed([]);
@@ -675,7 +713,7 @@ export function NewTransition() {
                   onClick={() => {
                     setSetupTasks((prev) => [
                     ...prev,
-                    toTransitionTask(task, `st-${task.id}`, resolveDueDate(task.dueRule, hireDate))]
+                    toTransitionTask(task, `st-${task.id}`, resolveRule(task.dueRule))]
                     );
                     setAddingTask(false);
                   }}
@@ -730,7 +768,7 @@ export function NewTransition() {
                         key={task.id}
                         task={task}
                         kind={chosenKind}
-                        hireDate={hireDate}
+                        resolveRule={resolveRule}
                         showErrors={submitted}
                         ownerSearch={screenInit.ownerSearch?.taskId === task.taskId ? screenInit.ownerSearch.query : undefined}
                         onChange={(patch) =>
@@ -829,4 +867,9 @@ function KindCard({
       <p className="mt-0.5 text-[12px] text-muted">{disabled ? disabledReason : description}</p>
     </button>);
 
+}
+
+/** The exit dates at least one template task uses, in Step 2 order. */
+function offboardingDatesIn(usage: ReturnType<typeof exitDateUsage>) {
+  return offboardingMilestones.filter((milestone) => (usage[milestone] ?? 0) > 0);
 }

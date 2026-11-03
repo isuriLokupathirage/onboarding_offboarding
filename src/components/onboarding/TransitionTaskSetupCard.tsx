@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { AlertCircleIcon, CalendarIcon, InfoIcon, PencilIcon, RotateCcwIcon, Trash2Icon } from 'lucide-react';
-import type { Milestone, Person, TransitionKind, TransitionTask } from '../../types';
+import type { DueRule, Milestone, Person, TransitionKind, TransitionTask } from '../../types';
 import { Badge, DepartmentChip, PriorityBadge } from '../ui/Badge';
 import { Input, Select } from '../ui/Field';
 import { PillToggle } from '../ui/Toggle';
 import { PeoplePicker } from '../common/PeoplePicker';
 import { NO_SIGN_IN_NOTE } from '../common/NoSignInBadge';
 import { milestonesFor, peopleById } from '../../data/people';
-import { formatDate, resolveDueDate } from '../../utils/format';
+import { formatDate } from '../../utils/format';
 
 // Only holders of Update Task Progress (obo.task.progress) are offered as owners.
 const canOwnTasks = (person: Person) => person.canUpdateTaskProgress;
@@ -15,7 +15,7 @@ const canOwnTasks = (person: Person) => person.canUpdateTaskProgress;
 export function TransitionTaskSetupCard({
   task,
   kind = 'Onboarding',
-  hireDate,
+  resolveRule,
   showErrors,
   onChange,
   onRemove,
@@ -27,13 +27,13 @@ export function TransitionTaskSetupCard({
 
 
 
-}: {task: TransitionTask;kind?: TransitionKind;hireDate: string;/** Set once the user has tried to create the transition. */showErrors: boolean;onChange: (patch: Partial<TransitionTask>) => void;onRemove: () => void;/** Design canvas only: opens the owner picker with this search typed. */ownerSearch?: string;}) {
+}: {task: TransitionTask;kind?: TransitionKind;/** Resolves a due date rule from the transition's dates (hire date, or the exit dates). */resolveRule: (rule: DueRule) => string | null;/** Set once the user has tried to create the transition. */showErrors: boolean;onChange: (patch: Partial<TransitionTask>) => void;onRemove: () => void;/** Design canvas only: opens the owner picker with this search typed. */ownerSearch?: string;}) {
   const [editing, setEditing] = useState(false);
   const [mode, setMode] = useState<'relative' | 'exact'>('relative');
   const [amount, setAmount] = useState('3');
   const [unit, setUnit] = useState<'days' | 'weeks' | 'months'>('days');
   const [direction, setDirection] = useState<'before' | 'after'>('after');
-  const [milestone, setMilestone] = useState<Milestone>(milestonesFor(kind)[kind === 'Onboarding' ? 0 : 4]);
+  const [milestone, setMilestone] = useState<Milestone>(kind === 'Onboarding' ? 'Hire Date' : 'Last Working Date');
 
   const dateRequired = task.showInCandidateEvents;
   const dateMissing = !task.dueDate;
@@ -60,16 +60,13 @@ export function TransitionTaskSetupCard({
     setUnit(value.unit);
     setDirection(value.direction);
     setMilestone(value.milestone);
-    const resolved = resolveDueDate(
-      {
-        kind: 'relative',
-        amount: Number(value.amount) || 0,
-        unit: value.unit,
-        direction: value.direction,
-        milestone: value.milestone
-      },
-      hireDate
-    );
+    const resolved = resolveRule({
+      kind: 'relative',
+      amount: Number(value.amount) || 0,
+      unit: value.unit,
+      direction: value.direction,
+      milestone: value.milestone
+    });
     onChange({ dueDate: resolved, dueSource: 'override' });
   };
 

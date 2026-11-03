@@ -35,6 +35,30 @@ export type OffboardingMilestone =
 
 export type Milestone = OnboardingMilestone | OffboardingMilestone;
 
+/** Who started the exit. Each type has its own list of exit reasons. */
+export type OffboardingType = 'Voluntary' | 'Involuntary' | 'Mutual';
+
+/** A document attached when starting an offboarding. `bytes` counts towards the 25 MB total. */
+export interface ExitDocument {
+  id: string;
+  name: string;
+  bytes: number;
+}
+
+/** The part of an offboarding's Step 2 that is entered, before it is tied to the employee. */
+export type ExitDetailsDraft = Omit<ExitDetails, 'employeeId'>;
+
+/** What Step 2 of an offboarding records: why the employee is leaving, the exit dates and documents. */
+export interface ExitDetails {
+  employeeId: string;
+  type: OffboardingType;
+  reason: string;
+  /** Only when the reason is Other. */
+  otherReason?: string;
+  dates: Partial<Record<OffboardingMilestone, string>>;
+  documents: ExitDocument[];
+}
+
 export type DueRule =
 {
   kind: 'relative';
@@ -248,6 +272,8 @@ export interface Transition {
   formStatus: FormSubmissionStatus;
   submissions: FormSubmission[];
   cancellation?: TransitionCancellation;
+  /** Offboarding only: the exit type, reason, dates and documents from Step 2. */
+  exit?: ExitDetails;
   auditTrail: AuditEntry[];
 }
 

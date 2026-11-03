@@ -39,7 +39,11 @@ export const manifest = {
     scr_so3act: { name: "Start Offboarding – Offboarding in Progress", route: "/employees/emp9", state: { "tab": "basic" }, position: { "x": 7160, "y": 4180 } },
     scr_so4prm: { name: "Start Offboarding – No Permission", route: "/employees/emp1", state: { "tab": "basic", "withoutOffboardingPermission": true }, position: { "x": 8560, "y": 4180 } },
     scr_so5wiz: { name: "New Transition – Offboarding from Employee", route: "/onboarding/transitions/new", state: { "from": "employee", "employeeId": "emp1" }, position: { "x": 9960, "y": 4180 } },
-    scr_so6det: { name: "New Transition – Employee Details Pre-filled", route: "/onboarding/transitions/new", state: { "from": "employee", "employeeId": "emp1", "step": 1, "templateId": "tpl5" }, position: { "x": 11360, "y": 4180 } },
+    scr_so6det: { name: "New Transition – Exit Details", route: "/onboarding/transitions/new", state: { "from": "employee", "employeeId": "emp1", "step": 1, "templateId": "tpl5" }, position: { "x": 11360, "y": 4180 } },
+    scr_ex1oth: { name: "Exit Details – Other Reason and Documents", route: "/onboarding/transitions/new", state: { "from": "employee", "employeeId": "emp1", "step": 1, "templateId": "tpl5", "exit": { "type": "Involuntary", "reason": "Other", "otherReason": "", "dates": { "Last Working Date": "2026-11-28" }, "documents": [{ "id": "exd-1", "name": "Termination_Letter.pdf", "bytes": 248832 }, { "id": "exd-2", "name": "Disciplinary_Hearing_Minutes.docx", "bytes": 1153434 }] } }, position: { "x": 12760, "y": 4180 } },
+    scr_ex2err: { name: "Exit Details – Missing Required Fields", route: "/onboarding/transitions/new", state: { "from": "employee", "employeeId": "emp1", "step": 1, "templateId": "tpl5", "showErrors": true, "exit": { "type": "Voluntary", "reason": "", "dates": { "Resignation Effective Date": "2026-10-30" }, "documents": [] } }, position: { "x": 14160, "y": 4180 } },
+    scr_ex3int: { name: "Exit Details – Intern Template (Fewer Mandatory Dates)", route: "/onboarding/transitions/new", state: { "from": "employee", "employeeId": "emp1", "step": 1, "templateId": "tpl7" }, position: { "x": 15560, "y": 4180 } },
+    scr_ex4tsk: { name: "New Transition – Offboarding Tasks from Exit Dates", route: "/onboarding/transitions/new", state: { "from": "employee", "employeeId": "emp1", "step": 2, "templateId": "tpl5", "exit": { "type": "Voluntary", "reason": "Better Employment Opportunity", "dates": { "Resignation Effective Date": "2026-10-30", "Notice Period Start Date": "2026-10-30", "Payroll Cut-off Date": "2026-11-25", "Last Working Date": "2026-11-28", "Actual Exit Date": "2026-11-30" }, "documents": [] } }, position: { "x": 16960, "y": 4180 } },
     scr_r1lgnr: { name: "Employee Forms", route: "/templates/forms/employee", position: { "x": 160, "y": 6160 } },
     scr_wx26x6: { name: "Form – Details", route: "/templates/forms/employee/frm1", state: { "tab": "details" }, position: { "x": 1560, "y": 6160 } },
     scr_uf15z8: { name: "Form – Employee Details", route: "/templates/forms/employee/frm1", state: { "tab": "employee" }, position: { "x": 2960, "y": 6160 } },
@@ -119,7 +123,11 @@ export const manifest = {
     { kind: "screen", id: "scr_so3act" },
     { kind: "screen", id: "scr_so4prm" },
     { kind: "screen", id: "scr_so5wiz" },
-    { kind: "screen", id: "scr_so6det" }]
+    { kind: "screen", id: "scr_so6det" },
+    { kind: "screen", id: "scr_ex1oth" },
+    { kind: "screen", id: "scr_ex2err" },
+    { kind: "screen", id: "scr_ex3int" },
+    { kind: "screen", id: "scr_ex4tsk" }]
   },
   { kind: "section", id: "sec_luokg9", children: [
     { kind: "screen", id: "scr_r1lgnr" },

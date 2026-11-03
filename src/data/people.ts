@@ -77,8 +77,8 @@ export const offboardingMilestones: OffboardingMilestone[] = [
 'Resignation Effective Date',
 'Notice Period Start Date',
 'Payroll Cut-off Date',
-'Actual Exit Date',
-'Last Working Date'];
+'Last Working Date',
+'Actual Exit Date'];
 
 
 /** The milestones a task's due date can use: onboarding and offboarding each have their own. */
