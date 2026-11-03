@@ -57,7 +57,6 @@ const baseTransitions: TransitionSeed[] = [
   status: 'On Track',
   startedOn: '2026-09-08',
   targetDate: '2026-09-21',
-  daysRemaining: 5,
   ownerIds: ['u1', 'u2', 'u4'],
   tasks: buildTasks('tpl1', '2026-09-21', {
     t1: { status: 'Completed' },
@@ -149,7 +148,6 @@ const baseTransitions: TransitionSeed[] = [
   status: 'On Track',
   startedOn: '2026-09-12',
   targetDate: '2026-09-28',
-  daysRemaining: 12,
   ownerIds: ['u1', 'u3'],
   tasks: buildTasks('tpl1', '2026-09-28', {
     t1: { status: 'Completed' },
@@ -219,7 +217,6 @@ const baseTransitions: TransitionSeed[] = [
   status: 'At Risk',
   startedOn: '2026-08-29',
   targetDate: '2026-09-18',
-  daysRemaining: 2,
   ownerIds: ['u1', 'u5', 'u6'],
   tasks: buildTasks('tpl5', '2026-09-18', {
     t20: { status: 'Completed' },
@@ -251,7 +248,6 @@ const baseTransitions: TransitionSeed[] = [
   status: 'On Track',
   startedOn: '2026-09-15',
   targetDate: '2026-10-05',
-  daysRemaining: 19,
   ownerIds: ['u2', 'u9'],
   tasks: buildTasks('tpl2', '2026-10-05', {
     t2: { status: 'In Progress' },
@@ -286,7 +282,6 @@ const baseTransitions: TransitionSeed[] = [
   status: 'On Track',
   startedOn: '2026-09-14',
   targetDate: '2026-10-12',
-  daysRemaining: 26,
   ownerIds: ['u6', 'u10'],
   tasks: buildTasks('tpl6', '2026-10-12', { t20: { status: 'In Progress' } }),
   emails: [],
@@ -311,7 +306,6 @@ const baseTransitions: TransitionSeed[] = [
   status: 'On Track',
   startedOn: '2026-08-31',
   targetDate: '2026-09-17',
-  daysRemaining: 1,
   ownerIds: ['u1', 'u5'],
   tasks: buildTasks('tpl3', '2026-09-17', {
     t1: { status: 'Completed' },
@@ -384,7 +378,6 @@ interface CompactSeed {
   status: Transition['status'];
   startedOn: string;
   targetDate: string;
-  daysRemaining: number;
   completedTasks: number | 'all';
   managerIds: string[];
   cancellation?: TransitionCancellation;
@@ -417,7 +410,6 @@ function compactSeed(seed: CompactSeed): TransitionSeed {
     status: seed.status,
     startedOn: seed.startedOn,
     targetDate: seed.targetDate,
-    daysRemaining: seed.daysRemaining,
     ownerIds: [...new Set(tasks.flatMap((task) => task.ownerIds))],
     tasks,
     emails: [],
@@ -428,19 +420,19 @@ function compactSeed(seed: CompactSeed): TransitionSeed {
 }
 
 const compactSeeds: CompactSeed[] = [
-{ id: 'tr7', kind: 'Onboarding', name: ['Sachini', 'Perera'], position: 'Frontend Engineer', templateId: 'tpl2', status: 'At Risk', startedOn: '2026-08-25', targetDate: '2026-09-12', daysRemaining: -4, completedTasks: 2, managerIds: ['u9'] },
-{ id: 'tr8', kind: 'Onboarding', name: ['Dinuka', 'Herath'], position: 'Data Analyst', templateId: 'tpl2', status: 'On Track', startedOn: '2026-09-10', targetDate: '2026-10-01', daysRemaining: 15, completedTasks: 1, managerIds: ['u4'] },
-{ id: 'tr9', kind: 'Offboarding', name: ['Kavindi', 'Samarasinghe'], position: 'Software Intern', templateId: 'tpl7', status: 'On Track', startedOn: '2026-09-09', targetDate: '2026-09-30', daysRemaining: 14, completedTasks: 1, managerIds: ['u9'] },
-{ id: 'tr10', kind: 'Onboarding', name: ['Ravindu', 'Jayasuriya'], position: 'Solutions Consultant', templateId: 'tpl4', status: 'On Track', startedOn: '2026-09-11', targetDate: '2026-09-25', daysRemaining: 9, completedTasks: 2, managerIds: ['u1'] },
-{ id: 'tr11', kind: 'Offboarding', name: ['Lahiru', 'Gamage'], position: 'Payroll Assistant', templateId: 'tpl5', status: 'At Risk', startedOn: '2026-08-20', targetDate: '2026-09-10', daysRemaining: -6, completedTasks: 3, managerIds: ['u5'] },
-{ id: 'tr12', kind: 'Onboarding', name: ['Oshadi', 'Fonseka'], position: 'UX Designer', templateId: 'tpl1', status: 'Completed', startedOn: '2026-07-20', targetDate: '2026-08-04', daysRemaining: 0, completedTasks: 'all', managerIds: ['u4'] },
-{ id: 'tr13', kind: 'Offboarding', name: ['Nuwan', 'Karunaratne'], position: 'Network Engineer', templateId: 'tpl6', status: 'Completed', startedOn: '2026-07-01', targetDate: '2026-07-31', daysRemaining: 0, completedTasks: 'all', managerIds: ['u2'] },
-{ id: 'tr14', kind: 'Onboarding', name: ['Ishani', 'Wijesekara'], position: 'Accounts Executive', templateId: 'tpl3', status: 'Completed', startedOn: '2026-08-03', targetDate: '2026-08-18', daysRemaining: 0, completedTasks: 'all', managerIds: ['u5'] },
-{ id: 'tr15', kind: 'Onboarding', name: ['Supun', 'Abeywickrama'], position: 'Mobile Engineer', templateId: 'tpl2', status: 'Cancelled', startedOn: '2026-08-12', targetDate: '2026-09-01', daysRemaining: 0, completedTasks: 1, managerIds: ['u9'],
+{ id: 'tr7', kind: 'Onboarding', name: ['Sachini', 'Perera'], position: 'Frontend Engineer', templateId: 'tpl2', status: 'At Risk', startedOn: '2026-08-25', targetDate: '2026-09-12', completedTasks: 2, managerIds: ['u9'] },
+{ id: 'tr8', kind: 'Onboarding', name: ['Dinuka', 'Herath'], position: 'Data Analyst', templateId: 'tpl2', status: 'On Track', startedOn: '2026-09-10', targetDate: '2026-10-01', completedTasks: 1, managerIds: ['u4'] },
+{ id: 'tr9', kind: 'Offboarding', name: ['Kavindi', 'Samarasinghe'], position: 'Software Intern', templateId: 'tpl7', status: 'On Track', startedOn: '2026-09-09', targetDate: '2026-09-30', completedTasks: 1, managerIds: ['u9'] },
+{ id: 'tr10', kind: 'Onboarding', name: ['Ravindu', 'Jayasuriya'], position: 'Solutions Consultant', templateId: 'tpl4', status: 'On Track', startedOn: '2026-09-11', targetDate: '2026-09-25', completedTasks: 2, managerIds: ['u1'] },
+{ id: 'tr11', kind: 'Offboarding', name: ['Lahiru', 'Gamage'], position: 'Payroll Assistant', templateId: 'tpl5', status: 'At Risk', startedOn: '2026-08-20', targetDate: '2026-09-10', completedTasks: 3, managerIds: ['u5'] },
+{ id: 'tr12', kind: 'Onboarding', name: ['Oshadi', 'Fonseka'], position: 'UX Designer', templateId: 'tpl1', status: 'Completed', startedOn: '2026-07-20', targetDate: '2026-08-04', completedTasks: 'all', managerIds: ['u4'] },
+{ id: 'tr13', kind: 'Offboarding', name: ['Nuwan', 'Karunaratne'], position: 'Network Engineer', templateId: 'tpl6', status: 'Completed', startedOn: '2026-07-01', targetDate: '2026-07-31', completedTasks: 'all', managerIds: ['u2'] },
+{ id: 'tr14', kind: 'Onboarding', name: ['Ishani', 'Wijesekara'], position: 'Accounts Executive', templateId: 'tpl3', status: 'Completed', startedOn: '2026-08-03', targetDate: '2026-08-18', completedTasks: 'all', managerIds: ['u5'] },
+{ id: 'tr15', kind: 'Onboarding', name: ['Supun', 'Abeywickrama'], position: 'Mobile Engineer', templateId: 'tpl2', status: 'Cancelled', startedOn: '2026-08-12', targetDate: '2026-09-01', completedTasks: 1, managerIds: ['u9'],
   cancellation: { date: '2026-08-21', reason: 'The candidate declined the offer after accepting a counter-offer from their current employer.', cancelledBy: 'Nimal Perera', recordedAt: '2026-08-21T11:40:00' } },
-{ id: 'tr16', kind: 'Offboarding', name: ['Pavithra', 'Liyanage'], position: 'HR Assistant', templateId: 'tpl5', status: 'Cancelled', startedOn: '2026-08-18', targetDate: '2026-09-08', daysRemaining: 0, completedTasks: 2, managerIds: ['u1'],
+{ id: 'tr16', kind: 'Offboarding', name: ['Pavithra', 'Liyanage'], position: 'HR Assistant', templateId: 'tpl5', status: 'Cancelled', startedOn: '2026-08-18', targetDate: '2026-09-08', completedTasks: 2, managerIds: ['u1'],
   cancellation: { date: '2026-08-27', reason: 'Resignation withdrawn after a discussion with the reporting manager. Pavithra will continue in her current role.', cancelledBy: 'Dilani Jayawardena', recordedAt: '2026-08-27T15:05:00' } },
-{ id: 'tr17', kind: 'Offboarding', name: ['Nethmi', 'Gunawardena'], position: 'Security Analyst', templateId: 'tpl5', status: 'Completed', startedOn: '2026-06-02', targetDate: '2026-06-30', daysRemaining: 0, completedTasks: 'all', managerIds: ['u6'],
+{ id: 'tr17', kind: 'Offboarding', name: ['Nethmi', 'Gunawardena'], position: 'Security Analyst', templateId: 'tpl5', status: 'Completed', startedOn: '2026-06-02', targetDate: '2026-06-30', completedTasks: 'all', managerIds: ['u6'],
   exit: {
     employeeId: 'emp8',
     type: 'Involuntary',

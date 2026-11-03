@@ -307,10 +307,6 @@ export function NewTransition() {
     const id = `tr-${Date.now()}`;
     const leaver = chosenKind === 'Offboarding' ? selectedEmployee : undefined;
     const targetDate = leaver ? exitTargetDate(exit.dates) : hireDate;
-    const target = new Date(targetDate);
-    const days = Number.isNaN(target.getTime()) ?
-    0 :
-    Math.max(0, Math.round((target.getTime() - new Date('2026-09-16').getTime()) / (1000 * 60 * 60 * 24)));
     addTransition({
       id,
       kind: chosenKind,
@@ -349,7 +345,6 @@ export function NewTransition() {
       portalExpiresAt: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
       startedOn: new Date().toISOString().slice(0, 10),
       targetDate,
-      daysRemaining: days,
       ownerIds: managerIds,
       tasks: setupTasks,
       emails: [],

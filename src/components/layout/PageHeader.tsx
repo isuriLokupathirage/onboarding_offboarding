@@ -10,7 +10,8 @@ export function PageHeader({
   backTo,
   backLabel,
   meta,
-  breadcrumb
+  breadcrumb,
+  leading
 
 
 
@@ -18,7 +19,7 @@ export function PageHeader({
 
 
 
-}: {title: string;subtitle?: string;actions?: React.ReactNode;backTo?: string;backLabel?: string;meta?: React.ReactNode;breadcrumb?: {label: string;to?: string;}[];}) {
+}: {title: string;subtitle?: string;actions?: React.ReactNode;backTo?: string;backLabel?: string;meta?: React.ReactNode;breadcrumb?: {label: string;to?: string;}[]; /** Shown before the title, such as an avatar. */leading?: React.ReactNode;}) {
   const sidebar = useSidebarControl();
 
   // With a breadcrumb the header is a slim top bar: sidebar toggle, trail, then actions.
@@ -83,10 +84,13 @@ export function PageHeader({
         </Link>
       }
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight text-ink">{title}</h1>
-          {subtitle && <p className="mt-1 max-w-2xl text-[13px] text-muted">{subtitle}</p>}
-          {meta}
+        <div className="flex min-w-0 items-start gap-3.5">
+          {leading}
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight text-ink">{title}</h1>
+            {subtitle && <p className="mt-1 max-w-2xl text-[13px] text-muted">{subtitle}</p>}
+            {meta}
+          </div>
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>

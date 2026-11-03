@@ -36,6 +36,7 @@ import {
   statusGroup,
   taskOwnerIds,
   transitionProgress,
+  transitionTargetDate,
   visibleKinds,
   type TransitionStatusGroup } from
 '../../utils/transitions';
@@ -457,7 +458,7 @@ function TransitionRow({
           }
           {daysLabel(transition)}
         </span>
-        <span className="mt-0.5 block pl-5 text-muted">{formatDate(transition.targetDate)}</span>
+        <span className="mt-0.5 block pl-5 text-muted">{formatDate(transitionTargetDate(transition))}</span>
       </span>
 
       <span className="flex justify-end gap-1" onClick={(event) => event.stopPropagation()}>

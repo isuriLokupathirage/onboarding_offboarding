@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import {
   AlertTriangleIcon,
@@ -43,11 +43,14 @@ import {
   isOverdue,
   managePermissionFor,
   statusGroup,
-  transitionProgress } from
+  transitionProgress,
+  transitionTargetDate } from
 '../../utils/transitions';
 import { useScreenInit } from '../../useScreenInit.js';
 
-type View = 'tasks' | 'emails';
+/** 'emails' is the Form Access tab: forms sent to the candidate and whether they can still open them. */
+type View = 'tasks' | 'emails' | 'audit';
+const VIEWS: View[] = ['tasks', 'emails', 'audit'];
 
 export function TransitionDetail() {
   const { transitionId } = useParams();
@@ -67,7 +70,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
     forms,
     templates
   } = useAppData();
-  const { logEmployeeChange } = useEmployeeData();
+  const { employees, logEmployeeChange } = useEmployeeData();
   const screenInit = useScreenInit() as {
     view?: View;
     openTask?: string;
@@ -79,7 +82,9 @@ function TransitionView({ transition }: {transition: Transition;}) {
   const [submissionEmailId, setSubmissionEmailId] = useState<string | null>(
     screenInit.submission ? transition.submissions[0]?.emailId ?? null : null
   );
-  const [view, setView] = useState<View>(screenInit.view === 'emails' ? 'emails' : 'tasks');
+  const [view, setView] = useState<View>(
+    screenInit.view && VIEWS.includes(screenInit.view) ? screenInit.view : 'tasks'
+  );
   const [openTaskId, setOpenTaskId] = useState<string | null>(screenInit.openTask ?? null);
   const [confirmingCancel, setConfirmingCancel] = useState(Boolean(screenInit.cancel));
   const [notice, setNotice] = useState<string | null>(null);
@@ -88,6 +93,21 @@ function TransitionView({ transition }: {transition: Transition;}) {
   const { done, total, percent } = transitionProgress(transition);
   const active = statusGroup(transition) === 'Active';
   const overdue = isOverdue(transition);
+  // A leaver's details come from their employee record when the transition doesn't hold them.
+  // Their hire date is the day they joined, not the exit date stored on the transition.
+  const leaver = transition.exit ?
+  employees.find((employee) => employee.id === transition.exit?.employeeId) :
+  undefined;
+  const employeeHireDate = leaver?.joinedOn;
+  const address = transition.candidate.address ?? leaver?.record.permAddress;
+  const dateOfBirth = transition.candidate.dateOfBirth ?? leaver?.record.dob;
+  const gender = transition.candidate.gender ?? leaver?.record.gender;
+  const targetDate = transitionTargetDate(transition);
+  const isLeaver = transition.kind === 'Offboarding';
+  const auditTrail = useMemo(
+    () => [...transition.auditTrail].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()),
+    [transition.auditTrail]
+  );
   const canCancel = active && hasOboPermission(managePermissionFor(transition.kind));
   // Exit details can change while the offboarding is in progress, by whoever can manage it.
   const canEditExit = Boolean(transition.exit) && canCancel;
@@ -133,6 +153,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
         title={fullName}
         backTo="/onboarding/transitions"
         backLabel="Back to Transitions"
+        leading={<Avatar name={fullName} size="lg" />}
         meta={
         <div className="mt-2 flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-2 text-[13px] text-ink">
@@ -163,7 +184,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
               overdue ? 'font-medium text-red-600' : 'text-muted'}`
               }>
 
-                {daysLabel(transition)} · {formatDate(transition.targetDate)}
+                {daysLabel(transition)} · Target {formatDate(targetDate)}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -216,7 +237,8 @@ function TransitionView({ transition }: {transition: Transition;}) {
             <Tabs
               options={[
               { value: 'tasks', label: 'Tasks', count: total },
-              { value: 'emails', label: 'Email history', count: transition.emails.length }]
+              { value: 'emails', label: 'Form Access', count: transition.emails.length },
+              { value: 'audit', label: 'Audit Trail', count: auditTrail.length }]
               }
               value={view}
               onChange={setView} />
@@ -228,7 +250,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
               <section key={department} className="overflow-hidden rounded-xl border border-line bg-white">
                     <div className="flex items-center gap-2.5 border-b border-line bg-slate-50/70 px-4 py-2.5">
                       <h2 className="text-[13px] font-medium text-ink">{department}</h2>
-                      <Badge>{tasks.length} tasks</Badge>
+                      <Badge>{tasks.length} task{tasks.length === 1 ? '' : 's'}</Badge>
                       <span className="ml-auto text-[12px] text-muted">
                         {tasks.filter((t) => t.status === 'Completed').length} complete
                       </span>
@@ -292,23 +314,48 @@ function TransitionView({ transition }: {transition: Transition;}) {
               }}
               onViewSubmission={setSubmissionEmailId} />
             }
+
+            {view === 'audit' &&
+            <section className="mt-4 rounded-xl border border-line bg-white p-5">
+                <ol className="space-y-3">
+                  {auditTrail.map((entry) =>
+                <li key={entry.id} className="flex gap-2.5">
+                      <HistoryIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-subtle" />
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-medium text-ink">{entry.action}</p>
+                        <p className="text-[12px] text-muted">
+                          {entry.actor} · {formatDateTime(entry.at)}
+                        </p>
+                        {entry.detail &&
+                    <p className="mt-0.5 whitespace-pre-line break-words text-[12px] text-muted">{entry.detail}</p>
+                    }
+                      </div>
+                    </li>
+                )}
+                </ol>
+              </section>
+            }
           </div>
 
           <aside className="space-y-4">
             <section className="rounded-xl border border-line bg-white p-5">
-              <h2 className="text-[13px] font-medium text-ink">Candidate details</h2>
+              <h2 className="text-[13px] font-medium text-ink">{isLeaver ? 'Employee details' : 'Candidate details'}</h2>
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
                 <Detail label="Personal email" value={transition.candidate.personalEmail} wide />
                 <Detail label="Mobile number" value={transition.candidate.mobile} />
                 <Detail label="Position" value={transition.candidate.position} />
-                <Detail label="Hire date" value={formatDate(transition.candidate.hireDate)} />
+                <Detail
+                  label="Hire date"
+                  value={formatDate(isLeaver ? employeeHireDate : transition.candidate.hireDate)} />
                 <Detail label="Country" value={transition.candidate.country ?? '—'} />
-                <Detail label="Address" value={transition.candidate.address ?? '—'} wide />
-                <Detail label="Date of birth" value={formatDate(transition.candidate.dateOfBirth)} />
-                <Detail label="Gender" value={transition.candidate.gender ?? '—'} />
+                <Detail label="Address" value={address || '—'} wide />
+                <Detail label="Date of birth" value={formatDate(dateOfBirth)} />
+                <Detail label="Gender" value={gender || '—'} />
               </dl>
               <div className="mt-4 border-t border-line pt-3">
-                <p className="text-[11px] uppercase tracking-wide text-subtle">Reporting managers</p>
+                <p className="text-[11px] uppercase tracking-wide text-subtle">
+                  Reporting manager{transition.candidate.reportingManagerIds.length === 1 ? '' : 's'}
+                </p>
                 <ul className="mt-2 space-y-2">
                   {transition.candidate.reportingManagerIds.map((id) =>
                   <li key={id} className="flex items-center gap-2.5">
@@ -363,37 +410,22 @@ function TransitionView({ transition }: {transition: Transition;}) {
                 </li>
                 <li className="flex items-center gap-2 text-muted">
                   <CalendarIcon className="h-3.5 w-3.5 text-subtle" />
-                  {transition.kind === 'Onboarding' ? 'Hire date' : 'Last working day'}{' '}
-                  {formatDate(transition.candidate.hireDate)}
+                  {isLeaver ? 'Last working day' : 'Hire date'} {formatDate(transition.candidate.hireDate)}
                 </li>
                 <li className="flex items-center gap-2 text-muted">
                   <CalendarIcon className="h-3.5 w-3.5 text-subtle" />
-                  Target {formatDate(transition.targetDate)}
+                  Target {formatDate(targetDate)}
+                  <span className="text-[11px] text-subtle">(last task due)</span>
                 </li>
+                {transition.cancellation &&
+                <li className="flex items-center gap-2 text-muted">
+                    <XCircleIcon className="h-3.5 w-3.5 text-subtle" />
+                    Cancelled {formatDate(transition.cancellation.date)}
+                  </li>
+                }
               </ul>
             </section>
 
-            <section className="rounded-xl border border-line bg-white p-5">
-              <h2 className="text-[13px] font-medium text-ink">Audit trail</h2>
-              <ol className="mt-3 space-y-3">
-                {[...transition.auditTrail].
-                sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).
-                map((entry) =>
-                <li key={entry.id} className="flex gap-2.5">
-                      <HistoryIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-subtle" />
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-medium text-ink">{entry.action}</p>
-                        <p className="text-[12px] text-muted">
-                          {entry.actor} · {formatDateTime(entry.at)}
-                        </p>
-                        {entry.detail &&
-                    <p className="mt-0.5 line-clamp-2 break-words text-[12px] text-muted">{entry.detail}</p>
-                    }
-                      </div>
-                    </li>
-                )}
-              </ol>
-            </section>
           </aside>
         </div>
       </div>

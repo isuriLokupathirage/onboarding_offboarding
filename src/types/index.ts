@@ -265,8 +265,8 @@ export interface Transition {
   portalAccess: 'Active' | 'Revoked' | 'Expired';
   portalExpiresAt: string;
   startedOn: string;
+  /** Set when the transition starts. Screens show the latest task due date instead (transitionTargetDate). */
   targetDate: string;
-  daysRemaining: number;
   ownerIds: string[];
   tasks: TransitionTask[];
   emails: EmailRecord[];

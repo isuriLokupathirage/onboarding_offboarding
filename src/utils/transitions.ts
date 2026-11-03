@@ -53,8 +53,29 @@ export function transitionProgress(transition: Transition): {done: number;total:
   return { done, total, percent: Math.round(done / Math.max(1, total) * 100) };
 }
 
+/** The prototype runs on a fixed "today" so the seeded transitions keep sensible days remaining. */
+export const PROTOTYPE_TODAY = '2026-09-16';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The latest due date among the transition's tasks. Falls back to the stored date when no task has one. */
+export function transitionTargetDate(transition: Transition): string {
+  const dueDates = transition.tasks.
+  map((task) => task.dueDate?.slice(0, 10)).
+  filter((date): date is string => Boolean(date));
+  if (dueDates.length === 0) return transition.targetDate;
+  return dueDates.reduce((latest, date) => date > latest ? date : latest);
+}
+
+/** Days from today to the target date. Negative once the target date has passed. */
+export function daysRemaining(transition: Transition): number {
+  const target = new Date(transitionTargetDate(transition)).getTime();
+  if (Number.isNaN(target)) return 0;
+  return Math.round((target - new Date(PROTOTYPE_TODAY).getTime()) / DAY_MS);
+}
+
 export function isOverdue(transition: Transition): boolean {
-  return statusGroup(transition) === 'Active' && transition.daysRemaining < 0;
+  return statusGroup(transition) === 'Active' && daysRemaining(transition) < 0;
 }
 
 export const FORM_LINK_EXPIRY_DAYS = 14;
@@ -105,9 +126,10 @@ export function canReceiveForm(transition: Transition): boolean {
 export function daysLabel(transition: Transition): string {
   const group = statusGroup(transition);
   if (group !== 'Active') return group;
-  const days = Math.abs(transition.daysRemaining);
+  const remaining = daysRemaining(transition);
+  const days = Math.abs(remaining);
   const unit = days === 1 ? 'day' : 'days';
-  return transition.daysRemaining < 0 ? `${days} ${unit} overdue` : `${days} ${unit} remaining`;
+  return remaining < 0 ? `${days} ${unit} overdue` : `${days} ${unit} remaining`;
 }
 
 export function visibleKinds(permissions: OboPermission[]): TransitionKind[] {
