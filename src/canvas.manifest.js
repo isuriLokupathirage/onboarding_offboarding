@@ -73,18 +73,29 @@ export const manifest = {
     scr_lxjszg: { name: "Employee Portal – No Longer Available", route: "/portal/emp-87fa8", position: { "x": 5760, "y": 14080 } },
     scr_mt1all: { name: "My Tasks – All", route: "/tasks/my-tasks", position: { "x": 160, "y": 16060 } },
     scr_mt2obo: { name: "My Tasks – Onboarding & Offboarding", route: "/tasks/my-tasks", state: { "tab": "obo" }, position: { "x": 1560, "y": 16060 } },
-    scr_mt3pnl: { name: "My Tasks – Task Detail (Blocked)", route: "/tasks/my-tasks", state: { "tab": "obo", "openTask": "tr2:tpl1-t3" }, position: { "x": 2960, "y": 16060 } }
+    scr_mt3pnl: { name: "My Tasks – Task Detail (Blocked)", route: "/tasks/my-tasks", state: { "tab": "obo", "openTask": "tr2:tpl1-t3" }, position: { "x": 2960, "y": 16060 } },
+    scr_fb1lst: { name: "Exit Feedback Forms", route: "/templates/forms/exit-feedback", position: { "x": 160, "y": 17800 } },
+    scr_fb2vwo: { name: "Exit Feedback Forms – View Only", route: "/templates/forms/exit-feedback", state: { "viewOnly": true }, position: { "x": 1560, "y": 17800 } },
+    scr_fb3emp: { name: "Exit Feedback Forms – No Match", route: "/templates/forms/exit-feedback", state: { "query": "payroll", "status": "Inactive" }, position: { "x": 2960, "y": 17800 } },
+    scr_fb4del: { name: "Exit Feedback Forms – Delete", route: "/templates/forms/exit-feedback", state: { "confirmDelete": "fbf5" }, position: { "x": 4360, "y": 17800 } },
+    scr_fb5new: { name: "New Exit Feedback Form", route: "/templates/forms/exit-feedback/new", position: { "x": 5760, "y": 17800 } },
+    scr_fb6bld: { name: "New Exit Feedback Form – Questions", route: "/templates/forms/exit-feedback/new", state: { "draft": { "name": "Leaver Pulse Survey", "description": "A short survey for every leaver.", "questions": [{ "id": "dq1", "label": "How would you rate your overall experience?", "answerType": "Rating Scale", "description": "1 is very poor and 5 is excellent.", "required": true }, { "id": "dq2", "label": "Would you recommend us as a place to work?", "answerType": "Yes / No", "description": "", "required": true }, { "id": "dq3", "label": "What could we have done better?", "answerType": "Long Comment", "description": "", "required": false }] } }, position: { "x": 7160, "y": 17800 } },
+    scr_fb7err: { name: "New Exit Feedback Form – Missing Fields", route: "/templates/forms/exit-feedback/new", state: { "showErrors": true, "draft": { "name": "", "description": "", "questions": [] } }, position: { "x": 8560, "y": 17800 } },
+    scr_fb8prv: { name: "New Exit Feedback Form – Preview", route: "/templates/forms/exit-feedback/new", state: { "draft": { "name": "Leaver Pulse Survey", "description": "A short survey for every leaver.", "questions": [{ "id": "dq1", "label": "How would you rate your overall experience?", "answerType": "Rating Scale", "description": "1 is very poor and 5 is excellent.", "required": true }, { "id": "dq2", "label": "Would you recommend us as a place to work?", "answerType": "Yes / No", "description": "", "required": true }, { "id": "dq3", "label": "What could we have done better?", "answerType": "Long Comment", "description": "", "required": false }] }, "preview": true }, position: { "x": 9960, "y": 17800 } },
+    scr_fb9det: { name: "Exit Feedback Form – Detail", route: "/templates/forms/exit-feedback/fbf1", position: { "x": 11360, "y": 17800 } },
+    scr_fbapvw: { name: "Exit Feedback Form – Preview", route: "/templates/forms/exit-feedback/fbf1", state: { "preview": true }, position: { "x": 12760, "y": 17800 } }
   },
   sections: {
-    sec_h9tl61: { name: "Onboarding – Overview & Transitions", x: 0, y: 0, width: 33720, height: 1180 },
+    sec_h9tl61: { name: "Onboarding – Overview & Transitions", x: 0, y: 0, width: 36520, height: 1180 },
     sec_sv0spb: { name: "Onboarding – Templates", x: 0, y: 1980, width: 9920, height: 1180 },
-    sec_gut05a: { name: "Employee Management", x: 0, y: 3960, width: 12720, height: 1180 },
+    sec_gut05a: { name: "Employee Management", x: 0, y: 3960, width: 26720, height: 1180 },
     sec_luokg9: { name: "Form Templates – Employee", x: 0, y: 5940, width: 8520, height: 1180 },
     sec_ieuhgd: { name: "Form Templates – Other", x: 0, y: 7920, width: 1520, height: 1180 },
     sec_8pff57: { name: "Email Templates", x: 0, y: 9900, width: 1520, height: 1180 },
     sec_q5yje6: { name: "Candidate Portal", x: 0, y: 11880, width: 8520, height: 1180 },
     sec_mkpg06: { name: "Employee Portal", x: 0, y: 13860, width: 7120, height: 1180 },
-    sec_mytsk1: { name: "Tasks – My Tasks", x: 0, y: 15840, width: 4320, height: 1180 }
+    sec_mytsk1: { name: "Tasks – My Tasks", x: 0, y: 15840, width: 4320, height: 1180 },
+    sec_fbform: { name: "Form Templates – Exit Feedback", x: 0, y: 17580, width: 14120, height: 1180 }
   },
   layers: [
   { kind: "section", id: "sec_h9tl61", children: [
@@ -111,7 +122,9 @@ export const manifest = {
     { kind: "screen", id: "scr_nt3tml" },
     { kind: "screen", id: "scr_ns1pkr" },
     { kind: "screen", id: "scr_ns2not" },
-    { kind: "screen", id: "scr_ns3trn" }]
+    { kind: "screen", id: "scr_ns3trn" },
+    { kind: "screen", id: "scr_au1trl" },
+    { kind: "screen", id: "scr_au2off" }]
   },
   { kind: "section", id: "sec_sv0spb", children: [
     { kind: "screen", id: "scr_k6sk4f" },
@@ -161,7 +174,9 @@ export const manifest = {
     { kind: "screen", id: "scr_wgdc0k" },
     { kind: "screen", id: "scr_ubzu9b" },
     { kind: "screen", id: "scr_cnlfgi" },
-    { kind: "screen", id: "scr_m541t1" }]
+    { kind: "screen", id: "scr_m541t1" },
+    { kind: "screen", id: "scr_pt5sub" },
+    { kind: "screen", id: "scr_pt6cnl" }]
   },
   { kind: "section", id: "sec_mkpg06", children: [
     { kind: "screen", id: "scr_nt92mc" },
@@ -174,6 +189,18 @@ export const manifest = {
     { kind: "screen", id: "scr_mt1all" },
     { kind: "screen", id: "scr_mt2obo" },
     { kind: "screen", id: "scr_mt3pnl" }]
+  },
+  { kind: "section", id: "sec_fbform", children: [
+    { kind: "screen", id: "scr_fb1lst" },
+    { kind: "screen", id: "scr_fb2vwo" },
+    { kind: "screen", id: "scr_fb3emp" },
+    { kind: "screen", id: "scr_fb4del" },
+    { kind: "screen", id: "scr_fb5new" },
+    { kind: "screen", id: "scr_fb6bld" },
+    { kind: "screen", id: "scr_fb7err" },
+    { kind: "screen", id: "scr_fb8prv" },
+    { kind: "screen", id: "scr_fb9det" },
+    { kind: "screen", id: "scr_fbapvw" }]
   }]
 
 };

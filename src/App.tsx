@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { AppDataProvider } from './contexts/AppDataContext';
 import { EmployeeDataProvider } from './contexts/EmployeeDataContext';
+import { FeedbackFormsProvider } from './contexts/FeedbackFormsContext';
 import { AppShell } from './components/layout/AppShell';
 import { EmployeeList } from './pages/employees/EmployeeList';
 import { EmployeeDetail } from './pages/employees/EmployeeDetail';
@@ -22,6 +23,10 @@ import { EmployeeForms } from './pages/templates/EmployeeForms';
 import { FormDetail } from './pages/templates/FormDetail';
 import { BackgroundCheckForms } from './pages/templates/BackgroundCheckForms';
 import { RecruitmentEmails } from './pages/templates/RecruitmentEmails';
+import { FeedbackForms } from './pages/templates/FeedbackForms';
+import { FeedbackFormBuilder } from './pages/templates/FeedbackFormBuilder';
+import { FeedbackFormDetail } from './pages/templates/FeedbackFormDetail';
+import { canManageFeedbackForms, canViewFeedbackForms } from './utils/feedbackForms';
 import { Portal, PortalEntry } from './pages/portal/Portal';
 import { MyTasks } from './pages/tasks/MyTasks';
 import type { OboPermission } from './types';
@@ -71,6 +76,7 @@ export function App({
       oboModulePurchased={oboModulePurchased}
       recruitmentModulePurchased={recruitmentModulePurchased}>
       <EmployeeDataProvider canSendForms={canSendEmployeeForms}>
+      <FeedbackFormsProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<AppShell />}>
@@ -101,6 +107,15 @@ export function App({
             <Route path="templates/forms/employee" element={<EmployeeForms />} />
             <Route path="templates/forms/employee/:formId" element={<FormDetail />} />
             <Route path="templates/forms/background-check" element={<BackgroundCheckForms />} />
+            {/* Exit feedback forms belong to the Onboarding & Offboarding module. */}
+            <Route element={<OboAccessGate allowed={canViewFeedbackForms} />}>
+              <Route path="templates/forms/exit-feedback" element={<FeedbackForms />} />
+              <Route path="templates/forms/exit-feedback/:formId" element={<FeedbackFormDetail />} />
+            </Route>
+            <Route element={<OboAccessGate allowed={canManageFeedbackForms} />}>
+              <Route path="templates/forms/exit-feedback/new" element={<FeedbackFormBuilder />} />
+              <Route path="templates/forms/exit-feedback/:formId/edit" element={<FeedbackFormBuilder />} />
+            </Route>
             <Route path="templates/emails/recruitment" element={<RecruitmentEmails />} />
             <Route path="employees" element={<EmployeeList />} />
             <Route path="employees/:employeeId" element={<EmployeeDetail />} />
@@ -111,6 +126,7 @@ export function App({
           <Route path="*" element={<Navigate to="/onboarding/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
+      </FeedbackFormsProvider>
       </EmployeeDataProvider>
     </AppDataProvider>);
 

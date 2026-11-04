@@ -15,7 +15,11 @@ export type OboPermission =
 'Manage Templates' |
 'Manage Task Library' |
 /** Employee Management (employee.view). Needed to see a leaver's offboarding details. */
-'View Employee Profiles';
+'View Employee Profiles' |
+/** Templates → Forms → Exit Feedback (obo.feedback_form.view): open the list and view a form. */
+'View Exit Feedback Forms' |
+/** obo.feedback_form.manage: create, edit, duplicate, deactivate and delete exit feedback forms. */
+'Manage Exit Feedback Forms';
 
 export type Priority = 'Low' | 'Medium' | 'High';
 
@@ -428,4 +432,27 @@ export interface EmployeeForm {
   lastModified: string;
   sections: FormSection[];
   documents: RequiredDocument[];
+}
+export type FeedbackAnswerType = 'Rating Scale' | 'Yes / No' | 'Short Comment' | 'Long Comment';
+
+export interface FeedbackQuestion {
+  id: string;
+  label: string;
+  answerType: FeedbackAnswerType;
+  /** Optional description or guidelines shown under the question. */
+  description: string;
+  required: boolean;
+}
+
+export interface FeedbackForm {
+  id: string;
+  /** EXF-NNN, generated when the form is created. The unique identifier: names can repeat. */
+  code: string;
+  name: string;
+  description: string;
+  status: 'Active' | 'Inactive';
+  questions: FeedbackQuestion[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
 }

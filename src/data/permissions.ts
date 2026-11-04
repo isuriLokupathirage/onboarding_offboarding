@@ -10,7 +10,9 @@ export const oboPermissionCatalogue: {permission: OboPermission;key?: string;}[]
 { permission: 'View Templates', key: 'obo.template.view' },
 { permission: 'Manage Templates', key: 'obo.template.manage' },
 { permission: 'Manage Task Library', key: 'obo.task.manage' },
-{ permission: 'View Employee Profiles', key: 'employee.view' }];
+{ permission: 'View Employee Profiles', key: 'employee.view' },
+{ permission: 'View Exit Feedback Forms', key: 'obo.feedback_form.view' },
+{ permission: 'Manage Exit Feedback Forms', key: 'obo.feedback_form.manage' }];
 
 
 export const ALL_OBO_PERMISSIONS: OboPermission[] = oboPermissionCatalogue.map((item) => item.permission);
@@ -30,7 +32,7 @@ export const demoRoles: {name: string;description: string;permissions: OboPermis
 {
   name: 'Template Viewer',
   description: 'Can open templates and tasks but not change them',
-  permissions: ['View All Transitions', 'View Templates']
+  permissions: ['View All Transitions', 'View Templates', 'View Exit Feedback Forms']
 },
 {
   name: 'Task Library Manager',
