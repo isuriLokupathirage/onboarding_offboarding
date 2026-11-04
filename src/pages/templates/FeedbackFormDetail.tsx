@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { EyeIcon, PencilIcon } from 'lucide-react';
+import { CopyIcon, EyeIcon, LockIcon, PencilIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -11,7 +11,11 @@ import { FeedbackStatusBadge } from '../../components/feedback/FeedbackStatusBad
 import { useAppData } from '../../contexts/AppDataContext';
 import { useFeedbackForms } from '../../contexts/FeedbackFormsContext';
 import { formatDateTime } from '../../utils/format';
-import { FEEDBACK_FORMS_PATH, canManageFeedbackForms } from '../../utils/feedbackForms';
+import {
+  FEEDBACK_FORMS_PATH,
+  canManageFeedbackForms,
+  hasBeenSent } from
+'../../utils/feedbackForms';
 import { useScreenInit } from '../../useScreenInit.js';
 
 /** Templates → Forms → Exit Feedback → [Form]: the form's details and questions, read only. */
@@ -21,7 +25,7 @@ export function FeedbackFormDetail() {
   const location = useLocation();
   const screenInit = useScreenInit() as {preview?: boolean;viewOnly?: boolean;};
   const { oboPermissions } = useAppData();
-  const { feedbackForms } = useFeedbackForms();
+  const { feedbackForms, duplicateFeedbackForm } = useFeedbackForms();
   const form = feedbackForms.find((item) => item.id === formId);
   const [previewing, setPreviewing] = useState(Boolean(screenInit.preview));
   const [notice, setNotice] = useState<string | null>(
@@ -31,6 +35,13 @@ export function FeedbackFormDetail() {
   if (!form) return <Navigate to={FEEDBACK_FORMS_PATH} replace />;
   const canManage = canManageFeedbackForms(oboPermissions) && !screenInit.viewOnly;
   const required = form.questions.filter((question) => question.required).length;
+  const sent = hasBeenSent(form);
+  const duplicate = () => {
+    const copy = duplicateFeedbackForm(form.id);
+    if (copy) {
+      navigate(`${FEEDBACK_FORMS_PATH}/${copy.id}/edit`);
+    }
+  };
 
   return (
     <div>
@@ -53,12 +64,19 @@ export function FeedbackFormDetail() {
               <EyeIcon className="h-4 w-4" />
               Preview
             </Button>
-            {canManage ?
+            {canManage && !sent &&
           <Button variant="primary" onClick={() => navigate(`${FEEDBACK_FORMS_PATH}/${form.id}/edit`)}>
                 <PencilIcon className="h-4 w-4" />
                 Edit
-              </Button> :
-
+              </Button>
+          }
+            {canManage && sent &&
+          <Button variant="primary" onClick={duplicate}>
+                <CopyIcon className="h-4 w-4" />
+                Duplicate to change
+              </Button>
+          }
+            {!canManage &&
           <Tooltip label="Requires the Manage Exit Feedback Forms permission">
                 <span>
                   <Button variant="primary" disabled>
@@ -71,6 +89,23 @@ export function FeedbackFormDetail() {
           </>
         } />
 
+
+      {sent &&
+      <div className="mx-auto max-w-5xl px-8 pt-6">
+          <div className="flex items-start gap-3 rounded-xl bg-slate-50 px-4 py-3.5 text-[13px] ring-1 ring-inset ring-slate-200">
+            <LockIcon className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+            <p className="text-muted">
+              <span className="font-medium text-ink">
+                Sent {form.sentCount} time{form.sentCount === 1 ? '' : 's'}, so it can no longer be edited or deleted.
+              </span>{' '}
+              Duplicate it to make a version you can change.{' '}
+              {form.status === 'Active' ?
+            'To stop it being sent, mark it as inactive from the list. Its responses are kept.' :
+            'It is inactive and cannot be sent. Its responses are kept.'}
+            </p>
+          </div>
+        </div>
+      }
 
       <div className="mx-auto grid max-w-5xl grid-cols-1 gap-5 px-8 py-6 lg:grid-cols-3">
         <section className="overflow-hidden rounded-xl border border-line bg-white lg:col-span-2">
@@ -101,6 +136,16 @@ export function FeedbackFormDetail() {
             <div>
               <dt className="text-[11px] uppercase tracking-wide text-subtle">Description</dt>
               <dd className="mt-0.5 whitespace-pre-line text-ink">{form.description || '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-subtle">Available for sending</dt>
+              <dd className="mt-0.5 text-ink">{form.status === 'Active' ? 'Yes' : 'No, the form is inactive'}</dd>
+            </div>
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-subtle">Sent / responses</dt>
+              <dd className="mt-0.5 text-ink">
+                {sent ? `${form.sentCount} sent · ${form.responseCount} responses` : 'Never sent'}
+              </dd>
             </div>
             <div>
               <dt className="text-[11px] uppercase tracking-wide text-subtle">Created</dt>

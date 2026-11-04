@@ -452,6 +452,10 @@ export interface FeedbackForm {
   description: string;
   status: 'Active' | 'Inactive';
   questions: FeedbackQuestion[];
+  /** How many times the form has been sent. Once sent, it can no longer be edited or deleted. */
+  sentCount: number;
+  /** Responses received. Kept when the form is deactivated. */
+  responseCount: number;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

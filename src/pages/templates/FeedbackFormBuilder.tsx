@@ -12,7 +12,9 @@ import type { FeedbackAnswerType, FeedbackQuestion } from '../../types';
 import {
   FEEDBACK_ANSWER_TYPES,
   FEEDBACK_FORMS_PATH,
+  SENT_EDIT_HINT,
   feedbackFormErrors,
+  hasBeenSent,
   hasFeedbackFormErrors,
   newFeedbackQuestion,
   type FeedbackFormDraft } from
@@ -33,6 +35,9 @@ export function FeedbackFormBuilder() {
   const { feedbackForms } = useFeedbackForms();
   const editing = formId ? feedbackForms.find((item) => item.id === formId) : undefined;
   if (formId && !editing) return <Navigate to={FEEDBACK_FORMS_PATH} replace />;
+  if (editing && hasBeenSent(editing)) {
+    return <Navigate to={`${FEEDBACK_FORMS_PATH}/${editing.id}`} replace state={{ notice: SENT_EDIT_HINT }} />;
+  }
   return <Builder key={formId ?? 'new'} formId={editing?.id} />;
 }
 

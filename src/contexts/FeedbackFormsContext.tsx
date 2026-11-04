@@ -7,6 +7,7 @@ import { useAppData } from './AppDataContext';
 import {
   cleanFeedbackDraft,
   feedbackFormCode,
+  hasBeenSent,
   highestFeedbackCodeNumber,
   type FeedbackFormDraft } from
 '../utils/feedbackForms';
@@ -42,6 +43,8 @@ export function FeedbackFormsProvider({ children }: {children: ReactNode;}) {
         id: `fbf-${Date.now()}`,
         code: nextCode,
         status: 'Active',
+        sentCount: 0,
+        responseCount: 0,
         createdBy: author,
         createdAt: now,
         updatedAt: now
@@ -53,10 +56,13 @@ export function FeedbackFormsProvider({ children }: {children: ReactNode;}) {
     [nextCode, author]
   );
 
+  // A form that has been sent keeps its questions, so past responses still match them.
   const updateFeedbackForm = useCallback((id: string, draft: FeedbackFormDraft) => {
     const updatedAt = new Date().toISOString();
     setFeedbackForms((prev) =>
-    prev.map((item) => item.id === id ? { ...item, ...cleanFeedbackDraft(draft), updatedAt } : item)
+    prev.map((item) =>
+    item.id === id && !hasBeenSent(item) ? { ...item, ...cleanFeedbackDraft(draft), updatedAt } : item
+    )
     );
   }, []);
 
@@ -72,6 +78,8 @@ export function FeedbackFormsProvider({ children }: {children: ReactNode;}) {
         code: nextCode,
         name: `Copy of ${source.name}`,
         status: 'Active',
+        sentCount: 0,
+        responseCount: 0,
         questions: source.questions.map((question, index) => ({ ...question, id: `${copyId}-q${index + 1}` })),
         createdBy: author,
         createdAt: now,
@@ -89,8 +97,9 @@ export function FeedbackFormsProvider({ children }: {children: ReactNode;}) {
     setFeedbackForms((prev) => prev.map((item) => item.id === id ? { ...item, status, updatedAt } : item));
   }, []);
 
+  // Only a form that has never been sent can be deleted. A sent one is deactivated instead.
   const deleteFeedbackForm = useCallback((id: string) => {
-    setFeedbackForms((prev) => prev.filter((item) => item.id !== id));
+    setFeedbackForms((prev) => prev.filter((item) => item.id !== id || hasBeenSent(item)));
   }, []);
 
   const value = useMemo(

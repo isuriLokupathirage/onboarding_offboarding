@@ -14,6 +14,13 @@ export function canManageFeedbackForms(permissions: OboPermission[]): boolean {
   return permissions.includes('Manage Exit Feedback Forms');
 }
 
+export function hasBeenSent(form: FeedbackForm): boolean {
+  return form.sentCount > 0;
+}
+
+export const SENT_EDIT_HINT = 'Already sent, so it cannot be edited. Duplicate it to make changes.';
+export const SENT_DELETE_HINT = 'Already sent, so it cannot be deleted. Mark it as inactive instead.';
+
 export function feedbackFormCode(number: number): string {
   return `EXF-${String(number).padStart(3, '0')}`;
 }

@@ -14,7 +14,13 @@ import { FeedbackStatusBadge } from '../../components/feedback/FeedbackStatusBad
 import { useAppData } from '../../contexts/AppDataContext';
 import { useFeedbackForms } from '../../contexts/FeedbackFormsContext';
 import type { FeedbackForm } from '../../types';
-import { FEEDBACK_FORMS_PATH, canManageFeedbackForms } from '../../utils/feedbackForms';
+import {
+  FEEDBACK_FORMS_PATH,
+  SENT_DELETE_HINT,
+  SENT_EDIT_HINT,
+  canManageFeedbackForms,
+  hasBeenSent } from
+'../../utils/feedbackForms';
 import { useScreenInit } from '../../useScreenInit.js';
 
 type StatusFilter = 'All' | FeedbackForm['status'];
@@ -46,7 +52,7 @@ export function FeedbackForms() {
   const [page, setPage] = useState(screenInit.page ?? 1);
   const [notice, setNotice] = useState<string | null>(arrivedNotice);
   const [deleting, setDeleting] = useState<FeedbackForm | null>(
-    feedbackForms.find((item) => item.id === screenInit.confirmDelete) ?? null
+    feedbackForms.find((item) => item.id === screenInit.confirmDelete && !hasBeenSent(item)) ?? null
   );
 
   const visible = useMemo(() => {
@@ -67,9 +73,15 @@ export function FeedbackForms() {
 
   const actionsFor = (item: FeedbackForm): MenuItem[] => {
     const locked = { disabled: !canManage, hint: canManage ? undefined : MANAGE_HINT };
+    // Once sent, a form's questions are fixed so past responses still match them.
+    const sentLock = (hint: string) => canManage && hasBeenSent(item) ? { disabled: true, hint } : locked;
     return [
     { label: 'View', onSelect: () => open(item) },
-    { label: 'Edit', onSelect: () => navigate(`${FEEDBACK_FORMS_PATH}/${item.id}/edit`), ...locked },
+    {
+      label: 'Edit',
+      onSelect: () => navigate(`${FEEDBACK_FORMS_PATH}/${item.id}/edit`),
+      ...sentLock(SENT_EDIT_HINT)
+    },
     {
       label: 'Duplicate',
       onSelect: () => {
@@ -83,11 +95,18 @@ export function FeedbackForms() {
       onSelect: () => {
         const next = item.status === 'Active' ? 'Inactive' : 'Active';
         setFeedbackFormStatus(item.id, next);
-        setNotice(`${item.code} is now ${next.toLowerCase()}.`);
+        setNotice(
+          next === 'Inactive' ?
+          `${item.code} is inactive and can no longer be sent.${
+          item.responseCount > 0 ?
+          ` Its ${item.responseCount} ${item.responseCount === 1 ? 'response is' : 'responses are'} kept.` :
+          ''}` :
+          `${item.code} is active and can be sent again.`
+        );
       },
       ...locked
     },
-    { label: 'Delete', danger: true, onSelect: () => setDeleting(item), ...locked }];
+    { label: 'Delete', danger: true, onSelect: () => setDeleting(item), ...sentLock(SENT_DELETE_HINT) }];
 
   };
 
@@ -254,11 +273,13 @@ export function FeedbackForms() {
 
       <Dialog
         open={Boolean(deleting)}
-        title={`Delete ${deleting?.code ?? 'this form'}?`}
+        title={`Delete ${deleting?.name ?? 'this form'}?`}
         body={
         <>
-            <span className="font-medium text-ink">{deleting?.name}</span> will be removed from the list and can no
-            longer be used. This cannot be undone.
+            <span className="font-medium text-ink">
+              {deleting?.name} ({deleting?.code})
+            </span>{' '}
+            has never been sent. Deleting it removes it from the list for good. This cannot be undone.
           </>
         }
         confirmLabel="Delete form"
@@ -267,7 +288,7 @@ export function FeedbackForms() {
         onConfirm={() => {
           if (!deleting) return;
           deleteFeedbackForm(deleting.id);
-          setNotice(`${deleting.code} was deleted.`);
+          setNotice(`${deleting.name} (${deleting.code}) was deleted.`);
           setDeleting(null);
         }} />
 
