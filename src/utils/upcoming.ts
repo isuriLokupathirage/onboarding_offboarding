@@ -28,13 +28,19 @@ function periodEnd(today: string, period: UpcomingPeriod): string {
   return end.toISOString().slice(0, 10);
 }
 
-/** Days until the transition starts: the hire date, or the last working day for an offboarding. */
+/** The date a transition starts: the hire date, or the Last Working Date for an offboarding. */
+export function transitionStartDate(transition: Transition): string {
+  const lastWorkingDate = transition.kind === 'Offboarding' ? transition.exit?.dates['Last Working Date'] : undefined;
+  return (lastWorkingDate ?? transition.candidate.hireDate).slice(0, 10);
+}
+
+/** Days until the transition starts (see transitionStartDate). */
 export function daysUntilStart(transition: Transition, today: string): number {
-  return daysBetween(today, transition.candidate.hireDate);
+  return daysBetween(today, transitionStartDate(transition));
 }
 
 /** True when the transition starts between today and the end of the period, inclusive. */
 export function startsWithin(transition: Transition, today: string, period: UpcomingPeriod): boolean {
-  const start = transition.candidate.hireDate.slice(0, 10);
+  const start = transitionStartDate(transition);
   return start >= today && start <= periodEnd(today, period);
 }
