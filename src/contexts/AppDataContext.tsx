@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type {
+  EmailRecord,
   EmployeeForm,
   ExitDetailsDraft,
   FieldState,
@@ -30,6 +31,7 @@ import {
   isOpenFormEmail,
   isTaskOpen,
   managePermissionFor,
+  portalStatus,
   openFormEmail,
   statusGroup } from
 '../utils/transitions';
@@ -87,6 +89,8 @@ interface AppData {
   updateDocument: (formId: string, docId: string, patch: Partial<RequiredDocument>) => void;
   removeDocument: (formId: string, docId: string) => void;
   revokeEmail: (transitionId: string, emailId: string) => void;
+  /** Closes the candidate's portal and expires every form still open in it. */
+  cancelPortalAccess: (transitionId: string) => void;
   sendTransitionForm: (transitionIds: string[], formId: string) => void;
   /** Stores the candidate's entries against one form. Does not submit or change its expiry. */
   saveTransitionDraft: (
@@ -607,6 +611,52 @@ export function AppDataProvider({
     [currentUserId, forms]
   );
 
+  const cancelPortalAccess = useCallback(
+    (transitionId: string) => {
+      const by = peopleById[currentUserId]?.name ?? currentUserId;
+      const at = prototypeNow();
+      setTransitions((prev) =>
+      prev.map((transition) => {
+        if (
+        transition.id !== transitionId ||
+        portalStatus(transition) !== 'Active' ||
+        !oboPermissions.includes(managePermissionFor(transition.kind)))
+
+        return transition;
+        const open = transition.emails.filter((email) => isOpenFormEmail(transition, email));
+        const formName = (email: EmailRecord) =>
+        forms.find((form) => form.id === email.formId)?.name ?? email.subject;
+        return {
+          ...transition,
+          portalAccess: 'Revoked',
+          portalCancellation: { at, by },
+          emails: transition.emails.map((email) =>
+          open.some((item) => item.id === email.id) ? { ...email, expiredAt: at, draft: undefined } : email
+          ),
+          auditTrail: [
+          ...transition.auditTrail,
+          {
+            id: `au-${Date.now()}-portal`,
+            action: 'Portal access cancelled',
+            actor: by,
+            at,
+            detail: `Portal closed · ${open.length} open form${open.length === 1 ? '' : 's'} expired`
+          },
+          ...open.map((email) => ({
+            id: `au-${Date.now()}-${email.id}-expired`,
+            action: 'Form expired',
+            actor: by,
+            at,
+            detail: `${formName(email)} · expired when portal access was cancelled`
+          }))]
+
+        };
+      })
+      );
+    },
+    [currentUserId, oboPermissions, forms]
+  );
+
   const sendTransitionForm = useCallback(
     (transitionIds: string[], formId: string) => {
       const form = forms.find((item) => item.id === formId);
@@ -787,6 +837,7 @@ export function AppDataProvider({
       updateDocument,
       removeDocument,
       revokeEmail,
+      cancelPortalAccess,
       sendTransitionForm,
       saveTransitionDraft,
       submitTransitionForm
@@ -829,6 +880,7 @@ export function AppDataProvider({
     updateDocument,
     removeDocument,
     revokeEmail,
+    cancelPortalAccess,
     sendTransitionForm,
     saveTransitionDraft,
     submitTransitionForm]

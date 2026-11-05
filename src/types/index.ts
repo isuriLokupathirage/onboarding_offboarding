@@ -186,6 +186,8 @@ export interface EmailRecord {
   linkExpiresAt?: string;
   linkRevoked?: boolean;
   replacedBy?: string;
+  /** Set when the form was expired before its expiry date, by cancelling portal access. */
+  expiredAt?: string;
   draftCarriedForward?: boolean;
   /** The recipient's unsubmitted entries for this form. Never shown to HR. */
   draft?: FormDraft;
@@ -278,6 +280,8 @@ export interface Transition {
   formStatus: FormSubmissionStatus;
   submissions: FormSubmission[];
   cancellation?: TransitionCancellation;
+  /** Set when HR cancels the candidate's portal access. portalAccess is then 'Revoked'. */
+  portalCancellation?: {at: string;by: string;};
   /** Offboarding only: the exit type, reason, dates and documents from Step 2. */
   exit?: ExitDetails;
   auditTrail: AuditEntry[];

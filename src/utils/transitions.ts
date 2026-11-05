@@ -90,6 +90,7 @@ export function prototypeNow(): string {
 
 /** True once the form's expiry date is behind the prototype's today. It stays open all of its last day. */
 export function isFormExpired(email: EmailRecord): boolean {
+  if (email.expiredAt) return true;
   return Boolean(email.linkExpiresAt) && (email.linkExpiresAt as string).slice(0, 10) < PROTOTYPE_TODAY;
 }
 
@@ -165,7 +166,7 @@ export function sentFormClosedAt(transition: Transition, email: EmailRecord): st
     case 'Replaced':
       return transition.emails.find((item) => item.id === email.replacedBy)?.sentAt;
     case 'Expired':
-      return email.linkExpiresAt;
+      return email.expiredAt ?? email.linkExpiresAt;
     case 'Closed':
       return transition.cancellation?.recordedAt;
     default:
@@ -183,7 +184,32 @@ export function managePermissionFor(kind: TransitionKind): OboPermission {
 }
 
 export function canReceiveForm(transition: Transition): boolean {
-  return statusGroup(transition) === 'Active' && transition.kind === 'Onboarding';
+  return (
+    statusGroup(transition) === 'Active' &&
+    transition.kind === 'Onboarding' &&
+    transition.portalAccess === 'Active');
+
+}
+
+export type PortalStatus = 'Active' | 'Closed' | 'Cancelled' | 'Not Issued';
+
+/** The portal is issued with the first form sent to the candidate. */
+export function portalIssue(transition: Transition): {issuedAt: string;sentTo: string;} | null {
+  const first = sentFormEmails(transition).
+  slice().
+  sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime())[0];
+  return first ? { issuedAt: first.sentAt, sentTo: first.recipient } : null;
+}
+
+/**
+ * Cancelled once HR cancels access; Not Issued until a form is sent; Closed once the transition has
+ * ended or the access has lapsed; otherwise Active.
+ */
+export function portalStatus(transition: Transition): PortalStatus {
+  if (transition.portalAccess === 'Revoked') return 'Cancelled';
+  if (!portalIssue(transition)) return 'Not Issued';
+  if (statusGroup(transition) !== 'Active' || transition.portalAccess === 'Expired') return 'Closed';
+  return 'Active';
 }
 
 export function daysLabel(transition: Transition): string {

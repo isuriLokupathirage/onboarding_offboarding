@@ -22,6 +22,8 @@ import { Progress } from '../../components/ui/Progress';
 import { Tabs } from '../../components/ui/Segmented';
 import { TaskDetailPanel } from '../../components/tasks/TaskDetailPanel';
 import { SentForms } from '../../components/onboarding/SentForms';
+import { Dialog } from '../../components/ui/Dialog';
+import { portalUrl } from '../../utils/portal';
 import { SubmissionPanel } from '../../components/onboarding/SubmissionPanel';
 import { SendTransitionFormDialog } from '../../components/onboarding/SendTransitionFormDialog';
 import { TaskStatusBadge } from '../../components/tasks/TaskStatusBadge';
@@ -42,7 +44,10 @@ import {
   daysLabel,
   isOverdue,
   managePermissionFor,
+  portalIssue,
+  portalStatus,
   sentFormEmails,
+  type PortalStatus,
   sentFormStatus,
   statusGroup,
   transitionProgress,
@@ -69,6 +74,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
     updateTaskStatus,
     cancelTransition,
     revokeEmail,
+    cancelPortalAccess,
     forms,
     templates
   } = useAppData();
@@ -80,6 +86,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
     sendForm?: boolean;
     cancel?: boolean;
     editExit?: boolean;
+    cancelPortal?: boolean;
   };
   const [submissionEmailId, setSubmissionEmailId] = useState<string | null>(
     screenInit.submission ? transition.submissions[0]?.emailId ?? null : null
@@ -110,7 +117,8 @@ function TransitionView({ transition }: {transition: Transition;}) {
   // A form expiring is not an action anyone takes, so its entry is added from the form's expiry date.
   const auditTrail = useMemo(() => {
     const expired = sentFormEmails(transition).
-    filter((email) => sentFormStatus(transition, email) === 'Expired' && email.linkExpiresAt).
+    // Forms expired by cancelling portal access are already recorded, with who did it.
+    filter((email) => sentFormStatus(transition, email) === 'Expired' && email.linkExpiresAt && !email.expiredAt).
     map((email) => ({
       id: `${email.id}-expired`,
       action: 'Form expired',
@@ -127,6 +135,14 @@ function TransitionView({ transition }: {transition: Transition;}) {
   const closeEditExit = useCallback(() => setEditingExit(false), []);
   const canSendForm = canReceiveForm(transition) && hasOboPermission('Manage Onboarding Transitions');
   const [sendingForm, setSendingForm] = useState(Boolean(screenInit.sendForm) && canSendForm);
+  const portal = portalStatus(transition);
+  const issue = portalIssue(transition);
+  const openForms = sentFormEmails(transition).filter((email) => sentFormStatus(transition, email) === 'Sent');
+  // Whoever can manage this kind of transition can cancel its portal, while it is active.
+  const canCancelPortal = portal === 'Active' && hasOboPermission(managePermissionFor(transition.kind));
+  const [confirmingPortalCancel, setConfirmingPortalCancel] = useState(
+    Boolean(screenInit.cancelPortal) && canCancelPortal
+  );
 
   const grouped = useMemo(() => {
     const map = new Map<Department, TransitionTask[]>();
@@ -439,6 +455,48 @@ function TransitionView({ transition }: {transition: Transition;}) {
               </ul>
             </section>
 
+            <section className="rounded-xl border border-line bg-white p-5">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-[13px] font-medium text-ink">Candidate portal</h2>
+                <PortalStatusBadge status={portal} />
+              </div>
+              {issue ?
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
+                  <Detail label="Issued" value={formatDate(issue.issuedAt)} />
+                  <Detail label="Open forms" value={String(openForms.length)} />
+                  <Detail label="Sent to" value={issue.sentTo} wide />
+                  <Detail label="Portal link" value={portalUrl(transition.portalToken)} wide />
+                </dl> :
+
+              <p className="mt-2 text-[12px] leading-relaxed text-muted">
+                  {transition.kind === 'Onboarding' ?
+                'The portal is issued with the first form sent to the candidate.' :
+                'Leavers are not sent forms, so no portal is issued.'}
+                </p>
+              }
+              {transition.portalCancellation &&
+              <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-[12px] text-muted ring-1 ring-inset ring-slate-200">
+                  Cancelled by {transition.portalCancellation.by} on{' '}
+                  {formatDateTime(transition.portalCancellation.at)}
+                </p>
+              }
+              {portal === 'Closed' &&
+              <p className="mt-3 text-[12px] text-muted">
+                  The portal closed when the transition was {statusGroup(transition).toLowerCase()}.
+                </p>
+              }
+              {canCancelPortal &&
+              <Button
+                size="sm"
+                onClick={() => setConfirmingPortalCancel(true)}
+                className="mt-4 w-full justify-center text-red-600 ring-red-200 hover:bg-red-50">
+
+                  <XCircleIcon className="h-4 w-4" />
+                  Cancel Portal Access
+                </Button>
+              }
+            </section>
+
           </aside>
         </div>
       </div>
@@ -458,6 +516,43 @@ function TransitionView({ transition }: {transition: Transition;}) {
         onSent={(formName) => {
           setView('emails');
           setNotice(`${formName} was sent to ${transition.candidate.personalEmail}.`);
+        }} />
+
+
+      <Dialog
+        open={confirmingPortalCancel}
+        title={`Cancel portal access for ${fullName}?`}
+        body={
+        <>
+            <span className="font-medium text-ink">{fullName}</span> can no longer open their portal. It closes
+            immediately
+            {openForms.length > 0 ?
+          <>
+                {' '}
+                and{' '}
+                <span className="font-medium text-ink">
+                  {openForms.length} open form{openForms.length === 1 ? '' : 's'}
+                </span>{' '}
+                {openForms.length === 1 ? 'expires' : 'expire'}, along with any saved draft
+              </> :
+
+          ''}
+            . Submitted forms are kept. This cannot be undone.
+          </>
+        }
+        confirmLabel="Cancel portal access"
+        cancelLabel="Keep access"
+        confirmVariant="danger"
+        onCancel={() => setConfirmingPortalCancel(false)}
+        onConfirm={() => {
+          cancelPortalAccess(transition.id);
+          setConfirmingPortalCancel(false);
+          setNotice(
+            `Portal access for ${fullName} was cancelled.${
+            openForms.length > 0 ?
+            ` ${openForms.length} open form${openForms.length === 1 ? '' : 's'} expired.` :
+            ''}`
+          );
         }} />
 
 
@@ -521,6 +616,17 @@ function HealthBadge({ transition }: {transition: Transition;}) {
       </Badge>);
 
   return <Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200">On track</Badge>;
+}
+
+const portalStatusStyles: Record<PortalStatus, string> = {
+  Active: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  Closed: 'bg-slate-100 text-slate-600 ring-slate-200',
+  Cancelled: 'bg-red-50 text-red-700 ring-red-200',
+  'Not Issued': 'bg-slate-50 text-slate-500 ring-slate-200'
+};
+
+function PortalStatusBadge({ status }: {status: PortalStatus;}) {
+  return <Badge className={portalStatusStyles[status]}>{status}</Badge>;
 }
 
 function StatusIcon({ status }: {status: TransitionTask['status'];}) {

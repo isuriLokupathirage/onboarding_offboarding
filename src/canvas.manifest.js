@@ -17,6 +17,8 @@ export const manifest = {
     scr_em3nil: { name: "Transition – Sent Forms (Empty)", route: "/onboarding/transitions/tr5", state: { "view": "emails" }, position: { "x": 19760, "y": 220 } },
     scr_sf1dlg: { name: "Transition – Send Form (Replaces Open Link)", route: "/onboarding/transitions/tr1", state: { "view": "emails", "sendForm": true }, position: { "x": 21160, "y": 220 } },
     scr_em5rvk: { name: "Transition – Sent Forms (Revoked & Sent)", route: "/onboarding/transitions/tr2", state: { "view": "emails" }, position: { "x": 43560, "y": 220 } },
+    scr_pa1cnf: { name: "Transition – Cancel Portal Access", route: "/onboarding/transitions/tr1", state: { "cancelPortal": true }, position: { "x": 44960, "y": 220 } },
+    scr_pa2cnl: { name: "Transition – Portal Cancelled", route: "/onboarding/transitions/tr7", position: { "x": 46360, "y": 220 } },
     scr_cx1dlg: { name: "Transition – Cancel Transition", route: "/onboarding/transitions/tr2", state: { "cancel": true }, position: { "x": 22560, "y": 220 } },
     scr_cx2don: { name: "Transition – Cancelled", route: "/onboarding/transitions/tr15", position: { "x": 23960, "y": 220 } },
     scr_nt1cnd: { name: "New Transition – Candidate Selected", route: "/onboarding/transitions/new", state: { "step": 0, "kind": "Onboarding", "candidateId": "rc1", "templateId": "tpl1" }, position: { "x": 25360, "y": 220 } },
@@ -95,7 +97,7 @@ export const manifest = {
     scr_fbdina: { name: "Exit Feedback Form – Sent and Inactive", route: "/templates/forms/exit-feedback/fbf5", position: { "x": 16960, "y": 17800 } }
   },
   sections: {
-    sec_h9tl61: { name: "Onboarding – Overview & Transitions", x: 0, y: 0, width: 44920, height: 1180 },
+    sec_h9tl61: { name: "Onboarding – Overview & Transitions", x: 0, y: 0, width: 47720, height: 1180 },
     sec_sv0spb: { name: "Onboarding – Templates", x: 0, y: 1980, width: 9920, height: 1180 },
     sec_gut05a: { name: "Employee Management", x: 0, y: 3960, width: 26720, height: 1180 },
     sec_luokg9: { name: "Form Templates – Employee", x: 0, y: 5940, width: 8520, height: 1180 },
@@ -139,7 +141,9 @@ export const manifest = {
     { kind: "screen", id: "scr_tr7flt" },
     { kind: "screen", id: "scr_tr8str" },
     { kind: "screen", id: "scr_tr9emp" },
-    { kind: "screen", id: "scr_em5rvk" }]
+    { kind: "screen", id: "scr_em5rvk" },
+    { kind: "screen", id: "scr_pa1cnf" },
+    { kind: "screen", id: "scr_pa2cnl" }]
   },
   { kind: "section", id: "sec_sv0spb", children: [
     { kind: "screen", id: "scr_k6sk4f" },
