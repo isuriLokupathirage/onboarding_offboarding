@@ -56,12 +56,15 @@ export function ActiveTransitions({ transitions }: {transitions: Transition[];})
     <section>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-ink">Active Transitions ({active.length})</h2>
+        {/* The "+N more" tile carries View All; without that tile, the list is reached from here. */}
+        {further === 0 && active.length > 0 &&
         <Link
           to={ACTIVE_TRANSITIONS_PATH}
           className="text-[13px] font-medium text-ink transition-colors duration-150 ease-out hover:text-brand-700">
 
-          View All
-        </Link>
+            View All
+          </Link>
+        }
       </div>
 
       {active.length === 0 ?
