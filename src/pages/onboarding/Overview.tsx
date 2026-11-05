@@ -4,7 +4,6 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { ActiveTransitions } from '../../components/onboarding/ActiveTransitions';
 import { AttentionSummary } from '../../components/onboarding/AttentionSummary';
 import { NeedsAttention } from '../../components/onboarding/NeedsAttention';
-import { MyTasksSection } from '../../components/onboarding/MyTasksSection';
 import { UpcomingTransitions } from '../../components/onboarding/UpcomingTransitions';
 import { TaskDetailPanel } from '../../components/tasks/TaskDetailPanel';
 import { useAppData } from '../../contexts/AppDataContext';
@@ -90,21 +89,6 @@ export function Overview() {
             today={today}
             initialPeriod={upcomingPeriod} />
         </div>
-
-        {hasOboPermission('Update Task Progress') &&
-        <MyTasksSection
-          transitions={permitted}
-          currentUserId={currentUserId}
-          canSeeRestricted={canSeeRestricted}
-          today={today}
-          onOpenTask={(transition, task) =>
-          setOpenRef({ transitionId: transition.id, taskId: task.id })
-          }
-          onStatusChange={(transition, task, status) =>
-          updateTaskStatus(transition.id, task.id, status)
-          } />
-
-        }
       </div>
 
       <TaskDetailPanel
