@@ -1,9 +1,9 @@
-import type { AuditEntry, Transition, TransitionCancellation, TransitionTask } from '../types';
+import type { AuditEntry, EmailRecord, Transition, TransitionCancellation, TransitionTask } from '../types';
 import { peopleById } from './people';
 import { seedTasks } from './tasks';
 import { seedTemplates } from './templates';
 import { seedForms } from './forms';
-import { addDays } from '../utils/format';
+import { addDays, formatDate } from '../utils/format';
 import { FORM_LINK_EXPIRY_DAYS, toTransitionTask } from '../utils/transitions';
 
 type TransitionSeed = Omit<
@@ -57,7 +57,6 @@ const baseTransitions: TransitionSeed[] = [
   status: 'On Track',
   startedOn: '2026-09-08',
   targetDate: '2026-09-21',
-  daysRemaining: 5,
   ownerIds: ['u1', 'u2', 'u4'],
   tasks: buildTasks('tpl1', '2026-09-21', {
     t1: { status: 'Completed' },
@@ -68,7 +67,7 @@ const baseTransitions: TransitionSeed[] = [
     t6: { status: 'Open' },
     t7: { status: 'Completed' },
     t8: { status: 'Open' },
-    t9: { status: 'In Progress', ownerIds: ['u5', 'u10', 'u1'] },
+    t9: { status: 'In Progress', ownerIds: ['u5', 'u10', 'u14', 'u1'] },
     t14: { dueDate: null, calculatedDueDate: null }
   }),
   emails: [
@@ -78,17 +77,18 @@ const baseTransitions: TransitionSeed[] = [
     recipient: 'anushka.rajapaksha@gmail.com',
     sentAt: '2026-09-08T09:14:00',
     content: 'form',
-    formId: 'frm1'
+    formId: 'frm1',
+    replacedBy: 'em1'
   },
   {
     id: 'em1',
     subject: 'Complete your Permanent Employee Onboarding Form',
     recipient: 'anushka.rajapaksha@gmail.com',
-    sentAt: '2026-09-22T09:10:00',
+    sentAt: '2026-09-14T09:10:00',
     content: 'form',
     formId: 'frm1',
     draft: {
-      savedAt: '2026-09-23T20:15:00',
+      savedAt: '2026-09-15T20:15:00',
       responses: {
         firstName: 'Anushka',
         lastName: 'Rajapaksha',
@@ -104,14 +104,14 @@ const baseTransitions: TransitionSeed[] = [
     id: 'em2',
     subject: 'Document upload reminder',
     recipient: 'anushka.rajapaksha@gmail.com',
-    sentAt: '2026-09-23T14:02:00',
+    sentAt: '2026-09-15T14:02:00',
     content: 'reminder'
   },
   {
     id: 'em3',
     subject: 'Complete your Document Verification Form',
     recipient: 'anushka.rajapaksha@gmail.com',
-    sentAt: '2026-09-24T11:30:00',
+    sentAt: '2026-09-15T11:30:00',
     content: 'form',
     formId: 'frm4'
   }],
@@ -121,7 +121,7 @@ const baseTransitions: TransitionSeed[] = [
   {
     emailId: 'em3',
     formId: 'frm4',
-    submittedAt: '2026-09-25T18:05:00',
+    submittedAt: '2026-09-16T08:05:00',
     responses: {},
     documents: [
     { name: 'National Identity Card', fileName: 'NIC-front-back.pdf' },
@@ -149,7 +149,6 @@ const baseTransitions: TransitionSeed[] = [
   status: 'On Track',
   startedOn: '2026-09-12',
   targetDate: '2026-09-28',
-  daysRemaining: 12,
   ownerIds: ['u1', 'u3'],
   tasks: buildTasks('tpl1', '2026-09-28', {
     t1: { status: 'Completed' },
@@ -170,14 +169,14 @@ const baseTransitions: TransitionSeed[] = [
     id: 'em10',
     subject: 'Complete your Permanent Employee Onboarding Form',
     recipient: 'hiruni.dissa@gmail.com',
-    sentAt: '2026-09-26T09:10:00',
+    sentAt: '2026-09-14T09:10:00',
     content: 'form'
   },
   {
     id: 'em11',
     subject: 'Reminder — complete your employee data form',
     recipient: 'hiruni.dissa@gmail.com',
-    sentAt: '2026-09-28T10:00:00',
+    sentAt: '2026-09-15T10:00:00',
     content: 'reminder'
   }],
   emailEvents: [
@@ -200,10 +199,25 @@ const baseTransitions: TransitionSeed[] = [
   },
   templateId: 'tpl5',
   templateName: 'Standard Resignation Offboarding',
+  exit: {
+    employeeId: 'emp9',
+    type: 'Voluntary',
+    reason: 'Better Employment Opportunity',
+    dates: {
+      'Resignation Effective Date': '2026-08-19',
+      'Notice Period Start Date': '2026-08-19',
+      'Payroll Cut-off Date': '2026-09-15',
+      'Last Working Date': '2026-09-18',
+      'Actual Exit Date': '2026-09-19'
+    },
+    documents: [
+    { id: 'exd-tr3-1', name: 'Resignation_Letter_Malith_Senanayake.pdf', bytes: 217088 },
+    { id: 'exd-tr3-2', name: 'Resignation_Acceptance_Letter.pdf', bytes: 154624 }]
+
+  },
   status: 'At Risk',
   startedOn: '2026-08-29',
   targetDate: '2026-09-18',
-  daysRemaining: 2,
   ownerIds: ['u1', 'u5', 'u6'],
   tasks: buildTasks('tpl5', '2026-09-18', {
     t20: { status: 'Completed' },
@@ -235,7 +249,6 @@ const baseTransitions: TransitionSeed[] = [
   status: 'On Track',
   startedOn: '2026-09-15',
   targetDate: '2026-10-05',
-  daysRemaining: 19,
   ownerIds: ['u2', 'u9'],
   tasks: buildTasks('tpl2', '2026-10-05', {
     t2: { status: 'In Progress' },
@@ -246,7 +259,7 @@ const baseTransitions: TransitionSeed[] = [
     id: 'em7',
     subject: 'Internship onboarding — complete your Intern Onboarding Form',
     recipient: 'tharindu.alwis@gmail.com',
-    sentAt: '2026-09-25T09:05:00',
+    sentAt: '2026-09-15T15:05:00',
     content: 'form'
   }],
 
@@ -270,7 +283,6 @@ const baseTransitions: TransitionSeed[] = [
   status: 'On Track',
   startedOn: '2026-09-14',
   targetDate: '2026-10-12',
-  daysRemaining: 26,
   ownerIds: ['u6', 'u10'],
   tasks: buildTasks('tpl6', '2026-10-12', { t20: { status: 'In Progress' } }),
   emails: [],
@@ -295,7 +307,6 @@ const baseTransitions: TransitionSeed[] = [
   status: 'On Track',
   startedOn: '2026-08-31',
   targetDate: '2026-09-17',
-  daysRemaining: 1,
   ownerIds: ['u1', 'u5'],
   tasks: buildTasks('tpl3', '2026-09-17', {
     t1: { status: 'Completed' },
@@ -318,6 +329,14 @@ const baseTransitions: TransitionSeed[] = [
     recipient: 'chamod.weera@gmail.com',
     sentAt: '2026-09-02T09:00:00',
     content: 'reminder'
+  },
+  {
+    id: 'em12',
+    subject: 'Please complete your employee form by 14 Sept 2026',
+    recipient: 'chamod.weera@gmail.com',
+    sentAt: '2026-08-31T13:12:00',
+    content: 'form',
+    formId: 'frm4'
   }],
 
   formStatus: 'Submitted',
@@ -368,10 +387,12 @@ interface CompactSeed {
   status: Transition['status'];
   startedOn: string;
   targetDate: string;
-  daysRemaining: number;
   completedTasks: number | 'all';
   managerIds: string[];
   cancellation?: TransitionCancellation;
+  exit?: Transition['exit'];
+  emails?: EmailRecord[];
+  portalCancellation?: Transition['portalCancellation'];
 }
 
 function compactSeed(seed: CompactSeed): TransitionSeed {
@@ -400,28 +421,59 @@ function compactSeed(seed: CompactSeed): TransitionSeed {
     status: seed.status,
     startedOn: seed.startedOn,
     targetDate: seed.targetDate,
-    daysRemaining: seed.daysRemaining,
     ownerIds: [...new Set(tasks.flatMap((task) => task.ownerIds))],
     tasks,
-    emails: [],
-    formStatus: 'Not Sent',
-    cancellation: seed.cancellation
+    emails: seed.emails ?? [],
+    formStatus: seed.emails?.length ? 'Sent' : 'Not Sent',
+    cancellation: seed.cancellation,
+    portalCancellation: seed.portalCancellation,
+    exit: seed.exit
   };
 }
 
 const compactSeeds: CompactSeed[] = [
-{ id: 'tr7', kind: 'Onboarding', name: ['Sachini', 'Perera'], position: 'Frontend Engineer', templateId: 'tpl2', status: 'At Risk', startedOn: '2026-08-25', targetDate: '2026-09-12', daysRemaining: -4, completedTasks: 2, managerIds: ['u9'] },
-{ id: 'tr8', kind: 'Onboarding', name: ['Dinuka', 'Herath'], position: 'Data Analyst', templateId: 'tpl2', status: 'On Track', startedOn: '2026-09-10', targetDate: '2026-10-01', daysRemaining: 15, completedTasks: 1, managerIds: ['u4'] },
-{ id: 'tr9', kind: 'Offboarding', name: ['Kavindi', 'Samarasinghe'], position: 'Software Intern', templateId: 'tpl7', status: 'On Track', startedOn: '2026-09-09', targetDate: '2026-09-30', daysRemaining: 14, completedTasks: 1, managerIds: ['u9'] },
-{ id: 'tr10', kind: 'Onboarding', name: ['Ravindu', 'Jayasuriya'], position: 'Solutions Consultant', templateId: 'tpl4', status: 'On Track', startedOn: '2026-09-11', targetDate: '2026-09-25', daysRemaining: 9, completedTasks: 2, managerIds: ['u1'] },
-{ id: 'tr11', kind: 'Offboarding', name: ['Lahiru', 'Gamage'], position: 'Payroll Assistant', templateId: 'tpl5', status: 'At Risk', startedOn: '2026-08-20', targetDate: '2026-09-10', daysRemaining: -6, completedTasks: 3, managerIds: ['u5'] },
-{ id: 'tr12', kind: 'Onboarding', name: ['Oshadi', 'Fonseka'], position: 'UX Designer', templateId: 'tpl1', status: 'Completed', startedOn: '2026-07-20', targetDate: '2026-08-04', daysRemaining: 0, completedTasks: 'all', managerIds: ['u4'] },
-{ id: 'tr13', kind: 'Offboarding', name: ['Nuwan', 'Karunaratne'], position: 'Network Engineer', templateId: 'tpl6', status: 'Completed', startedOn: '2026-07-01', targetDate: '2026-07-31', daysRemaining: 0, completedTasks: 'all', managerIds: ['u2'] },
-{ id: 'tr14', kind: 'Onboarding', name: ['Ishani', 'Wijesekara'], position: 'Accounts Executive', templateId: 'tpl3', status: 'Completed', startedOn: '2026-08-03', targetDate: '2026-08-18', daysRemaining: 0, completedTasks: 'all', managerIds: ['u5'] },
-{ id: 'tr15', kind: 'Onboarding', name: ['Supun', 'Abeywickrama'], position: 'Mobile Engineer', templateId: 'tpl2', status: 'Cancelled', startedOn: '2026-08-12', targetDate: '2026-09-01', daysRemaining: 0, completedTasks: 1, managerIds: ['u9'],
+{ id: 'tr7', kind: 'Onboarding', name: ['Sachini', 'Perera'], position: 'Frontend Engineer', templateId: 'tpl2', status: 'At Risk', startedOn: '2026-08-25', targetDate: '2026-09-12', completedTasks: 2, managerIds: ['u9'],
+  emails: [
+  {
+    id: 'em13',
+    subject: 'Please complete your employee form by 19 Sept 2026',
+    recipient: 'sachini.perera@gmail.com',
+    sentAt: '2026-09-05T10:15:00',
+    content: 'form',
+    formId: 'frm1',
+    expiredAt: '2026-09-10T16:40:00'
+  }],
+  portalCancellation: { at: '2026-09-10T16:40:00', by: 'Nimal Perera' } },
+{ id: 'tr8', kind: 'Onboarding', name: ['Dinuka', 'Herath'], position: 'Data Analyst', templateId: 'tpl2', status: 'On Track', startedOn: '2026-09-10', targetDate: '2026-10-01', completedTasks: 1, managerIds: ['u4'] },
+{ id: 'tr9', kind: 'Offboarding', name: ['Kavindi', 'Samarasinghe'], position: 'Software Intern', templateId: 'tpl7', status: 'On Track', startedOn: '2026-09-09', targetDate: '2026-09-30', completedTasks: 1, managerIds: ['u9'] },
+{ id: 'tr10', kind: 'Onboarding', name: ['Ravindu', 'Jayasuriya'], position: 'Solutions Consultant', templateId: 'tpl4', status: 'On Track', startedOn: '2026-09-11', targetDate: '2026-09-25', completedTasks: 2, managerIds: ['u1'] },
+{ id: 'tr11', kind: 'Offboarding', name: ['Lahiru', 'Gamage'], position: 'Payroll Assistant', templateId: 'tpl5', status: 'At Risk', startedOn: '2026-08-20', targetDate: '2026-09-10', completedTasks: 3, managerIds: ['u5'] },
+{ id: 'tr12', kind: 'Onboarding', name: ['Oshadi', 'Fonseka'], position: 'UX Designer', templateId: 'tpl1', status: 'Completed', startedOn: '2026-07-20', targetDate: '2026-08-04', completedTasks: 'all', managerIds: ['u4'],
+  emails: [
+  {
+    id: 'em14',
+    subject: 'Please complete your employee form by 03 Aug 2026',
+    recipient: 'oshadi.fonseka@gmail.com',
+    sentAt: '2026-07-20T11:00:00',
+    content: 'form',
+    formId: 'frm1'
+  }] },
+{ id: 'tr13', kind: 'Offboarding', name: ['Nuwan', 'Karunaratne'], position: 'Network Engineer', templateId: 'tpl6', status: 'Completed', startedOn: '2026-07-01', targetDate: '2026-07-31', completedTasks: 'all', managerIds: ['u2'] },
+{ id: 'tr14', kind: 'Onboarding', name: ['Ishani', 'Wijesekara'], position: 'Accounts Executive', templateId: 'tpl3', status: 'Completed', startedOn: '2026-08-03', targetDate: '2026-08-18', completedTasks: 'all', managerIds: ['u5'] },
+{ id: 'tr15', kind: 'Onboarding', name: ['Supun', 'Abeywickrama'], position: 'Mobile Engineer', templateId: 'tpl2', status: 'Cancelled', startedOn: '2026-08-12', targetDate: '2026-09-01', completedTasks: 1, managerIds: ['u9'],
   cancellation: { date: '2026-08-21', reason: 'The candidate declined the offer after accepting a counter-offer from their current employer.', cancelledBy: 'Nimal Perera', recordedAt: '2026-08-21T11:40:00' } },
-{ id: 'tr16', kind: 'Offboarding', name: ['Pavithra', 'Liyanage'], position: 'HR Assistant', templateId: 'tpl5', status: 'Cancelled', startedOn: '2026-08-18', targetDate: '2026-09-08', daysRemaining: 0, completedTasks: 2, managerIds: ['u1'],
-  cancellation: { date: '2026-08-27', reason: 'Resignation withdrawn after a discussion with the reporting manager. Pavithra will continue in her current role.', cancelledBy: 'Dilani Jayawardena', recordedAt: '2026-08-27T15:05:00' } }];
+{ id: 'tr16', kind: 'Offboarding', name: ['Pavithra', 'Liyanage'], position: 'HR Assistant', templateId: 'tpl5', status: 'Cancelled', startedOn: '2026-08-18', targetDate: '2026-09-08', completedTasks: 2, managerIds: ['u1'],
+  cancellation: { date: '2026-08-27', reason: 'Resignation withdrawn after a discussion with the reporting manager. Pavithra will continue in her current role.', cancelledBy: 'Dilani Jayawardena', recordedAt: '2026-08-27T15:05:00' } },
+{ id: 'tr17', kind: 'Offboarding', name: ['Nethmi', 'Gunawardena'], position: 'Security Analyst', templateId: 'tpl5', status: 'Completed', startedOn: '2026-06-02', targetDate: '2026-06-30', completedTasks: 'all', managerIds: ['u6'],
+  exit: {
+    employeeId: 'emp8',
+    type: 'Involuntary',
+    reason: 'Redundancy',
+    dates: { 'Resignation Effective Date': '2026-06-01', 'Payroll Cut-off Date': '2026-06-25', 'Last Working Date': '2026-06-30', 'Actual Exit Date': '2026-06-30' },
+    documents: [
+    { id: 'exd-tr17-1', name: 'Redundancy_Notice_Nethmi_Gunawardena.pdf', bytes: 301056 },
+    { id: 'exd-tr17-2', name: 'Final_Settlement_Statement.docx', bytes: 88064 }]
+  } }];
 
 const compactTransitions: TransitionSeed[] = compactSeeds.map(compactSeed);
 
@@ -435,6 +487,51 @@ function seedAudit(transition: TransitionSeed): AuditEntry[] {
     detail: transition.templateName
   }];
 
+  const sender = peopleById[transition.ownerIds[0]]?.name ?? 'System';
+  transition.emails.forEach((email) => {
+    if (email.content !== 'form') return;
+    const form = seedForms.find((item) => item.id === (email.formId ?? transition.candidate.employeeFormId));
+    entries.push({
+      id: `${transition.id}-${email.id}-sent`,
+      action: 'Form sent',
+      actor: sender,
+      at: email.sentAt,
+      detail: `${form ? `${form.code} ${form.name}` : email.subject} · ${email.recipient} · expires ${formatDate(
+        addDays(email.sentAt, FORM_LINK_EXPIRY_DAYS)
+      )}`
+    });
+  });
+  (transition.emailEvents ?? []).forEach((event) => {
+    const email = transition.emails.find((item) => item.id === event.emailId);
+    const form = seedForms.find((item) => item.id === (email?.formId ?? transition.candidate.employeeFormId));
+    entries.push({
+      id: `${transition.id}-${event.id}`,
+      action: 'Form revoked',
+      actor: event.actor,
+      at: event.at,
+      detail: `${form?.name ?? email?.subject ?? 'Form'} · removed from the candidate's portal`
+    });
+  });
+  if (transition.portalCancellation) {
+    const { at, by } = transition.portalCancellation;
+    const expired = transition.emails.filter((email) => email.expiredAt);
+    entries.push({
+      id: `${transition.id}-portal-cancelled`,
+      action: 'Portal access cancelled',
+      actor: by,
+      at,
+      detail: `Portal closed · ${expired.length} open form${expired.length === 1 ? '' : 's'} expired`
+    });
+    expired.forEach((email) =>
+    entries.push({
+      id: `${transition.id}-${email.id}-expired`,
+      action: 'Form expired',
+      actor: by,
+      at: email.expiredAt as string,
+      detail: `${seedForms.find((form) => form.id === email.formId)?.name ?? email.subject} · expired when portal access was cancelled`
+    })
+    );
+  }
   (transition.submissions ?? []).forEach((submission, index) => {
     entries.push({
       id: `${transition.id}-sub${index}`,
@@ -450,15 +547,11 @@ function seedAudit(transition: TransitionSeed): AuditEntry[] {
       action: 'Transition cancelled',
       actor: transition.cancellation.cancelledBy,
       at: transition.cancellation.recordedAt,
-      detail: transition.cancellation.reason
+      detail: `Cancellation date ${formatDate(transition.cancellation.date)} · ${transition.cancellation.reason}`
     });
   }
   return entries;
 }
-
-const portalAccessOverrides: Record<string, Transition['portalAccess']> = {
-  tr5: 'Revoked'
-};
 
 export const seedTransitions: Transition[] = [...baseTransitions, ...compactTransitions].map((transition, index) => ({
   ...transition,
@@ -475,6 +568,6 @@ export const seedTransitions: Transition[] = [...baseTransitions, ...compactTran
   email
   ),
   portalToken: `cnd-${((index + 1) * 48271).toString(16)}`,
-  portalAccess: portalAccessOverrides[transition.id] ?? 'Active',
+  portalAccess: transition.portalCancellation ? 'Revoked' : 'Active',
   portalExpiresAt: addDays(`${transition.startedOn}T09:00:00`, 45)
 }));

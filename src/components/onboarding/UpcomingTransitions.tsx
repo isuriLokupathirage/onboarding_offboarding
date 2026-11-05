@@ -1,50 +1,82 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarIcon } from 'lucide-react';
 import type { Transition } from '../../types';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
+import { Select } from '../ui/Field';
 import { KindDot } from './ActiveTransitions';
-import { daysBetween } from '../../utils/attention';
 import { transitionProgress } from '../../utils/transitions';
+import {
+  DEFAULT_UPCOMING_PERIOD,
+  UPCOMING_PERIODS,
+  daysUntilStart,
+  startsWithin,
+  upcomingPeriodPhrase,
+  type UpcomingPeriod } from
+'../../utils/upcoming';
 
-/** How far ahead a start date counts as "soon". */
-export const UPCOMING_WINDOW_DAYS = 30;
+/** How many upcoming transitions the dashboard lists. The rest are reached through View All. */
+const MAX_ENTRIES = 5;
 
 function startLabel(daysUntil: number): string {
   if (daysUntil === 0) return 'Today';
   return `In ${daysUntil} day${daysUntil === 1 ? '' : 's'}`;
 }
 
-/** Active transitions whose start date falls within the window, soonest first. */
+/** Active transitions starting within the chosen period, soonest first. */
 export function UpcomingTransitions({
   transitions,
-  today
-}: {
-  transitions: Transition[];
-  today: string;
-}) {
+  today,
+  initialPeriod = DEFAULT_UPCOMING_PERIOD
+
+
+
+
+}: {transitions: Transition[];today: string;initialPeriod?: UpcomingPeriod;}) {
+  const [period, setPeriod] = useState<UpcomingPeriod>(initialPeriod);
   const upcoming = transitions.
-  map((transition) => ({
-    transition,
-    daysUntil: daysBetween(today, transition.candidate.hireDate)
-  })).
-  filter(({ daysUntil }) => daysUntil >= 0 && daysUntil <= UPCOMING_WINDOW_DAYS).
+  filter((transition) => startsWithin(transition, today, period)).
+  map((transition) => ({ transition, daysUntil: daysUntilStart(transition, today) })).
   sort((a, b) => a.daysUntil - b.daysUntil);
+  const shown = upcoming.slice(0, MAX_ENTRIES);
 
   return (
     <section className="rounded-xl border border-line bg-white p-5 shadow-card">
-      <h2 className="flex items-center gap-2 text-base font-medium text-ink">
-        <CalendarIcon className="h-[18px] w-[18px]" />
-        Upcoming Transitions
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-base font-medium text-ink">
+          <CalendarIcon className="h-[18px] w-[18px]" />
+          Upcoming Transitions ({upcoming.length})
+        </h2>
+        <div className="flex items-center gap-3">
+          <Select
+            value={period}
+            onChange={(event) => setPeriod(event.target.value as UpcomingPeriod)}
+            aria-label="Period"
+            className="h-8 w-36 text-[13px]">
 
-      {upcoming.length === 0 ?
+            {UPCOMING_PERIODS.map((item) =>
+            <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            )}
+          </Select>
+          <Link
+            to={`/onboarding/transitions?status=Active&starting=${period}`}
+            className="text-[13px] font-medium text-ink transition-colors duration-150 ease-out hover:text-brand-700">
+
+            View All
+          </Link>
+        </div>
+      </div>
+
+      {shown.length === 0 ?
       <p className="mt-4 rounded-lg border border-dashed border-line px-4 py-8 text-center text-[13px] text-muted">
-          Nothing starting soon. No transitions start in the next {UPCOMING_WINDOW_DAYS} days.
+          No transitions start in {upcomingPeriodPhrase(period)}.
         </p> :
 
       <ul className="mt-4 space-y-2.5">
-          {upcoming.map(({ transition, daysUntil }) => {
+          {shown.map(({ transition, daysUntil }) => {
           const fullName = `${transition.candidate.firstName} ${transition.candidate.lastName}`;
           const { percent } = transitionProgress(transition);
           return (

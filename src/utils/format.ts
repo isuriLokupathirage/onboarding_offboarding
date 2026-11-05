@@ -41,38 +41,10 @@ export function formatShortDate(iso: string | null | undefined): {day: string;mo
 }
 
 /** `hireDate` is the transition's key date: the hire date, or the last working date when offboarding. */
-export function resolveDueDate(rule: DueRule | null, hireDate: string): string | null {
-  if (!rule || !hireDate) return null;
-  const base = new Date(hireDate);
-  if (Number.isNaN(base.getTime())) return null;
-  const applyMilestone = (date: Date, milestone: DueRule['milestone']) => {
-    switch (milestone) {
-      case 'First Working Day':
-        date.setDate(date.getDate() + 1);
-        break;
-      case 'End of First Week':
-        date.setDate(date.getDate() + 7);
-        break;
-      case 'End of First Month':
-        date.setMonth(date.getMonth() + 1);
-        break;
-      case 'Probation End Date':
-        date.setMonth(date.getMonth() + 6);
-        break;
-      // For offboarding the base date is the last working date.
-      case 'Resignation Effective Date':
-      case 'Notice Period Start Date':
-        date.setDate(date.getDate() - 30);
-        break;
-      case 'Payroll Cut-off Date':
-        date.setDate(date.getDate() - 5);
-        break;
-      default:
-        break;
-    }
-    return date;
-  };
-  const date = applyMilestone(new Date(base), rule.milestone);
+/** Moves an ISO date by a relative rule's offset. A milestone rule leaves the date as it is. */
+export function applyDueRuleOffset(baseIso: string, rule: DueRule): string | null {
+  const date = new Date(baseIso);
+  if (Number.isNaN(date.getTime())) return null;
   if (rule.kind === 'relative') {
     const sign = rule.direction === 'before' ? -1 : 1;
     if (rule.unit === 'days') date.setDate(date.getDate() + sign * rule.amount);
@@ -80,6 +52,33 @@ export function resolveDueDate(rule: DueRule | null, hireDate: string): string |
     if (rule.unit === 'months') date.setMonth(date.getMonth() + sign * rule.amount);
   }
   return date.toISOString().slice(0, 10);
+}
+
+/**
+ * An onboarding task's due date from the hire date. Offboarding tasks are resolved from the
+ * dates entered in Step 2 instead (see resolveExitDueDate).
+ */
+export function resolveDueDate(rule: DueRule | null, hireDate: string): string | null {
+  if (!rule || !hireDate) return null;
+  const base = new Date(hireDate);
+  if (Number.isNaN(base.getTime())) return null;
+  switch (rule.milestone) {
+    case 'First Working Day':
+      base.setDate(base.getDate() + 1);
+      break;
+    case 'End of First Week':
+      base.setDate(base.getDate() + 7);
+      break;
+    case 'End of First Month':
+      base.setMonth(base.getMonth() + 1);
+      break;
+    case 'Probation End Date':
+      base.setMonth(base.getMonth() + 6);
+      break;
+    default:
+      break;
+  }
+  return applyDueRuleOffset(base.toISOString().slice(0, 10), rule);
 }
 
 export const priorityStyles: Record<Priority, string> = {

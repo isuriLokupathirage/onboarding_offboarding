@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type {
+  AuditEntry,
   ChangedValue,
   Employee,
   EmployeeFormAssignment,
@@ -9,6 +10,7 @@ import type {
 '../types';
 import { employees as seedEmployees } from '../data/employees';
 import { seedAssignments } from '../data/employeeAssignments';
+import { seedEmployeeAudit } from '../data/employeeAudit';
 import { addDays } from '../utils/format';
 import { partLabels } from '../utils/portal';
 
@@ -26,6 +28,10 @@ interface EmployeeData {
   assignments: EmployeeFormAssignment[];
   assignmentsFor: (employeeId: string) => EmployeeFormAssignment[];
   latestAssignment: (employeeId: string) => EmployeeFormAssignment | undefined;
+  /** Changes to the employee record, newest first. */
+  auditFor: (employeeId: string) => AuditEntry[];
+  /** Records a change against the employee, by the signed-in user, now. */
+  logEmployeeChange: (employeeId: string, action: string, detail?: string) => void;
   sendForm: (employeeIds: string[], formId: string, formName: string) => void;
   /** Returns false when the form is no longer open (submitted, expired or already revoked). */
   revokeForm: (assignmentId: string) => boolean;
@@ -58,6 +64,27 @@ export function EmployeeDataProvider({
 }: {children: React.ReactNode;canSendForms?: boolean;currentUser?: string;}) {
   const [employees, setEmployees] = useState<Employee[]>(seedEmployees);
   const [assignments, setAssignments] = useState<EmployeeFormAssignment[]>(seedAssignments);
+  const [employeeAudit, setEmployeeAudit] = useState<Record<string, AuditEntry[]>>(seedEmployeeAudit);
+
+  const auditFor = useCallback(
+    (employeeId: string) =>
+    [...(employeeAudit[employeeId] ?? [])].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()),
+    [employeeAudit]
+  );
+
+  const logEmployeeChange = useCallback(
+    (employeeId: string, action: string, detail?: string) => {
+      const at = new Date().toISOString();
+      setEmployeeAudit((prev) => ({
+        ...prev,
+        [employeeId]: [
+        ...(prev[employeeId] ?? []),
+        { id: `eau-${employeeId}-${Date.now()}-${Math.round(Math.random() * 1000)}`, action, actor: currentUser, at, detail }]
+
+      }));
+    },
+    [currentUser]
+  );
 
   const log = useCallback(
     (action: FormActivityAction, actor: string, detail?: string) => ({
@@ -241,6 +268,8 @@ export function EmployeeDataProvider({
       assignments,
       assignmentsFor,
       latestAssignment,
+      auditFor,
+      logEmployeeChange,
       sendForm,
       revokeForm,
       saveDraft,
@@ -253,6 +282,8 @@ export function EmployeeDataProvider({
     assignments,
     assignmentsFor,
     latestAssignment,
+    auditFor,
+    logEmployeeChange,
     sendForm,
     revokeForm,
     saveDraft,

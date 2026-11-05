@@ -16,6 +16,7 @@ import { useAppData } from '../../contexts/AppDataContext';
 import type { OboPermission } from '../../types';
 import { canOpenTemplates } from '../../utils/library';
 import { visibleKinds } from '../../utils/transitions';
+import { canViewFeedbackForms } from '../../utils/feedbackForms';
 
 interface NavAccess {
   oboModulePurchased: boolean;
@@ -102,7 +103,14 @@ const modules: NavModule[] = [
     heading: 'Forms',
     items: [
     { label: 'Employee', to: '/templates/forms/employee' },
-    { label: 'Background Check', to: '/templates/forms/background-check' }]
+    { label: 'Background Check', to: '/templates/forms/background-check' },
+    {
+      label: 'Exit Feedback',
+      to: '/templates/forms/exit-feedback',
+      // Part of Onboarding & Offboarding: hidden without the module or a feedback form permission.
+      visible: ({ oboModulePurchased, oboPermissions }) =>
+      oboModulePurchased && canViewFeedbackForms(oboPermissions)
+    }]
 
   },
   {

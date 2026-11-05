@@ -20,7 +20,7 @@ export function Tooltip({ label, children }: {label: string;children: React.Reac
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.14, ease: [0.23, 1, 0.32, 1] }}
-          className="absolute bottom-full left-1/2 z-40 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-[11px] font-medium text-white shadow-pop">
+          className="absolute bottom-full left-1/2 z-40 mb-2 -translate-x-1/2 w-max max-w-xs rounded-md text-center leading-snug bg-ink px-2 py-1 text-[11px] font-medium text-white shadow-pop">
           
             {label}
           </motion.span>

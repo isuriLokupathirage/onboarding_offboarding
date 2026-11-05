@@ -13,7 +13,13 @@ export type OboPermission =
 'View Restricted Tasks' |
 'View Templates' |
 'Manage Templates' |
-'Manage Task Library';
+'Manage Task Library' |
+/** Employee Management (employee.view). Needed to see a leaver's offboarding details. */
+'View Employee Profiles' |
+/** Templates → Forms → Exit Feedback (obo.feedback_form.view): open the list and view a form. */
+'View Exit Feedback Forms' |
+/** obo.feedback_form.manage: create, edit, duplicate, deactivate and delete exit feedback forms. */
+'Manage Exit Feedback Forms';
 
 export type Priority = 'Low' | 'Medium' | 'High';
 
@@ -35,6 +41,30 @@ export type OffboardingMilestone =
 
 export type Milestone = OnboardingMilestone | OffboardingMilestone;
 
+/** Who started the exit. Each type has its own list of exit reasons. */
+export type OffboardingType = 'Voluntary' | 'Involuntary' | 'Mutual';
+
+/** A document attached when starting an offboarding. `bytes` counts towards the 25 MB total. */
+export interface ExitDocument {
+  id: string;
+  name: string;
+  bytes: number;
+}
+
+/** The part of an offboarding's Step 2 that is entered, before it is tied to the employee. */
+export type ExitDetailsDraft = Omit<ExitDetails, 'employeeId'>;
+
+/** What Step 2 of an offboarding records: why the employee is leaving, the exit dates and documents. */
+export interface ExitDetails {
+  employeeId: string;
+  type: OffboardingType;
+  reason: string;
+  /** Only when the reason is Other. */
+  otherReason?: string;
+  dates: Partial<Record<OffboardingMilestone, string>>;
+  documents: ExitDocument[];
+}
+
 export type DueRule =
 {
   kind: 'relative';
@@ -50,7 +80,10 @@ export interface Person {
   name: string;
   role: string;
   department: Department;
+  /** Holds Update Task Progress (obo.task.progress), so can own transition tasks. */
   canUpdateTaskProgress: boolean;
+  /** False for an employee with no system login: they get task emails but cannot open tasks. */
+  hasSignInAccess: boolean;
 }
 
 export interface TaskFile {
@@ -80,6 +113,9 @@ export interface Task {
 
 export type EmploymentType = 'Permanent' | 'Contract' | 'Internship' | 'Consultant';
 
+/** Only Active templates can be picked when starting a transition. */
+export type TemplateStatus = 'Active' | 'Inactive';
+
 export interface Template {
   id: string;
   code: string;
@@ -88,6 +124,34 @@ export interface Template {
   client: string;
   employmentType: EmploymentType;
   taskIds: string[];
+  status: TemplateStatus;
+}
+
+export interface RecruitmentCampaign {
+  id: string;
+  name: string;
+  /** From Job Title master data. */
+  jobTitle: string;
+}
+
+/**
+ * A candidate who has completed a recruitment workflow and can be onboarded. Apart from the
+ * name, the details are extracted from their application, so any of them can be missing.
+ */
+export interface RecruitmentCandidate {
+  id: string;
+  firstName: string;
+  lastName: string;
+  campaignId: string;
+  workflowCompletedOn: string;
+  personalEmail?: string;
+  mobile?: string;
+  /** Start date agreed in the offer. */
+  offeredStartDate?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  country?: string;
+  address?: string;
 }
 
 export type TransitionTaskStatus = 'Open' | 'In Progress' | 'On Hold' | 'Completed' | 'Cancelled';
@@ -122,6 +186,8 @@ export interface EmailRecord {
   linkExpiresAt?: string;
   linkRevoked?: boolean;
   replacedBy?: string;
+  /** Set when the form was expired before its expiry date, by cancelling portal access. */
+  expiredAt?: string;
   draftCarriedForward?: boolean;
   /** The recipient's unsubmitted entries for this form. Never shown to HR. */
   draft?: FormDraft;
@@ -205,8 +271,8 @@ export interface Transition {
   portalAccess: 'Active' | 'Revoked' | 'Expired';
   portalExpiresAt: string;
   startedOn: string;
+  /** Set when the transition starts. Screens show the latest task due date instead (transitionTargetDate). */
   targetDate: string;
-  daysRemaining: number;
   ownerIds: string[];
   tasks: TransitionTask[];
   emails: EmailRecord[];
@@ -214,6 +280,10 @@ export interface Transition {
   formStatus: FormSubmissionStatus;
   submissions: FormSubmission[];
   cancellation?: TransitionCancellation;
+  /** Set when HR cancels the candidate's portal access. portalAccess is then 'Revoked'. */
+  portalCancellation?: {at: string;by: string;};
+  /** Offboarding only: the exit type, reason, dates and documents from Step 2. */
+  exit?: ExitDetails;
   auditTrail: AuditEntry[];
 }
 
@@ -366,4 +436,31 @@ export interface EmployeeForm {
   lastModified: string;
   sections: FormSection[];
   documents: RequiredDocument[];
+}
+export type FeedbackAnswerType = 'Rating Scale' | 'Yes / No' | 'Short Comment' | 'Long Comment';
+
+export interface FeedbackQuestion {
+  id: string;
+  label: string;
+  answerType: FeedbackAnswerType;
+  /** Optional description or guidelines shown under the question. */
+  description: string;
+  required: boolean;
+}
+
+export interface FeedbackForm {
+  id: string;
+  /** EXF-NNN, generated when the form is created. The unique identifier: names can repeat. */
+  code: string;
+  name: string;
+  description: string;
+  status: 'Active' | 'Inactive';
+  questions: FeedbackQuestion[];
+  /** How many times the form has been sent. Once sent, it can no longer be edited or deleted. */
+  sentCount: number;
+  /** Responses received. Kept when the form is deactivated. */
+  responseCount: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
 }

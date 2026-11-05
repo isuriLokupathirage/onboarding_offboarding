@@ -8,8 +8,10 @@ import { MyTasksSection } from '../../components/onboarding/MyTasksSection';
 import { UpcomingTransitions } from '../../components/onboarding/UpcomingTransitions';
 import { TaskDetailPanel } from '../../components/tasks/TaskDetailPanel';
 import { useAppData } from '../../contexts/AppDataContext';
-import { managePermissionFor, statusGroup, visibleKinds } from '../../utils/transitions';
-import { attentionEntries, todayKey } from '../../utils/attention';
+import { PROTOTYPE_TODAY, managePermissionFor, statusGroup, visibleKinds } from '../../utils/transitions';
+import { attentionEntries } from '../../utils/attention';
+import { isUpcomingPeriod } from '../../utils/upcoming';
+import { useScreenInit } from '../../useScreenInit.js';
 
 export function Overview() {
   const {
@@ -20,12 +22,16 @@ export function Overview() {
     updateTaskStatus
   } = useAppData();
   const transitions = allTransitions.filter((t) => statusGroup(t) === 'Active');
-  // Refreshing re-reads the data against the current date and time.
+  const screenInit = useScreenInit() as {attentionView?: 'overdue' | 'blocked';upcomingPeriod?: string;};
+  // Refreshing re-reads the data.
   const [refreshedAt, setRefreshedAt] = useState(() => new Date());
   const permittedKinds = visibleKinds(oboPermissions);
   const permitted = transitions.filter((t) => permittedKinds.includes(t.kind));
 
-  const today = todayKey(refreshedAt);
+  // The prototype's data is set around a fixed "today", shared with the Transitions screens.
+  const today = PROTOTYPE_TODAY;
+  const linkedPeriod = screenInit.upcomingPeriod ?? null;
+  const upcomingPeriod = isUpcomingPeriod(linkedPeriod) ? linkedPeriod : undefined;
   const canSeeRestricted = hasOboPermission('View Restricted Tasks');
   const attention = attentionEntries(permitted, canSeeRestricted, today);
 
@@ -74,11 +80,15 @@ export function Overview() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <NeedsAttention
             entries={attention}
+            initialView={screenInit.attentionView}
             onResolve={(entry) =>
             setOpenRef({ transitionId: entry.transition.id, taskId: entry.task.id })
             } />
 
-          <UpcomingTransitions transitions={permitted} today={today} />
+          <UpcomingTransitions
+            transitions={permitted}
+            today={today}
+            initialPeriod={upcomingPeriod} />
         </div>
 
         {hasOboPermission('Update Task Progress') &&

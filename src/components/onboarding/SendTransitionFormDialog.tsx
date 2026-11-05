@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LockIcon, MailIcon, RefreshCwIcon } from 'lucide-react';
 import type { Transition } from '../../types';
@@ -8,7 +8,8 @@ import { Badge } from '../ui/Badge';
 import { FormPicker } from '../employees/FormPicker';
 import { useAppData } from '../../contexts/AppDataContext';
 import { addDays, formatDate } from '../../utils/format';
-import { FORM_LINK_EXPIRY_DAYS, openFormEmail } from '../../utils/transitions';
+import { FORM_LINK_EXPIRY_DAYS, formEmailSubject, openFormEmail, prototypeNow } from '../../utils/transitions';
+import { companyDetails } from '../../data/company';
 
 export function SendTransitionFormDialog({
   open,
@@ -39,7 +40,7 @@ export function SendTransitionFormDialog({
   }, [open, onClose]);
 
   const selectedForm = activeForms.find((form) => form.id === formId);
-  const expiry = addDays(new Date().toISOString(), FORM_LINK_EXPIRY_DAYS);
+  const expiry = addDays(prototypeNow(), FORM_LINK_EXPIRY_DAYS);
   // Only a copy of the same form that is still open gets replaced. Other forms stay in the portal.
   const openCopy = (transition: Transition) =>
   selectedForm ? openFormEmail(transition, selectedForm.id) : undefined;
@@ -152,6 +153,13 @@ export function SendTransitionFormDialog({
                   Other forms in the portal keep their own expiry dates.
                 </p>
               </div>
+
+              {selectedForm &&
+            <EmailPreview
+              candidateName={single ? nameOf(recipients[0]) : null}
+              formName={selectedForm.name}
+              expiry={expiry} />
+            }
             </div>
 
             <div className="flex justify-end gap-2 border-t border-line px-6 py-4">
@@ -164,5 +172,58 @@ export function SendTransitionFormDialog({
         </div>
       }
     </AnimatePresence>);
+
+}
+
+/** The email the candidate receives. With several recipients, each email carries that candidate's name. */
+function EmailPreview({
+  candidateName,
+  formName,
+  expiry
+
+
+
+}: {candidateName: string | null;formName: string;expiry: string;}) {
+  const by = formatDate(expiry);
+  return (
+    <div className="mt-5">
+      <p className="text-[13px] font-medium text-ink">Email preview</p>
+      <div className="mt-2 overflow-hidden rounded-lg border border-line">
+        <p className="border-b border-line bg-slate-50 px-4 py-2.5 text-[12px] text-muted">
+          <span className="font-medium text-ink">Subject:</span> {formEmailSubject(expiry)}
+        </p>
+        <div className="space-y-3 px-4 py-4 text-[13px] leading-relaxed text-ink">
+          <p className="text-[15px] font-semibold">Please complete your employee form</p>
+          <p>Dear {candidateName ?? "[each candidate's name]"},</p>
+          <p>
+            To help us prepare your employee record before you join, we kindly ask you to complete the following
+            form:
+          </p>
+          <ul className="list-disc pl-5">
+            <li className="font-medium">{formName}</li>
+          </ul>
+          <p>
+            Please use the button below to open your portal and get started. Any details we already hold are filled
+            in for you, so you only need to check them and update anything that has changed.
+          </p>
+          <span className="inline-flex rounded-lg bg-brand-500 px-4 py-2 text-[13px] font-medium text-white">
+            Open My Portal
+          </span>
+          <p>
+            We would appreciate it if you could submit by {by}. After this date the link will expire.
+          </p>
+          <p>
+            This link is personal to you, so please do not forward this email. If you have any questions, please
+            feel free to contact your HR team.
+          </p>
+          <p>Thank you for your time and cooperation.</p>
+          <p>
+            Best regards,
+            <br />
+            {companyDetails.name}
+          </p>
+        </div>
+      </div>
+    </div>);
 
 }

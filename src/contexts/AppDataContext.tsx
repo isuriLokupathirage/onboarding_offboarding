@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type {
+  EmailRecord,
   EmployeeForm,
+  ExitDetailsDraft,
   FieldState,
   FormPart,
   FormSection,
@@ -22,15 +24,19 @@ import { buildSections, seedForms } from '../data/forms';
 import { peopleById } from '../data/people';
 import {
   FORM_LINK_EXPIRY_DAYS,
+  formEmailSubject,
+  prototypeNow,
   canReceiveForm,
   canRevokeEmail,
   isOpenFormEmail,
   isTaskOpen,
   managePermissionFor,
+  portalStatus,
   openFormEmail,
   statusGroup } from
 '../utils/transitions';
-import { addDays, nextCode } from '../utils/format';
+import { addDays, formatDate, nextCode } from '../utils/format';
+import { describeExitChanges, exitTargetDate, resolveExitDueDate } from '../utils/offboarding';
 import { formParts, partLabels } from '../utils/portal';
 
 interface AppData {
@@ -43,6 +49,9 @@ interface AppData {
   /** Prototype only: lets testers try the module as different roles. */
   setOboPermissions: (permissions: OboPermission[]) => void;
   setOboModulePurchased: (purchased: boolean) => void;
+  /** Whether the tenant has purchased the Recruitment module. Recruitment candidates can only be picked when it has. */
+  recruitmentModulePurchased: boolean;
+  setRecruitmentModulePurchased: (purchased: boolean) => void;
   updateTaskStatus: (transitionId: string, taskId: string, status: TransitionTaskStatus) => void;
   cancelTransition: (transitionId: string, date: string, reason: string) => void;
   createForm: () => string;
@@ -66,6 +75,11 @@ interface AppData {
   /** The next unused template code. Codes of deleted templates are never issued again. */
   nextTemplateCode: (kind: TransitionKind) => string;
   addTransition: (transition: Transition) => void;
+  /**
+   * Saves new exit details on an offboarding in progress. Due dates still calculated from the
+   * exit dates are recalculated; overridden ones are kept. Returns what changed, empty when nothing did.
+   */
+  updateTransitionExit: (transitionId: string, next: ExitDetailsDraft) => string[];
   setFieldState: (formId: string, fieldId: string, state: FieldState) => void;
   toggleSection: (formId: string, sectionId: string) => void;
   setEmployeeDetailsEnabled: (formId: string, enabled: boolean) => void;
@@ -75,6 +89,8 @@ interface AppData {
   updateDocument: (formId: string, docId: string, patch: Partial<RequiredDocument>) => void;
   removeDocument: (formId: string, docId: string) => void;
   revokeEmail: (transitionId: string, emailId: string) => void;
+  /** Closes the candidate's portal and expires every form still open in it. */
+  cancelPortalAccess: (transitionId: string) => void;
   sendTransitionForm: (transitionIds: string[], formId: string) => void;
   /** Stores the candidate's entries against one form. Does not submit or change its expiry. */
   saveTransitionDraft: (
@@ -97,7 +113,13 @@ const AppDataContext = createContext<AppData | null>(null);
 const DEMO_ACCESS_KEY = 'obo-demo-access';
 
 /** The role a tester picked, kept for this browser tab so a reload does not reset it. */
-function storedAccess(): {permissions?: OboPermission[];purchased?: boolean;} {
+interface DemoAccess {
+  permissions: OboPermission[];
+  purchased: boolean;
+  recruitmentPurchased: boolean;
+}
+
+function storedAccess(): Partial<DemoAccess> {
   try {
     return JSON.parse(sessionStorage.getItem(DEMO_ACCESS_KEY) ?? '{}');
   } catch {
@@ -105,7 +127,7 @@ function storedAccess(): {permissions?: OboPermission[];purchased?: boolean;} {
   }
 }
 
-function storeAccess(access: {permissions: OboPermission[];purchased: boolean;}): void {
+function storeAccess(access: DemoAccess): void {
   try {
     sessionStorage.setItem(DEMO_ACCESS_KEY, JSON.stringify(access));
   } catch {
@@ -159,12 +181,14 @@ export function AppDataProvider({
   children,
   canManageForms = true,
   oboModulePurchased: initialPurchased,
+  recruitmentModulePurchased: initialRecruitmentPurchased,
   currentUserId = 'u1',
   oboPermissions: initialPermissions
 }: {
   children: React.ReactNode;
   canManageForms?: boolean;
   oboModulePurchased?: boolean;
+  recruitmentModulePurchased?: boolean;
   currentUserId?: string;
   oboPermissions?: OboPermission[];
 }) {
@@ -179,19 +203,29 @@ export function AppDataProvider({
   const [oboModulePurchased, setPurchasedState] = useState<boolean>(
     () => initialPurchased ?? storedAccess().purchased ?? true
   );
+  const [recruitmentModulePurchased, setRecruitmentPurchasedState] = useState<boolean>(
+    () => initialRecruitmentPurchased ?? storedAccess().recruitmentPurchased ?? true
+  );
   const setOboPermissions = useCallback(
     (permissions: OboPermission[]) => {
       setPermissionsState(permissions);
-      storeAccess({ permissions, purchased: oboModulePurchased });
+      storeAccess({ permissions, purchased: oboModulePurchased, recruitmentPurchased: recruitmentModulePurchased });
     },
-    [oboModulePurchased]
+    [oboModulePurchased, recruitmentModulePurchased]
   );
   const setOboModulePurchased = useCallback(
     (purchased: boolean) => {
       setPurchasedState(purchased);
-      storeAccess({ permissions: oboPermissions, purchased });
+      storeAccess({ permissions: oboPermissions, purchased, recruitmentPurchased: recruitmentModulePurchased });
     },
-    [oboPermissions]
+    [oboPermissions, recruitmentModulePurchased]
+  );
+  const setRecruitmentModulePurchased = useCallback(
+    (recruitmentPurchased: boolean) => {
+      setRecruitmentPurchasedState(recruitmentPurchased);
+      storeAccess({ permissions: oboPermissions, purchased: oboModulePurchased, recruitmentPurchased });
+    },
+    [oboPermissions, oboModulePurchased]
   );
 // Every task and template code ever issued, including deleted ones, so a code is never reused.
   const [issuedCodes, setIssuedCodes] = useState<string[]>(() => [
@@ -220,6 +254,51 @@ export function AppDataProvider({
     []
   );
 
+  const updateTransitionExit = useCallback(
+    (transitionId: string, next: ExitDetailsDraft): string[] => {
+      const current = transitions.find((transition) => transition.id === transitionId);
+      if (
+      !current?.exit ||
+      statusGroup(current) !== 'Active' ||
+      !oboPermissions.includes(managePermissionFor(current.kind)))
+
+      return [];
+      const changes = describeExitChanges(current.exit, next);
+      if (changes.length === 0) return [];
+      const actor = peopleById[currentUserId]?.name ?? currentUserId;
+      const exit = { ...current.exit, ...next, otherReason: next.otherReason?.trim() || undefined };
+      const targetDate = exitTargetDate(exit.dates) || current.targetDate;
+      setTransitions((prev) =>
+      prev.map((transition) => {
+        if (transition.id !== transitionId) return transition;
+        return {
+          ...transition,
+          exit,
+          targetDate,
+          candidate: { ...transition.candidate, hireDate: targetDate },
+          tasks: transition.tasks.map((task) => {
+            if (task.dueSource !== 'calculated' || !isTaskOpen(task)) return task;
+            const due = resolveExitDueDate(tasks.find((item) => item.id === task.taskId)?.dueRule ?? null, exit.dates);
+            return { ...task, dueDate: due, calculatedDueDate: due };
+          }),
+          auditTrail: [
+          ...transition.auditTrail,
+          {
+            id: `au-${Date.now()}`,
+            action: 'Exit details updated',
+            actor,
+            at: new Date().toISOString(),
+            detail: changes.join('; ')
+          }]
+
+        };
+      })
+      );
+      return changes;
+    },
+    [transitions, tasks, currentUserId, oboPermissions]
+  );
+
   const cancelTransition = useCallback(
     (transitionId: string, date: string, reason: string) => {
       const actor = peopleById[currentUserId]?.name ?? currentUserId;
@@ -246,7 +325,7 @@ export function AppDataProvider({
             action: 'Transition cancelled',
             actor,
             at: recordedAt,
-            detail: reason
+            detail: `Cancellation date ${formatDate(date)} · ${reason}`
           }]
 
         };
@@ -497,6 +576,9 @@ export function AppDataProvider({
       setTransitions((prev) =>
       prev.map((transition) => {
         if (transition.id !== transitionId || !canRevokeEmail(transition, emailId)) return transition;
+        const at = prototypeNow();
+        const email = transition.emails.find((item) => item.id === emailId);
+        const formName = forms.find((form) => form.id === email?.formId)?.name ?? email?.subject;
         return {
           ...transition,
           emails: transition.emails.map((email) =>
@@ -509,27 +591,84 @@ export function AppDataProvider({
             emailId,
             action: 'Link revoked',
             actor,
-            at: new Date().toISOString()
+            at
+          }],
+
+          auditTrail: [
+          ...transition.auditTrail,
+          {
+            id: `au-${Date.now()}`,
+            action: 'Form revoked',
+            actor,
+            at,
+            detail: `${formName} · removed from the candidate's portal`
           }]
 
         };
       })
       );
     },
-    [currentUserId]
+    [currentUserId, forms]
+  );
+
+  const cancelPortalAccess = useCallback(
+    (transitionId: string) => {
+      const by = peopleById[currentUserId]?.name ?? currentUserId;
+      const at = prototypeNow();
+      setTransitions((prev) =>
+      prev.map((transition) => {
+        if (
+        transition.id !== transitionId ||
+        portalStatus(transition) !== 'Active' ||
+        !oboPermissions.includes(managePermissionFor(transition.kind)))
+
+        return transition;
+        const open = transition.emails.filter((email) => isOpenFormEmail(transition, email));
+        const formName = (email: EmailRecord) =>
+        forms.find((form) => form.id === email.formId)?.name ?? email.subject;
+        return {
+          ...transition,
+          portalAccess: 'Revoked',
+          portalCancellation: { at, by },
+          emails: transition.emails.map((email) =>
+          open.some((item) => item.id === email.id) ? { ...email, expiredAt: at, draft: undefined } : email
+          ),
+          auditTrail: [
+          ...transition.auditTrail,
+          {
+            id: `au-${Date.now()}-portal`,
+            action: 'Portal access cancelled',
+            actor: by,
+            at,
+            detail: `Portal closed · ${open.length} open form${open.length === 1 ? '' : 's'} expired`
+          },
+          ...open.map((email) => ({
+            id: `au-${Date.now()}-${email.id}-expired`,
+            action: 'Form expired',
+            actor: by,
+            at,
+            detail: `${formName(email)} · expired when portal access was cancelled`
+          }))]
+
+        };
+      })
+      );
+    },
+    [currentUserId, oboPermissions, forms]
   );
 
   const sendTransitionForm = useCallback(
     (transitionIds: string[], formId: string) => {
       const form = forms.find((item) => item.id === formId);
       if (!form || !oboPermissions.includes('Manage Onboarding Transitions')) return;
-      const now = new Date();
-      const sentAt = now.toISOString();
+      const stamp = Date.now();
+      const sentAt = prototypeNow();
       const expiresAt = addDays(sentAt, FORM_LINK_EXPIRY_DAYS);
+      const actor = peopleById[currentUserId]?.name ?? currentUserId;
       setTransitions((prev) =>
       prev.map((transition, index) => {
         if (!transitionIds.includes(transition.id) || !canReceiveForm(transition)) return transition;
-        const emailId = `em-${now.getTime()}-${index}`;
+        const emailId = `em-${stamp}-${index}`;
         // Other forms in the portal are untouched. Only an open copy of this same form is
         // replaced, and its draft moves to the new one.
         const previous = openFormEmail(transition, form.id);
@@ -547,7 +686,7 @@ export function AppDataProvider({
           ),
           {
             id: emailId,
-            subject: `Complete your ${form.name}`,
+            subject: formEmailSubject(expiresAt),
             recipient: transition.candidate.personalEmail,
             sentAt,
             content: 'form',
@@ -555,13 +694,24 @@ export function AppDataProvider({
             linkExpiresAt: expiresAt,
             draftCarriedForward: Boolean(previous?.draft),
             draft: previous?.draft
+          }],
+
+          auditTrail: [
+          ...transition.auditTrail,
+          {
+            id: `au-${stamp}-${index}`,
+            action: 'Form sent',
+            actor,
+            at: sentAt,
+            detail: `${form.code} ${form.name} · ${transition.candidate.personalEmail} · expires ${formatDate(expiresAt)}${
+            previous ? ' · replaces the copy sent earlier' : ''}`
           }]
 
         };
       })
       );
     },
-    [forms, oboPermissions]
+    [forms, oboPermissions, currentUserId]
   );
 
   const saveTransitionDraft = useCallback(
@@ -598,7 +748,7 @@ export function AppDataProvider({
     responses: Record<string, string>,
     documents: SubmittedDocument[]) =>
     {
-      const submittedAt = new Date().toISOString();
+      const submittedAt = prototypeNow();
       setTransitions((prev) =>
       prev.map((transition) => {
         const email = transition.emails.find((item) => item.id === emailId);
@@ -657,6 +807,8 @@ export function AppDataProvider({
       hasOboPermission,
       setOboPermissions,
       setOboModulePurchased,
+      recruitmentModulePurchased,
+      setRecruitmentModulePurchased,
       updateTaskStatus,
       cancelTransition,
       createForm,
@@ -675,6 +827,7 @@ export function AppDataProvider({
       nextTaskCode,
       nextTemplateCode,
       addTransition,
+      updateTransitionExit,
       setFieldState,
       toggleSection,
       setEmployeeDetailsEnabled,
@@ -684,6 +837,7 @@ export function AppDataProvider({
       updateDocument,
       removeDocument,
       revokeEmail,
+      cancelPortalAccess,
       sendTransitionForm,
       saveTransitionDraft,
       submitTransitionForm
@@ -696,6 +850,8 @@ export function AppDataProvider({
     hasOboPermission,
     setOboPermissions,
     setOboModulePurchased,
+    recruitmentModulePurchased,
+    setRecruitmentModulePurchased,
     updateTaskStatus,
     cancelTransition,
     createForm,
@@ -714,6 +870,7 @@ export function AppDataProvider({
     nextTaskCode,
     nextTemplateCode,
     addTransition,
+    updateTransitionExit,
     setFieldState,
     toggleSection,
     setEmployeeDetailsEnabled,
@@ -723,6 +880,7 @@ export function AppDataProvider({
     updateDocument,
     removeDocument,
     revokeEmail,
+    cancelPortalAccess,
     sendTransitionForm,
     saveTransitionDraft,
     submitTransitionForm]

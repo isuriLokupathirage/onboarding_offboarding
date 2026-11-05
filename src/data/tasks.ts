@@ -257,6 +257,24 @@ export const seedTasks: Task[] = [
   files: []
 },
 {
+  id: 't15',
+  code: 'ONB-015',
+  kind: 'Onboarding',
+  name: 'Welcome Call with the CEO',
+  description: 'A short video call where the CEO welcomes the new joiner. The date depends on the CEO’s calendar, so it is set per transition.',
+  department: 'HR',
+  priority: 'Low',
+  optional: true,
+  showInCandidateEvents: true,
+  ownerIds: [],
+  dueRule: null,
+  parentId: null,
+  parentCompletionRequired: false,
+  notifyOnAssignment: 'Yes',
+  ownerOnlyVisible: false,
+  files: []
+},
+{
   id: 't20',
   code: 'OFB-001',
   kind: 'Offboarding',

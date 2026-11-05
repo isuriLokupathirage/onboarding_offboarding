@@ -1,5 +1,5 @@
 import type { Transition, TransitionTask } from '../types';
-import { blockingTask, isTaskOpen, statusGroup } from './transitions';
+import { PROTOTYPE_TODAY, blockingTask, isTaskOpen, statusGroup } from './transitions';
 
 export type AttentionFilter = 'overdue' | 'blocked' | 'due-today';
 
@@ -37,7 +37,7 @@ export function attentionTasks(
 transition: Transition,
 filter: AttentionFilter,
 canSeeRestricted: boolean,
-today = todayKey())
+today = PROTOTYPE_TODAY)
 : TransitionTask[] {
   if (statusGroup(transition) !== 'Active') return [];
   return transition.tasks.filter(
@@ -64,7 +64,10 @@ export interface AttentionEntry {
   overdueDays: number;
   /** The task this one is waiting on, when blocked. */
   blocker?: TransitionTask;
-  /** Days since the blocking task's own due date passed. There is no record of when it became blocked. */
+  /**
+   * Days the task has been blocked. A task waits on its parent from the day the transition starts,
+   * so this counts from the start date.
+   */
   blockedDays: number;
   /** The longer of the two, used for ordering. */
   outstandingDays: number;
@@ -74,7 +77,7 @@ export interface AttentionEntry {
 export function attentionEntries(
 transitions: Transition[],
 canSeeRestricted: boolean,
-today = todayKey())
+today = PROTOTYPE_TODAY)
 : AttentionEntry[] {
   return transitions.
   flatMap((transition) => {
@@ -85,7 +88,7 @@ today = todayKey())
     map((task): AttentionEntry => {
       const blocker = blocked.has(task) ? blockingTask(transition, task) : undefined;
       const overdueDays = overdue.has(task) && task.dueDate ? daysBetween(task.dueDate, today) : 0;
-      const blockedDays = blocker?.dueDate ? Math.max(0, daysBetween(blocker.dueDate, today)) : 0;
+      const blockedDays = blocker ? Math.max(0, daysBetween(transition.startedOn, today)) : 0;
       return {
         transition,
         task,

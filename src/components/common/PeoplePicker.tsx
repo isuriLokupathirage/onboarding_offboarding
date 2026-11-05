@@ -3,22 +3,28 @@ import { SearchIcon, XIcon } from 'lucide-react';
 import { people, peopleById } from '../../data/people';
 import type { Person } from '../../types';
 import { Avatar } from '../ui/Avatar';
+import { NoSignInBadge } from './NoSignInBadge';
 
 export function PeoplePicker({
   selectedIds,
   onChange,
   placeholder = 'Search people',
   emptyHint,
-  isEligible
+  isEligible,
+  invalid = false,
+  initialQuery
 }: {
   selectedIds: string[];
   onChange: (ids: string[]) => void;
   placeholder?: string;
   emptyHint?: string;
   isEligible?: (person: Person) => boolean;
+  invalid?: boolean;
+  /** Design canvas only: opens the picker with this search already typed. */
+  initialQuery?: string;
 }) {
-  const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(initialQuery ?? '');
+  const [open, setOpen] = useState(initialQuery !== undefined);
 
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -35,7 +41,7 @@ export function PeoplePicker({
   }, [query, selectedIds, isEligible]);
 
   return (
-    <div className="rounded-lg border border-line bg-white">
+    <div className={`rounded-lg border bg-white ${invalid ? 'border-red-300' : 'border-line'}`}>
       <div className="flex flex-wrap items-center gap-1.5 p-2">
         {selectedIds.map((id) =>
         <span
@@ -44,6 +50,7 @@ export function PeoplePicker({
           
             <Avatar name={peopleById[id]?.name ?? id} size="xs" />
             {peopleById[id]?.name ?? id}
+            {peopleById[id] && !peopleById[id].hasSignInAccess && <NoSignInBadge />}
             <button
             type="button"
             aria-label={`Remove ${peopleById[id]?.name ?? id}`}
@@ -84,7 +91,10 @@ export function PeoplePicker({
               
                   <Avatar name={person.name} size="sm" />
                   <span className="leading-tight">
-                    <span className="block text-[13px] text-ink">{person.name}</span>
+                    <span className="flex items-center gap-1.5 text-[13px] text-ink">
+                      {person.name}
+                      {!person.hasSignInAccess && <NoSignInBadge />}
+                    </span>
                     <span className="block text-[11px] text-muted">
                       {person.role} · {person.department}
                     </span>

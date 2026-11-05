@@ -109,6 +109,7 @@ export function TemplateDetail() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-[12px] font-medium text-subtle">{template.code}</span>
               <Badge>{template.kind}</Badge>
+              {template.status === 'Inactive' && <Badge className="bg-slate-100 text-muted ring-line">Inactive</Badge>}
               <Badge
                 className={used > 0 ? 'bg-amber-50 text-amber-700 ring-amber-200' : 'bg-slate-50 text-muted ring-line'}>
 

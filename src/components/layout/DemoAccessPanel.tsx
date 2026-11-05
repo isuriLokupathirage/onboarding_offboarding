@@ -15,7 +15,14 @@ a.length === b.length && a.every((item) => b.includes(item));
  * pick a ready-made role, switch single permissions, or simulate a tenant without the module.
  */
 export function DemoAccessPanel() {
-  const { oboPermissions, setOboPermissions, oboModulePurchased, setOboModulePurchased } = useAppData();
+  const {
+    oboPermissions,
+    setOboPermissions,
+    oboModulePurchased,
+    setOboModulePurchased,
+    recruitmentModulePurchased,
+    setRecruitmentModulePurchased
+  } = useAppData();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -112,6 +119,15 @@ export function DemoAccessPanel() {
               className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-brand-500 focus:ring-brand-200" />
 
               Onboarding &amp; Offboarding module purchased
+            </label>
+            <label className="mt-1.5 flex cursor-pointer items-start gap-2 text-[12px] text-ink">
+              <input
+              type="checkbox"
+              checked={recruitmentModulePurchased}
+              onChange={(event) => setRecruitmentModulePurchased(event.target.checked)}
+              className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-brand-500 focus:ring-brand-200" />
+
+              Recruitment module purchased
             </label>
 
             <button

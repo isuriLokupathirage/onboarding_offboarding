@@ -8,6 +8,7 @@ import { DepartmentChip, PriorityBadge } from '../ui/Badge';
 import { TaskStatusBadge } from './TaskStatusBadge';
 import { StatusSelect } from './StatusSelect';
 import { TaskFiles } from './TaskFiles';
+import { NoSignInBadge } from '../common/NoSignInBadge';
 import { useAppData } from '../../contexts/AppDataContext';
 import { peopleById } from '../../data/people';
 import type { Transition, TransitionTask, TransitionTaskStatus } from '../../types';
@@ -170,7 +171,10 @@ function PanelBody({
                 <li key={id} className="flex items-center gap-2.5">
                     <Avatar name={peopleById[id]?.name ?? id} size="sm" />
                     <span className="leading-tight">
-                      <span className="block text-ink">{peopleById[id]?.name ?? id}</span>
+                      <span className="flex items-center gap-1.5 text-ink">
+                        {peopleById[id]?.name ?? id}
+                        {peopleById[id] && !peopleById[id].hasSignInAccess && <NoSignInBadge />}
+                      </span>
                       <span className="block text-[11px] text-muted">{peopleById[id]?.role}</span>
                     </span>
                   </li>

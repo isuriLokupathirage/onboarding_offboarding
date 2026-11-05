@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangleIcon,
@@ -15,9 +15,11 @@ import {
 import { twMerge } from 'tailwind-merge';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
-import { Segmented, Tabs } from '../../components/ui/Segmented';
+import { Segmented } from '../../components/ui/Segmented';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { Toggle } from '../../components/ui/Toggle';
+import { FacetedFilter } from '../../components/ui/FacetedFilter';
+import { Select } from '../../components/ui/Field';
 import { Avatar, AvatarGroup } from '../../components/ui/Avatar';
 import { Badge } from '../../components/ui/Badge';
 import { Progress } from '../../components/ui/Progress';
@@ -33,42 +35,117 @@ import {
   daysLabel,
   hasTaskOwnedBy,
   isOverdue,
+  PROTOTYPE_TODAY,
   statusGroup,
+  taskOwnerIds,
   transitionProgress,
+  transitionTargetDate,
   visibleKinds,
   type TransitionStatusGroup } from
 '../../utils/transitions';
-import { attentionLabels, attentionTasks, isAttentionFilter } from '../../utils/attention';
+import { attentionLabels, attentionTasks, isAttentionFilter, type AttentionFilter } from '../../utils/attention';
+import { UPCOMING_PERIODS, isUpcomingPeriod, startsWithin, type UpcomingPeriod } from '../../utils/upcoming';
 import { useScreenInit } from '../../useScreenInit.js';
 
 type TypeFilter = 'all' | TransitionKind;
 
 const PAGE_SIZE = 10;
-const STATUS_TABS: TransitionStatusGroup[] = ['Active', 'Completed', 'Cancelled'];
+const STATUS_OPTIONS: TransitionStatusGroup[] = ['Active', 'Completed', 'Cancelled'];
+/** The list opens on transitions in progress. */
+const DEFAULT_STATUSES: TransitionStatusGroup[] = ['Active'];
+const ATTENTION_OPTIONS: AttentionFilter[] = ['overdue', 'blocked', 'due-today'];
+
+interface ListScreenState {
+  /** Canvas: one status, as the screens set before Status became a filter. */
+  tab?: TransitionStatusGroup;
+  statuses?: TransitionStatusGroup[];
+  assignedToMe?: boolean;
+  type?: TypeFilter;
+  query?: string;
+  attention?: AttentionFilter[];
+  starting?: UpcomingPeriod;
+}
+
+interface FilterChip {
+  key: string;
+  label: string;
+  onRemove: () => void;
+}
+
+/** ?attention= holds one value from a dashboard count, or several separated by commas. */
+function parseAttention(value: string | null): AttentionFilter[] {
+  const values = (value ?? '').split(',').filter(isAttentionFilter);
+  return ATTENTION_OPTIONS.filter((option) => values.includes(option));
+}
+
+/** ?status= holds one status (the dashboard sends Active) or several separated by commas. */
+function parseStatuses(value: string | null): TransitionStatusGroup[] {
+  const values = (value ?? '').split(',');
+  return STATUS_OPTIONS.filter((option) => values.includes(option));
+}
+
+const sameStatuses = (a: TransitionStatusGroup[], b: TransitionStatusGroup[]): boolean =>
+a.length === b.length && a.every((status) => b.includes(status));
 const PERMISSION_NOTE = 'Requires the Manage Onboarding Transitions permission';
 const GRID =
 'grid grid-cols-[20px_minmax(200px,2.2fr)_110px_minmax(150px,1.6fr)_130px_90px_150px_84px] items-center gap-4';
 
 export function Transitions() {
   const navigate = useNavigate();
-  const init = useScreenInit() as {tab?: TransitionStatusGroup;assignedToMe?: boolean;};
+  const init = useScreenInit() as ListScreenState;
   const { transitions, currentUserId, oboPermissions, hasOboPermission } = useAppData();
-  const [tab, setTab] = useState<TransitionStatusGroup>(init.tab ?? 'Active');
+  const [searchParams, setSearchParams] = useSearchParams();
+  // The dashboard links here with ?status=Active. No status chosen lists every status.
+  const linkedStatuses = parseStatuses(searchParams.get('status'));
+  const [statuses, setStatuses] = useState<TransitionStatusGroup[]>(() => {
+    if (init.statuses) return init.statuses;
+    if (init.tab) return [init.tab];
+    if (searchParams.get('status') === 'All') return [];
+    return linkedStatuses.length > 0 ? linkedStatuses : DEFAULT_STATUSES;
+  });
   const [assignedToMe, setAssignedToMe] = useState(init.assignedToMe ?? false);
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
-  const [query, setQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>(init.type ?? 'all');
+  const [query, setQuery] = useState(init.query ?? '');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
   const [sendingTo, setSendingTo] = useState<string[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const kinds = useMemo(() => visibleKinds(oboPermissions), [oboPermissions]);
-  // Set by the dashboard counts: only transitions with a task in that set are listed.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const attentionParam = searchParams.get('attention');
-  const attention = isAttentionFilter(attentionParam) ? attentionParam : null;
+  // The dashboard links here with ?attention= (header counts, Needs Attention) or ?starting=
+  // (Upcoming Transitions); each opens the list with that filter applied as a chip.
+  const linkedAttention = parseAttention(searchParams.get('attention'));
+  const startingParam = searchParams.get('starting');
+  const [attention, setAttention] = useState<AttentionFilter[]>(
+    linkedAttention.length > 0 ? linkedAttention : init.attention ?? []
+  );
+  const [starting, setStarting] = useState<UpcomingPeriod | null>(
+    isUpcomingPeriod(startingParam) ? startingParam : init.starting ?? null
+  );
+
+  // Keep the address in step with the Status, Attention and Starting filters, so a reload keeps them.
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (statuses.length > 0) next.set('status', statuses.join(','));else
+        next.set('status', 'All');
+        if (attention.length > 0) next.set('attention', attention.join(','));else
+        next.delete('attention');
+        if (starting) next.set('starting', starting);else
+        next.delete('starting');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [statuses, attention, starting, setSearchParams]);
+  const statusMatches = useCallback(
+    (transition: Transition) => statuses.length === 0 || statuses.includes(statusGroup(transition)),
+    [statuses]
+  );
   const canSeeRestricted = hasOboPermission('View Restricted Tasks');
   const canSendForms = hasOboPermission('Manage Onboarding Transitions');
+  const canStartTransition = canSendForms || hasOboPermission('Manage Offboarding Transitions');
   const isSelectable = (transition: Transition) => canSendForms && canReceiveForm(transition);
   const closeSendForm = useCallback(() => setSendingTo(null), []);
 
@@ -86,20 +163,33 @@ export function Transitions() {
     const needle = query.trim().toLowerCase();
     return scoped.filter(
       (transition) =>
-      statusGroup(transition) === tab && (
-      !attention || attentionTasks(transition, attention, canSeeRestricted).length > 0) && (
+      statusMatches(transition) && (
+      attention.length === 0 ||
+      attention.some((filter) => attentionTasks(transition, filter, canSeeRestricted).length > 0)) && (
+      !starting || startsWithin(transition, PROTOTYPE_TODAY, starting)) && (
       typeFilter === 'all' || transition.kind === typeFilter) && (
       !needle ||
       `${transition.candidate.firstName} ${transition.candidate.lastName}`.
       toLowerCase().
       includes(needle))
     );
-  }, [scoped, tab, typeFilter, query, attention, canSeeRestricted]);
+  }, [scoped, statusMatches, typeFilter, query, attention, starting, canSeeRestricted]);
 
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageItems = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const filtersApplied = Boolean(query.trim()) || typeFilter !== 'all' || assignedToMe;
+  const filtersApplied =
+  Boolean(query.trim()) ||
+  typeFilter !== 'all' ||
+  assignedToMe ||
+  attention.length > 0 ||
+  Boolean(starting) ||
+  !sameStatuses(statuses, DEFAULT_STATUSES);
+  const attentionCount = (filter: AttentionFilter) =>
+  scoped.filter(
+    (transition) => statusMatches(transition) && attentionTasks(transition, filter, canSeeRestricted).length > 0
+  ).length;
+  const onlyStatus = statuses.length === 1 ? statuses[0].toLowerCase() : null;
   const selectableOnPage = pageItems.filter(isSelectable);
   const allOnPageSelected =
   selectableOnPage.length > 0 && selectableOnPage.every((transition) => selected.includes(transition.id));
@@ -117,20 +207,43 @@ export function Transitions() {
   [...new Set([...prev, ...selectableOnPage.map((transition) => transition.id)])]
   );
 
-  const changeTab = (next: TransitionStatusGroup) => {
-    setTab(next);
-    setQuery('');
-    setTypeFilter('all');
+  // A selection only holds transitions the current statuses list.
+  const changeStatuses = (next: TransitionStatusGroup[]) => {
+    setStatuses(next);
     setPage(1);
     setSelected([]);
   };
 
+  // Clear filters puts the list back to how it opens: Active, nothing else applied.
   const clearFilters = () => {
+    changeStatuses(DEFAULT_STATUSES);
     setQuery('');
     setTypeFilter('all');
     setAssignedToMe(false);
+    setAttention([]);
+    setStarting(null);
     setPage(1);
   };
+
+  const chips: FilterChip[] = statuses.map((status) => ({
+    key: `status-${status}`,
+    label: `Status: ${status}`,
+    onRemove: () => changeStatuses(statuses.filter((item) => item !== status))
+  }));
+  if (query.trim()) chips.push({ key: 'query', label: `Search: “${query.trim()}”`, onRemove: () => setQuery('') });
+  if (typeFilter !== 'all') chips.push({ key: 'type', label: `Type: ${typeFilter}`, onRemove: () => setTypeFilter('all') });
+  attention.forEach((filter) =>
+  chips.push({
+    key: `attention-${filter}`,
+    label: `Attention: ${attentionLabels[filter]}`,
+    onRemove: () => setAttention((prev) => prev.filter((item) => item !== filter))
+  })
+  );
+  if (starting) {
+    const period = UPCOMING_PERIODS.find((item) => item.value === starting);
+    chips.push({ key: 'starting', label: `Starting: ${period?.label}`, onRemove: () => setStarting(null) });
+  }
+  if (assignedToMe) chips.push({ key: 'mine', label: 'Assigned to me', onRemove: () => setAssignedToMe(false) });
 
   const bulkSendButton =
   <Button
@@ -152,6 +265,7 @@ export function Transitions() {
         title="Transitions"
         subtitle="Every joiner and leaver moving through a template, with progress and task owners."
         actions={
+        canStartTransition &&
         <Button variant="primary" onClick={() => navigate('/onboarding/transitions/new')}>
             <PlusIcon className="h-4 w-4" />
             New Transition
@@ -166,37 +280,7 @@ export function Transitions() {
           </div>
         }
 
-        {attention &&
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-50 px-3.5 py-2.5 text-[13px] text-amber-900 ring-1 ring-inset ring-amber-200">
-            <span>
-              Showing transitions with <span className="font-medium">{attentionLabels[attention]}</span>{' '}
-              tasks.
-            </span>
-            <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setSearchParams({}, { replace: true });
-              setPage(1);
-            }}>
-
-              <XIcon className="h-3.5 w-3.5" />
-              Clear filter
-            </Button>
-          </div>
-        }
-
-        <Tabs
-          options={STATUS_TABS.map((status) => ({
-            value: status,
-            label: status,
-            count: scoped.filter((transition) => statusGroup(transition) === status).length
-          }))}
-          value={tab}
-          onChange={changeTab} />
-
-
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <SearchInput
               value={query}
@@ -206,6 +290,18 @@ export function Transitions() {
               }}
               placeholder="Search by candidate or employee name"
               className="w-72" />
+
+            <FacetedFilter
+              title="Status"
+              searchable={false}
+              showChips={false}
+              options={STATUS_OPTIONS.map((status) => ({
+                value: status,
+                label: status,
+                count: scoped.filter((transition) => statusGroup(transition) === status).length
+              }))}
+              selected={statuses}
+              onChange={(values) => changeStatuses(parseStatuses(values.join(',')))} />
 
             {kinds.length > 1 &&
             <Segmented
@@ -222,6 +318,38 @@ export function Transitions() {
               }} />
 
             }
+            <FacetedFilter
+              title="Attention"
+              searchable={false}
+              showChips={false}
+              options={ATTENTION_OPTIONS.map((filter) => ({
+                value: filter,
+                label: attentionLabels[filter],
+                count: attentionCount(filter)
+              }))}
+              selected={attention}
+              onChange={(values) => {
+                setAttention(parseAttention(values.join(',')));
+                setPage(1);
+              }} />
+
+            <Select
+              value={starting ?? ''}
+              onChange={(event) => {
+                const value = event.target.value;
+                setStarting(isUpcomingPeriod(value) ? value : null);
+                setPage(1);
+              }}
+              aria-label="Starting"
+              className="w-48 text-[13px]">
+
+              <option value="">Starting: Any time</option>
+              {UPCOMING_PERIODS.map((period) =>
+              <option key={period.value} value={period.value}>
+                  Starting: {period.label}
+                </option>
+              )}
+            </Select>
             <label className="inline-flex cursor-pointer items-center gap-2.5 text-[13px] font-medium text-ink">
               <Toggle
                 checked={assignedToMe}
@@ -252,6 +380,45 @@ export function Transitions() {
           </div>
         </div>
 
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <p className="text-[12px] text-muted" aria-live="polite">
+            {visible.length} transition{visible.length === 1 ? '' : 's'}
+          </p>
+          {chips.length > 0 &&
+          <>
+              <span className="h-4 w-px bg-line" aria-hidden="true" />
+              {chips.map((chip) =>
+            <span
+              key={chip.key}
+              className="inline-flex items-center gap-1 rounded-full bg-slate-100 py-1 pl-2.5 pr-1 text-[12px] text-ink ring-1 ring-inset ring-slate-200">
+
+                  {chip.label}
+                  <button
+                type="button"
+                onClick={() => {
+                  chip.onRemove();
+                  setPage(1);
+                }}
+                aria-label={`Remove filter ${chip.label}`}
+                className="rounded-full p-0.5 text-subtle transition-colors duration-150 ease-out hover:bg-slate-200 hover:text-ink">
+
+                    <XIcon className="h-3 w-3" />
+                  </button>
+                </span>
+            )}
+            </>
+          }
+          {filtersApplied &&
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="text-[12px] font-medium text-brand-700 transition-colors duration-150 ease-out hover:text-brand-600">
+
+              Clear filters
+            </button>
+          }
+        </div>
+
         {selected.length > 0 &&
         <p className="mt-3 text-[12px] text-muted">
             {selected.length} transition{selected.length === 1 ? '' : 's'} selected. Each candidate receives
@@ -265,7 +432,7 @@ export function Transitions() {
             className={`${GRID} border-b border-line bg-slate-50/70 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-subtle`}>
 
             <span>
-              {tab === 'Active' && canSendForms &&
+              {(statuses.length === 0 || statuses.includes('Active')) && canSendForms &&
               <input
                 type="checkbox"
                 checked={allOnPageSelected}
@@ -289,11 +456,13 @@ export function Transitions() {
           <div className="p-6">
               <EmptyState
               icon={UsersIcon}
-              title={`No ${tab.toLowerCase()} transitions found`}
+              title={onlyStatus ? `No ${onlyStatus} transitions found` : 'No transitions found'}
               description={
               filtersApplied ?
               'No transitions match the current search and filters. Try adjusting or clearing them.' :
-              `There are no ${tab.toLowerCase()} transitions to show yet.`
+              onlyStatus ?
+              `There are no ${onlyStatus} transitions to show yet.` :
+              'There are no transitions to show yet.'
               }
               action={
               filtersApplied ?
@@ -442,7 +611,7 @@ function TransitionRow({
       </span>
 
       <span>
-        <AvatarGroup names={transition.ownerIds.map((id) => peopleById[id]?.name ?? '')} size="xs" />
+        <AvatarGroup names={taskOwnerIds(transition).map((id) => peopleById[id]?.name ?? id)} size="xs" />
       </span>
 
       <span className="text-[12px]">
@@ -454,7 +623,7 @@ function TransitionRow({
           }
           {daysLabel(transition)}
         </span>
-        <span className="mt-0.5 block pl-5 text-muted">{formatDate(transition.targetDate)}</span>
+        <span className="mt-0.5 block pl-5 text-muted">{formatDate(transitionTargetDate(transition))}</span>
       </span>
 
       <span className="flex justify-end gap-1" onClick={(event) => event.stopPropagation()}>

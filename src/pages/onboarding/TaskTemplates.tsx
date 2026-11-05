@@ -555,6 +555,9 @@ export function TaskTemplates() {
                         <td className={twMerge('py-3.5 pr-4', !canManageTemplates && 'pl-5')}>
                           <span className="block text-[13px] font-medium text-ink">{template.name}</span>
                           <span className="font-mono text-[11px] text-subtle">{template.code}</span>
+                          {template.status === 'Inactive' &&
+                      <Badge className="ml-2 bg-slate-100 text-muted ring-line">Inactive</Badge>
+                      }
                         </td>
                         <td className="py-3.5 pr-4 text-[13px] text-muted">{template.client}</td>
                         <td className="py-3.5 pr-4">

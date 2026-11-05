@@ -19,14 +19,16 @@ export function FacetedFilter({
   options,
   selected,
   onChange,
-  searchable = true
+  searchable = true,
+  showChips = true
 
 
 
 
 
-
-}: {title: string;options: FacetOption[];selected: string[];onChange: (values: string[]) => void;searchable?: boolean;}) {
+}: {title: string;options: FacetOption[];selected: string[];onChange: (values: string[]) => void;searchable?: boolean;
+  /** False when the page lists applied filters elsewhere: a count replaces the chips. */
+  showChips?: boolean;}) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
@@ -79,7 +81,12 @@ export function FacetedFilter({
           <PlusCircleIcon className="h-4 w-4 text-subtle" />
           {title}
         </button>
-        {chosen.length > 0 &&
+        {!showChips && chosen.length > 0 &&
+        <span className="ml-1 rounded bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold text-brand-700">
+            {chosen.length}
+          </span>
+        }
+        {showChips && chosen.length > 0 &&
         <>
             <span className="mx-1 h-4 w-px bg-line" aria-hidden="true" />
             <span className="flex items-center gap-1">

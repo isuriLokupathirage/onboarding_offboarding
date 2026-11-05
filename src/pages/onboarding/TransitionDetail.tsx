@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import {
   AlertTriangleIcon,
@@ -7,6 +7,7 @@ import {
   CircleDashedIcon,
   ClockIcon,
   HistoryIcon,
+  PencilIcon,
   MinusCircleIcon,
   SendIcon,
   XCircleIcon } from
@@ -16,16 +17,21 @@ import { Button } from '../../components/ui/Button';
 import { Avatar, AvatarGroup } from '../../components/ui/Avatar';
 import { Badge, PriorityBadge } from '../../components/ui/Badge';
 import { CancelTransitionDialog } from '../../components/onboarding/CancelTransitionDialog';
+import { EditExitDetailsDrawer } from '../../components/onboarding/EditExitDetailsDrawer';
 import { Progress } from '../../components/ui/Progress';
 import { Tabs } from '../../components/ui/Segmented';
 import { TaskDetailPanel } from '../../components/tasks/TaskDetailPanel';
-import { EmailHistory } from '../../components/onboarding/EmailHistory';
+import { SentForms } from '../../components/onboarding/SentForms';
+import { Dialog } from '../../components/ui/Dialog';
+import { portalUrl } from '../../utils/portal';
 import { SubmissionPanel } from '../../components/onboarding/SubmissionPanel';
 import { SendTransitionFormDialog } from '../../components/onboarding/SendTransitionFormDialog';
 import { TaskStatusBadge } from '../../components/tasks/TaskStatusBadge';
 import { dueLabel } from '../../components/tasks/OboTaskCard';
+import { NoSignInBadge } from '../../components/common/NoSignInBadge';
 import { useAppData } from '../../contexts/AppDataContext';
-import { peopleById } from '../../data/people';
+import { useEmployeeData } from '../../contexts/EmployeeDataContext';
+import { offboardingMilestones, peopleById } from '../../data/people';
 import type {
   Department,
   Transition,
@@ -38,12 +44,20 @@ import {
   daysLabel,
   isOverdue,
   managePermissionFor,
+  portalIssue,
+  portalStatus,
+  sentFormEmails,
+  type PortalStatus,
+  sentFormStatus,
   statusGroup,
-  transitionProgress } from
+  transitionProgress,
+  transitionTargetDate } from
 '../../utils/transitions';
 import { useScreenInit } from '../../useScreenInit.js';
 
-type View = 'tasks' | 'emails';
+/** 'emails' is the Sent Forms tab: forms sent to the candidate, their status and dates. */
+type View = 'tasks' | 'emails' | 'audit';
+const VIEWS: View[] = ['tasks', 'emails', 'audit'];
 
 export function TransitionDetail() {
   const { transitionId } = useParams();
@@ -60,20 +74,26 @@ function TransitionView({ transition }: {transition: Transition;}) {
     updateTaskStatus,
     cancelTransition,
     revokeEmail,
+    cancelPortalAccess,
     forms,
     templates
   } = useAppData();
+  const { employees, logEmployeeChange } = useEmployeeData();
   const screenInit = useScreenInit() as {
     view?: View;
     openTask?: string;
     submission?: boolean;
     sendForm?: boolean;
     cancel?: boolean;
+    editExit?: boolean;
+    cancelPortal?: boolean;
   };
   const [submissionEmailId, setSubmissionEmailId] = useState<string | null>(
     screenInit.submission ? transition.submissions[0]?.emailId ?? null : null
   );
-  const [view, setView] = useState<View>(screenInit.view === 'emails' ? 'emails' : 'tasks');
+  const [view, setView] = useState<View>(
+    screenInit.view && VIEWS.includes(screenInit.view) ? screenInit.view : 'tasks'
+  );
   const [openTaskId, setOpenTaskId] = useState<string | null>(screenInit.openTask ?? null);
   const [confirmingCancel, setConfirmingCancel] = useState(Boolean(screenInit.cancel));
   const [notice, setNotice] = useState<string | null>(null);
@@ -82,9 +102,47 @@ function TransitionView({ transition }: {transition: Transition;}) {
   const { done, total, percent } = transitionProgress(transition);
   const active = statusGroup(transition) === 'Active';
   const overdue = isOverdue(transition);
+  // A leaver's details come from their employee record when the transition doesn't hold them.
+  // Their hire date is the day they joined, not the exit date stored on the transition.
+  const leaver = transition.exit ?
+  employees.find((employee) => employee.id === transition.exit?.employeeId) :
+  undefined;
+  const employeeHireDate = leaver?.joinedOn;
+  const address = transition.candidate.address ?? leaver?.record.permAddress;
+  const dateOfBirth = transition.candidate.dateOfBirth ?? leaver?.record.dob;
+  const gender = transition.candidate.gender ?? leaver?.record.gender;
+  const targetDate = transitionTargetDate(transition);
+  const isLeaver = transition.kind === 'Offboarding';
+  const sentForms = sentFormEmails(transition);
+  // A form expiring is not an action anyone takes, so its entry is added from the form's expiry date.
+  const auditTrail = useMemo(() => {
+    const expired = sentFormEmails(transition).
+    // Forms expired by cancelling portal access are already recorded, with who did it.
+    filter((email) => sentFormStatus(transition, email) === 'Expired' && email.linkExpiresAt && !email.expiredAt).
+    map((email) => ({
+      id: `${email.id}-expired`,
+      action: 'Form expired',
+      actor: 'System',
+      at: email.linkExpiresAt as string,
+      detail: `${forms.find((form) => form.id === email.formId)?.name ?? email.subject} · no longer in the candidate's portal`
+    }));
+    return [...transition.auditTrail, ...expired].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  }, [transition, forms]);
   const canCancel = active && hasOboPermission(managePermissionFor(transition.kind));
+  // Exit details can change while the offboarding is in progress, by whoever can manage it.
+  const canEditExit = Boolean(transition.exit) && canCancel;
+  const [editingExit, setEditingExit] = useState(Boolean(screenInit.editExit) && canEditExit);
+  const closeEditExit = useCallback(() => setEditingExit(false), []);
   const canSendForm = canReceiveForm(transition) && hasOboPermission('Manage Onboarding Transitions');
   const [sendingForm, setSendingForm] = useState(Boolean(screenInit.sendForm) && canSendForm);
+  const portal = portalStatus(transition);
+  const issue = portalIssue(transition);
+  const openForms = sentFormEmails(transition).filter((email) => sentFormStatus(transition, email) === 'Sent');
+  // Whoever can manage this kind of transition can cancel its portal, while it is active.
+  const canCancelPortal = portal === 'Active' && hasOboPermission(managePermissionFor(transition.kind));
+  const [confirmingPortalCancel, setConfirmingPortalCancel] = useState(
+    Boolean(screenInit.cancelPortal) && canCancelPortal
+  );
 
   const grouped = useMemo(() => {
     const map = new Map<Department, TransitionTask[]>();
@@ -123,6 +181,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
         title={fullName}
         backTo="/onboarding/transitions"
         backLabel="Back to Transitions"
+        leading={<Avatar name={fullName} size="lg" />}
         meta={
         <div className="mt-2 flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-2 text-[13px] text-ink">
@@ -153,7 +212,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
               overdue ? 'font-medium text-red-600' : 'text-muted'}`
               }>
 
-                {daysLabel(transition)} · {formatDate(transition.targetDate)}
+                {daysLabel(transition)} · Target {formatDate(targetDate)}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -189,12 +248,13 @@ function TransitionView({ transition }: {transition: Transition;}) {
         <div className="mb-5 flex items-start gap-3 rounded-xl bg-slate-50 px-4 py-3.5 ring-1 ring-inset ring-slate-200">
             <XCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
             <div className="min-w-0 text-[13px]">
-              <p className="font-medium text-ink">
-                Cancelled on {formatDate(transition.cancellation.date)} by{' '}
-                {transition.cancellation.cancelledBy}
-              </p>
+              <p className="font-medium text-ink">Cancelled on {formatDate(transition.cancellation.date)}</p>
               <p className="mt-1 whitespace-pre-line break-words leading-relaxed text-muted">
                 <span className="font-medium text-ink">Reason:</span> {transition.cancellation.reason}
+              </p>
+              <p className="mt-1.5 text-[12px] text-muted">
+                Cancelled by {transition.cancellation.cancelledBy} · recorded{' '}
+                {formatDateTime(transition.cancellation.recordedAt)}
               </p>
             </div>
           </div>
@@ -205,7 +265,8 @@ function TransitionView({ transition }: {transition: Transition;}) {
             <Tabs
               options={[
               { value: 'tasks', label: 'Tasks', count: total },
-              { value: 'emails', label: 'Email history', count: transition.emails.length }]
+              { value: 'emails', label: 'Sent Forms', count: sentForms.length },
+              { value: 'audit', label: 'Audit Trail', count: auditTrail.length }]
               }
               value={view}
               onChange={setView} />
@@ -217,7 +278,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
               <section key={department} className="overflow-hidden rounded-xl border border-line bg-white">
                     <div className="flex items-center gap-2.5 border-b border-line bg-slate-50/70 px-4 py-2.5">
                       <h2 className="text-[13px] font-medium text-ink">{department}</h2>
-                      <Badge>{tasks.length} tasks</Badge>
+                      <Badge>{tasks.length} task{tasks.length === 1 ? '' : 's'}</Badge>
                       <span className="ml-auto text-[12px] text-muted">
                         {tasks.filter((t) => t.status === 'Completed').length} complete
                       </span>
@@ -244,6 +305,14 @@ function TransitionView({ transition }: {transition: Transition;}) {
                                 <AvatarGroup
                             names={task.ownerIds.map((id) => peopleById[id]?.name ?? '')}
                             size="xs" />
+                                {task.ownerIds.
+                          filter((id) => peopleById[id] && !peopleById[id].hasSignInAccess).
+                          map((id) =>
+                          <span key={id} className="inline-flex items-center gap-1.5 text-[12px] text-muted">
+                                      {peopleById[id].name}
+                                      <NoSignInBadge />
+                                    </span>
+                          )}
 
                                 <PriorityBadge priority={task.priority} />
                                 <span className="inline-flex items-center gap-1.5 text-[12px] text-muted">
@@ -265,31 +334,57 @@ function TransitionView({ transition }: {transition: Transition;}) {
             }
 
             {view === 'emails' &&
-            <EmailHistory
+            <SentForms
               transition={transition}
+              canRevoke={hasOboPermission('Manage Onboarding Transitions')}
               onRevoke={(emailId) => {
                 revokeEmail(transition.id, emailId);
                 setNotice("The form was revoked and removed from the candidate's portal.");
               }}
               onViewSubmission={setSubmissionEmailId} />
             }
+
+            {view === 'audit' &&
+            <section className="mt-4 rounded-xl border border-line bg-white p-5">
+                <ol className="space-y-3">
+                  {auditTrail.map((entry) =>
+                <li key={entry.id} className="flex gap-2.5">
+                      <HistoryIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-subtle" />
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-medium text-ink">{entry.action}</p>
+                        <p className="text-[12px] text-muted">
+                          {entry.actor} · {formatDateTime(entry.at)}
+                        </p>
+                        {entry.detail &&
+                    <p className="mt-0.5 whitespace-pre-line break-words text-[12px] text-muted">{entry.detail}</p>
+                    }
+                      </div>
+                    </li>
+                )}
+                </ol>
+              </section>
+            }
           </div>
 
           <aside className="space-y-4">
             <section className="rounded-xl border border-line bg-white p-5">
-              <h2 className="text-[13px] font-medium text-ink">Candidate details</h2>
+              <h2 className="text-[13px] font-medium text-ink">{isLeaver ? 'Employee details' : 'Candidate details'}</h2>
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
                 <Detail label="Personal email" value={transition.candidate.personalEmail} wide />
                 <Detail label="Mobile number" value={transition.candidate.mobile} />
                 <Detail label="Position" value={transition.candidate.position} />
-                <Detail label="Hire date" value={formatDate(transition.candidate.hireDate)} />
+                <Detail
+                  label="Hire date"
+                  value={formatDate(isLeaver ? employeeHireDate : transition.candidate.hireDate)} />
                 <Detail label="Country" value={transition.candidate.country ?? '—'} />
-                <Detail label="Address" value={transition.candidate.address ?? '—'} wide />
-                <Detail label="Date of birth" value={formatDate(transition.candidate.dateOfBirth)} />
-                <Detail label="Gender" value={transition.candidate.gender ?? '—'} />
+                <Detail label="Address" value={address || '—'} wide />
+                <Detail label="Date of birth" value={formatDate(dateOfBirth)} />
+                <Detail label="Gender" value={gender || '—'} />
               </dl>
               <div className="mt-4 border-t border-line pt-3">
-                <p className="text-[11px] uppercase tracking-wide text-subtle">Reporting managers</p>
+                <p className="text-[11px] uppercase tracking-wide text-subtle">
+                  Reporting manager{transition.candidate.reportingManagerIds.length === 1 ? '' : 's'}
+                </p>
                 <ul className="mt-2 space-y-2">
                   {transition.candidate.reportingManagerIds.map((id) =>
                   <li key={id} className="flex items-center gap-2.5">
@@ -305,6 +400,36 @@ function TransitionView({ transition }: {transition: Transition;}) {
             </section>
 
 
+            {transition.exit &&
+            <section className="rounded-xl border border-line bg-white p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-[13px] font-medium text-ink">Exit details</h2>
+                  {canEditExit &&
+                <Button size="sm" onClick={() => setEditingExit(true)}>
+                      <PencilIcon className="h-3.5 w-3.5" />
+                      Edit
+                    </Button>
+                }
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
+                  <Detail label="Offboarding type" value={transition.exit.type} />
+                  <Detail
+                  label="Exit reason"
+                  value={
+                  transition.exit.reason === 'Other' && transition.exit.otherReason ?
+                  `Other: ${transition.exit.otherReason}` :
+                  transition.exit.reason
+                  } />
+
+                  {offboardingMilestones.
+                filter((milestone) => transition.exit?.dates[milestone]).
+                map((milestone) =>
+                <Detail key={milestone} label={milestone} value={formatDate(transition.exit?.dates[milestone])} />
+                )}
+                </dl>
+              </section>
+            }
+
             <section className="rounded-xl border border-line bg-white p-5">
               <h2 className="text-[13px] font-medium text-ink">Key dates</h2>
               <ul className="mt-3 space-y-2.5 text-[13px]">
@@ -314,37 +439,64 @@ function TransitionView({ transition }: {transition: Transition;}) {
                 </li>
                 <li className="flex items-center gap-2 text-muted">
                   <CalendarIcon className="h-3.5 w-3.5 text-subtle" />
-                  {transition.kind === 'Onboarding' ? 'Hire date' : 'Last working day'}{' '}
-                  {formatDate(transition.candidate.hireDate)}
+                  {isLeaver ? 'Last working day' : 'Hire date'} {formatDate(transition.candidate.hireDate)}
                 </li>
                 <li className="flex items-center gap-2 text-muted">
                   <CalendarIcon className="h-3.5 w-3.5 text-subtle" />
-                  Target {formatDate(transition.targetDate)}
+                  Target {formatDate(targetDate)}
+                  <span className="text-[11px] text-subtle">(last task due)</span>
                 </li>
+                {transition.cancellation &&
+                <li className="flex items-center gap-2 text-muted">
+                    <XCircleIcon className="h-3.5 w-3.5 text-subtle" />
+                    Cancelled {formatDate(transition.cancellation.date)}
+                  </li>
+                }
               </ul>
             </section>
 
             <section className="rounded-xl border border-line bg-white p-5">
-              <h2 className="text-[13px] font-medium text-ink">Audit trail</h2>
-              <ol className="mt-3 space-y-3">
-                {[...transition.auditTrail].
-                sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).
-                map((entry) =>
-                <li key={entry.id} className="flex gap-2.5">
-                      <HistoryIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-subtle" />
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-medium text-ink">{entry.action}</p>
-                        <p className="text-[12px] text-muted">
-                          {entry.actor} · {formatDateTime(entry.at)}
-                        </p>
-                        {entry.detail &&
-                    <p className="mt-0.5 line-clamp-2 break-words text-[12px] text-muted">{entry.detail}</p>
-                    }
-                      </div>
-                    </li>
-                )}
-              </ol>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-[13px] font-medium text-ink">Candidate portal</h2>
+                <PortalStatusBadge status={portal} />
+              </div>
+              {issue ?
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
+                  <Detail label="Issued" value={formatDate(issue.issuedAt)} />
+                  <Detail label="Open forms" value={String(openForms.length)} />
+                  <Detail label="Sent to" value={issue.sentTo} wide />
+                  <Detail label="Portal link" value={portalUrl(transition.portalToken)} wide />
+                </dl> :
+
+              <p className="mt-2 text-[12px] leading-relaxed text-muted">
+                  {transition.kind === 'Onboarding' ?
+                'The portal is issued with the first form sent to the candidate.' :
+                'Leavers are not sent forms, so no portal is issued.'}
+                </p>
+              }
+              {transition.portalCancellation &&
+              <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-[12px] text-muted ring-1 ring-inset ring-slate-200">
+                  Cancelled by {transition.portalCancellation.by} on{' '}
+                  {formatDateTime(transition.portalCancellation.at)}
+                </p>
+              }
+              {portal === 'Closed' &&
+              <p className="mt-3 text-[12px] text-muted">
+                  The portal closed when the transition was {statusGroup(transition).toLowerCase()}.
+                </p>
+              }
+              {canCancelPortal &&
+              <Button
+                size="sm"
+                onClick={() => setConfirmingPortalCancel(true)}
+                className="mt-4 w-full justify-center text-red-600 ring-red-200 hover:bg-red-50">
+
+                  <XCircleIcon className="h-4 w-4" />
+                  Cancel Portal Access
+                </Button>
+              }
             </section>
+
           </aside>
         </div>
       </div>
@@ -367,6 +519,43 @@ function TransitionView({ transition }: {transition: Transition;}) {
         }} />
 
 
+      <Dialog
+        open={confirmingPortalCancel}
+        title={`Cancel portal access for ${fullName}?`}
+        body={
+        <>
+            <span className="font-medium text-ink">{fullName}</span> can no longer open their portal. It closes
+            immediately
+            {openForms.length > 0 ?
+          <>
+                {' '}
+                and{' '}
+                <span className="font-medium text-ink">
+                  {openForms.length} open form{openForms.length === 1 ? '' : 's'}
+                </span>{' '}
+                {openForms.length === 1 ? 'expires' : 'expire'}, along with any saved draft
+              </> :
+
+          ''}
+            . Submitted forms are kept. This cannot be undone.
+          </>
+        }
+        confirmLabel="Cancel portal access"
+        cancelLabel="Keep access"
+        confirmVariant="danger"
+        onCancel={() => setConfirmingPortalCancel(false)}
+        onConfirm={() => {
+          cancelPortalAccess(transition.id);
+          setConfirmingPortalCancel(false);
+          setNotice(
+            `Portal access for ${fullName} was cancelled.${
+            openForms.length > 0 ?
+            ` ${openForms.length} open form${openForms.length === 1 ? '' : 's'} expired.` :
+            ''}`
+          );
+        }} />
+
+
       <SubmissionPanel
         open={Boolean(shownSubmission)}
         candidateName={fullName}
@@ -375,6 +564,21 @@ function TransitionView({ transition }: {transition: Transition;}) {
         onClose={closeSubmission} />
 
 
+      {transition.exit &&
+      <EditExitDetailsDrawer
+        open={editingExit}
+        transition={transition}
+        onClose={closeEditExit}
+        onSaved={(changes) => {
+          setEditingExit(false);
+          setNotice(
+            changes.length > 0 ?
+            `Exit details updated on the transition and ${fullName}'s employee record.` :
+            'No changes to the exit details.'
+          );
+        }} />
+      }
+
       <CancelTransitionDialog
         open={confirmingCancel}
         transition={transition}
@@ -382,6 +586,14 @@ function TransitionView({ transition }: {transition: Transition;}) {
         onClose={closeCancel}
         onConfirm={(date, reason) => {
           cancelTransition(transition.id, date, reason);
+          // A leaver's record shows the offboarding was stopped.
+          if (transition.exit) {
+            logEmployeeChange(
+              transition.exit.employeeId,
+              'Offboarding cancelled',
+              `Cancellation date ${formatDate(date)} · ${reason}`
+            );
+          }
           setConfirmingCancel(false);
           setNotice(`${fullName}'s ${transition.kind.toLowerCase()} was cancelled.`);
         }} />
@@ -404,6 +616,17 @@ function HealthBadge({ transition }: {transition: Transition;}) {
       </Badge>);
 
   return <Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200">On track</Badge>;
+}
+
+const portalStatusStyles: Record<PortalStatus, string> = {
+  Active: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  Closed: 'bg-slate-100 text-slate-600 ring-slate-200',
+  Cancelled: 'bg-red-50 text-red-700 ring-red-200',
+  'Not Issued': 'bg-slate-50 text-slate-500 ring-slate-200'
+};
+
+function PortalStatusBadge({ status }: {status: PortalStatus;}) {
+  return <Badge className={portalStatusStyles[status]}>{status}</Badge>;
 }
 
 function StatusIcon({ status }: {status: TransitionTask['status'];}) {

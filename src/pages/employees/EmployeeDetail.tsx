@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
-import { ClipboardListIcon, MailIcon, PhoneIcon, UserMinusIcon } from 'lucide-react';
+import { useState } from 'react';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { ClipboardListIcon, LogOutIcon, MailIcon, PhoneIcon, UserMinusIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -9,15 +9,25 @@ import { Tabs } from '../../components/ui/Segmented';
 import { Tooltip } from '../../components/ui/Tooltip';
 import { FormAccessPanel, PERMISSION_NOTE } from '../../components/employees/FormAccessPanel';
 import { SendFormDialog } from '../../components/employees/SendFormDialog';
+import { OffboardingDetailsPanel } from '../../components/employees/OffboardingDetailsPanel';
+import {
+  AdditionalInfoPanel,
+  EmployeeAuditPanel,
+  EmployeeDocumentsPanel } from
+'../../components/employees/EmployeeRecordPanels';
 import { useEmployeeData } from '../../contexts/EmployeeDataContext';
+import { useAppData } from '../../contexts/AppDataContext';
+import { offboardingRecordFor, startOffboardingBlockReason } from '../../utils/employees';
 import { formatDate } from '../../utils/format';
 import { useScreenInit } from '../../useScreenInit.js';
 
-type Tab = 'basic' | 'access';
+type Tab = 'basic' | 'documents' | 'offboarding' | 'additional' | 'access' | 'audit';
 
 export function EmployeeDetail() {
   const { employeeId } = useParams();
-  const { employees, assignmentsFor, canSendForms } = useEmployeeData();
+  const navigate = useNavigate();
+  const { employees, assignmentsFor, auditFor, canSendForms } = useEmployeeData();
+  const { transitions, hasOboPermission } = useAppData();
   const screenInit = useScreenInit();
   const [tab, setTab] = useState<Tab>(screenInit.tab as Tab ?? 'basic');
   const [sending, setSending] = useState(false);
@@ -28,6 +38,16 @@ export function EmployeeDetail() {
 
   const fullName = `${employee.firstName} ${employee.lastName}`;
   const assignments = assignmentsFor(employee.id);
+  // Design canvas only: `withoutOffboardingPermission` shows the record as a user without it.
+  const canManageOffboarding =
+  hasOboPermission('Manage Offboarding Transitions') && !screenInit.withoutOffboardingPermission;
+  const offboardingBlockReason = startOffboardingBlockReason(employee, transitions, canManageOffboarding);
+  // Offboarding details are kept on the record once started, and stay after deactivation.
+  // Design canvas only: `withoutEmployeeViewPermission` shows the record as a user without View Employee Profiles.
+  const canViewOffboarding =
+  hasOboPermission('View Employee Profiles') && !screenInit.withoutEmployeeViewPermission;
+  const offboarding = canViewOffboarding ? offboardingRecordFor(employee, transitions) : undefined;
+  const shownTab: Tab = tab === 'offboarding' && !offboarding ? 'basic' : tab;
 
   return (
     <div>
@@ -89,10 +109,28 @@ export function EmployeeDetail() {
                 </span>
               </Tooltip>
             }
-            <Button onClick={() => setTab('access')}>
+            <Button onClick={() => setTab('audit')}>
               <ClipboardListIcon className="h-4 w-4" />
               Audit Trail
             </Button>
+            {offboardingBlockReason ?
+            <Tooltip label={offboardingBlockReason}>
+                <span>
+                  <Button disabled>
+                    <LogOutIcon className="h-4 w-4" />
+                    Start Offboarding
+                  </Button>
+                </span>
+              </Tooltip> :
+
+            <Button
+              onClick={() =>
+              navigate(`/onboarding/transitions/new?from=employee&employeeId=${encodeURIComponent(employee.id)}`)
+              }>
+                <LogOutIcon className="h-4 w-4" />
+                Start Offboarding
+              </Button>
+            }
             <Button className="text-red-600 ring-red-200 hover:bg-red-50">
               <UserMinusIcon className="h-4 w-4" />
               {employee.status === 'Active' ? 'Deactivate' : 'Activate'}
@@ -110,15 +148,19 @@ export function EmployeeDetail() {
           <Tabs
             options={[
             { value: 'basic', label: 'Basic Info' },
-            { value: 'access', label: 'Form Access', count: assignments.length }]
+            { value: 'documents', label: 'Documents' },
+            ...(offboarding ? [{ value: 'offboarding' as const, label: 'Offboarding Details' }] : []),
+            { value: 'additional', label: 'Additional Info' },
+            { value: 'access', label: 'Form Access', count: assignments.length },
+            { value: 'audit', label: 'Audit Trail' }]
             }
-            value={tab}
+            value={shownTab}
             onChange={setTab} />
           
         </div>
 
         <div className="mt-5">
-          {tab === 'basic' ?
+          {shownTab === 'basic' &&
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <section className="rounded-xl border border-line bg-white p-5">
                 <h3 className="text-[13px] font-semibold text-ink">Employment Details</h3>
@@ -149,10 +191,17 @@ export function EmployeeDetail() {
                   <Row label="Account Number" value={employee.record.accNumber} />
                 </dl>
               </section>
-            </div> :
-
-          <FormAccessPanel employee={employee} onSendForm={() => setSending(true)} />
+            </div>
           }
+          {shownTab === 'documents' &&
+          <EmployeeDocumentsPanel assignments={assignments} offboardingDocuments={offboarding?.exit?.documents} />
+          }
+          {shownTab === 'offboarding' && offboarding &&
+          <OffboardingDetailsPanel transition={offboarding} onOpenDocuments={() => setTab('documents')} />
+          }
+          {shownTab === 'additional' && <AdditionalInfoPanel employee={employee} />}
+          {shownTab === 'access' && <FormAccessPanel employee={employee} onSendForm={() => setSending(true)} />}
+          {shownTab === 'audit' && <EmployeeAuditPanel entries={auditFor(employee.id)} assignments={assignments} />}
         </div>
       </div>
 

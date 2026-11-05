@@ -1,39 +1,48 @@
 import React, { useState } from 'react';
-import { AlertCircleIcon, CalendarIcon, PencilIcon, RotateCcwIcon, Trash2Icon } from 'lucide-react';
-import type { Milestone, Person, TransitionKind, TransitionTask } from '../../types';
+import { AlertCircleIcon, CalendarIcon, InfoIcon, PencilIcon, RotateCcwIcon, Trash2Icon } from 'lucide-react';
+import type { DueRule, Milestone, Person, TransitionKind, TransitionTask } from '../../types';
 import { Badge, DepartmentChip, PriorityBadge } from '../ui/Badge';
 import { Input, Select } from '../ui/Field';
 import { PillToggle } from '../ui/Toggle';
 import { PeoplePicker } from '../common/PeoplePicker';
-import { milestonesFor } from '../../data/people';
-import { formatDate, resolveDueDate } from '../../utils/format';
+import { NO_SIGN_IN_NOTE } from '../common/NoSignInBadge';
+import { milestonesFor, peopleById } from '../../data/people';
+import { formatDate } from '../../utils/format';
 
+// Only holders of Update Task Progress (obo.task.progress) are offered as owners.
 const canOwnTasks = (person: Person) => person.canUpdateTaskProgress;
 
 export function TransitionTaskSetupCard({
   task,
   kind = 'Onboarding',
-  hireDate,
-  showDateError,
+  resolveRule,
+  showErrors,
   onChange,
-  onRemove
+  onRemove,
+  ownerSearch
 
 
 
 
 
 
-}: {task: TransitionTask;kind?: TransitionKind;hireDate: string;showDateError: boolean;onChange: (patch: Partial<TransitionTask>) => void;onRemove: () => void;}) {
+
+}: {task: TransitionTask;kind?: TransitionKind;/** Resolves a due date rule from the transition's dates (hire date, or the exit dates). */resolveRule: (rule: DueRule) => string | null;/** Set once the user has tried to create the transition. */showErrors: boolean;onChange: (patch: Partial<TransitionTask>) => void;onRemove: () => void;/** Design canvas only: opens the owner picker with this search typed. */ownerSearch?: string;}) {
   const [editing, setEditing] = useState(false);
   const [mode, setMode] = useState<'relative' | 'exact'>('relative');
   const [amount, setAmount] = useState('3');
   const [unit, setUnit] = useState<'days' | 'weeks' | 'months'>('days');
   const [direction, setDirection] = useState<'before' | 'after'>('after');
-  const [milestone, setMilestone] = useState<Milestone>(milestonesFor(kind)[kind === 'Onboarding' ? 0 : 4]);
+  const [milestone, setMilestone] = useState<Milestone>(kind === 'Onboarding' ? 'Hire Date' : 'Last Working Date');
 
   const dateRequired = task.showInCandidateEvents;
   const dateMissing = !task.dueDate;
-  const invalid = dateRequired && dateMissing && showDateError;
+  const dateInvalid = dateRequired && dateMissing && showErrors;
+  const ownersInvalid = task.ownerIds.length === 0 && showErrors;
+  const invalid = dateInvalid || ownersInvalid;
+  const ownersWithoutSignIn = task.ownerIds.
+  map((id) => peopleById[id]).
+  filter((person): person is Person => person !== undefined && !person.hasSignInAccess);
 
   const applyRelative = (next: {
     amount?: string;
@@ -51,16 +60,13 @@ export function TransitionTaskSetupCard({
     setUnit(value.unit);
     setDirection(value.direction);
     setMilestone(value.milestone);
-    const resolved = resolveDueDate(
-      {
-        kind: 'relative',
-        amount: Number(value.amount) || 0,
-        unit: value.unit,
-        direction: value.direction,
-        milestone: value.milestone
-      },
-      hireDate
-    );
+    const resolved = resolveRule({
+      kind: 'relative',
+      amount: Number(value.amount) || 0,
+      unit: value.unit,
+      direction: value.direction,
+      milestone: value.milestone
+    });
     onChange({ dueDate: resolved, dueSource: 'override' });
   };
 
@@ -98,23 +104,23 @@ export function TransitionTaskSetupCard({
       <div
         className={`mt-3 rounded-lg px-3 py-2.5 ring-1 ring-inset ${
         dateMissing ?
-        invalid ?
+        dateInvalid ?
         'bg-red-50 ring-red-200' :
         'bg-amber-50 ring-amber-200' :
         'bg-slate-50 ring-line'}`
         }>
-        
+
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           {dateMissing ?
           <span
             className={`inline-flex items-center gap-2 text-[12px] ${
-            invalid ? 'text-red-800' : 'text-amber-900'}`
+            dateInvalid ? 'text-red-800' : 'text-amber-900'}`
             }>
-            
+
               <AlertCircleIcon className="h-4 w-4 shrink-0" />
               {dateRequired ?
-            'A date is required because this task appears in the candidate\u2019s events.' :
-            'This task has no due date rule. Set a date for this transition.'}
+            'A date is required because this task appears in the candidate\u2019s events. Set a due date or an exact date.' :
+            'No due date set. Set a due date or an exact date for this transition.'}
             </span> :
 
           <>
@@ -128,9 +134,14 @@ export function TransitionTaskSetupCard({
               'bg-brand-50 text-brand-700 ring-brand-200' :
               'bg-white text-muted ring-line'
               }>
-              
-                {task.dueSource === 'override' ? 'Overridden' : 'Calculated from hire date'}
+
+                {task.dueSource === 'override' ? 'Overridden' : 'Calculated due date'}
               </Badge>
+              {task.dueSource === 'override' &&
+            <span className="text-[12px] text-muted">
+                  Calculated: {task.calculatedDueDate ? formatDate(task.calculatedDueDate) : 'none'}
+                </span>
+            }
             </>
           }
 
@@ -233,16 +244,35 @@ export function TransitionTaskSetupCard({
       </div>
 
       <div className="mt-3">
-        <p className="mb-1.5 text-[12px] font-medium text-ink">Task owners</p>
+        <p className="mb-1.5 text-[12px] font-medium text-ink">
+          Task owners<span className="ml-0.5 text-red-500">*</span>
+        </p>
         <PeoplePicker
           selectedIds={task.ownerIds}
           onChange={(ids) => onChange({ ownerIds: ids })}
           placeholder="Search to add an owner"
           emptyHint="No owners assigned yet"
-          isEligible={canOwnTasks} />
+          isEligible={canOwnTasks}
+          invalid={ownersInvalid}
+          initialQuery={ownerSearch} />
+        {ownersInvalid ?
+        <p className="mt-1.5 text-[12px] text-red-600">Add at least one owner.</p> :
+
         <p className="mt-1.5 text-[11px] text-subtle">
-          Only people with the Update Task Progress permission can be task owners.
-        </p>
+            Only people with the Update Task Progress permission (obo.task.progress) can be task owners.
+          </p>
+        }
+        {ownersWithoutSignIn.map((person) =>
+        <p
+          key={person.id}
+          className="mt-2 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] leading-relaxed text-amber-900 ring-1 ring-inset ring-amber-200">
+
+            <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" />
+            <span>
+              <span className="font-medium">{person.name}</span> {NO_SIGN_IN_NOTE}
+            </span>
+          </p>
+        )}
       </div>
     </div>);
 

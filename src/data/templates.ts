@@ -8,7 +8,8 @@ export const seedTemplates: Template[] = [
   name: 'Standard Permanent Onboarding',
   client: 'Accxis Holdings (Pvt) Ltd',
   employmentType: 'Permanent',
-  taskIds: ['t1', 't2', 't3', 't4', 't5', 't6', 't7', 't8', 't9', 't14']
+  taskIds: ['t1', 't2', 't3', 't4', 't5', 't6', 't7', 't8', 't9', 't14'],
+  status: 'Active'
 },
 {
   id: 'tpl2',
@@ -17,7 +18,8 @@ export const seedTemplates: Template[] = [
   name: 'Engineering Intern Onboarding',
   client: 'Zenlanka Technologies',
   employmentType: 'Internship',
-  taskIds: ['t2', 't4', 't5', 't6', 't11', 't12']
+  taskIds: ['t2', 't4', 't5', 't6', 't11', 't12'],
+  status: 'Active'
 },
 {
   id: 'tpl3',
@@ -26,7 +28,8 @@ export const seedTemplates: Template[] = [
   name: 'Finance Contract Onboarding',
   client: 'Ceylon Fin Services',
   employmentType: 'Contract',
-  taskIds: ['t1', 't2', 't7', 't9', 't10']
+  taskIds: ['t1', 't2', 't7', 't9', 't10'],
+  status: 'Active'
 },
 {
   id: 'tpl4',
@@ -35,7 +38,8 @@ export const seedTemplates: Template[] = [
   name: 'Consultant Fast Track',
   client: 'Serendib Logistics',
   employmentType: 'Consultant',
-  taskIds: ['t1', 't4', 't6', 't8']
+  taskIds: ['t1', 't4', 't6', 't8'],
+  status: 'Active'
 },
 {
   id: 'tpl5',
@@ -44,7 +48,8 @@ export const seedTemplates: Template[] = [
   name: 'Standard Resignation Offboarding',
   client: 'Accxis Holdings (Pvt) Ltd',
   employmentType: 'Permanent',
-  taskIds: ['t20', 't21', 't22', 't23', 't24', 't26']
+  taskIds: ['t20', 't21', 't22', 't23', 't24', 't26'],
+  status: 'Active'
 },
 {
   id: 'tpl6',
@@ -53,7 +58,8 @@ export const seedTemplates: Template[] = [
   name: 'Contract Completion Offboarding',
   client: 'Ceylon Fin Services',
   employmentType: 'Contract',
-  taskIds: ['t20', 't22', 't23', 't24']
+  taskIds: ['t20', 't22', 't23', 't24'],
+  status: 'Active'
 },
 {
   id: 'tpl7',
@@ -62,7 +68,8 @@ export const seedTemplates: Template[] = [
   name: 'Intern Programme Exit',
   client: 'Zenlanka Technologies',
   employmentType: 'Internship',
-  taskIds: ['t21', 't22', 't23']
+  taskIds: ['t21', 't22', 't23'],
+  status: 'Active'
 },
 {
   id: 'tpl8',
@@ -71,7 +78,8 @@ export const seedTemplates: Template[] = [
   name: 'Graduate Trainee Onboarding',
   client: 'Accxis Holdings (Pvt) Ltd',
   employmentType: 'Internship',
-  taskIds: ['t1', 't2', 't4', 't5', 't6']
+  taskIds: ['t1', 't2', 't4', 't5', 't6'],
+  status: 'Active'
 },
 {
   id: 'tpl9',
@@ -80,7 +88,8 @@ export const seedTemplates: Template[] = [
   name: 'Logistics Contract Onboarding',
   client: 'Serendib Logistics',
   employmentType: 'Contract',
-  taskIds: ['t1', 't2', 't4', 't9']
+  taskIds: ['t1', 't2', 't4', 't9'],
+  status: 'Active'
 },
 {
   id: 'tpl10',
@@ -89,7 +98,8 @@ export const seedTemplates: Template[] = [
   name: 'Finance Permanent Onboarding',
   client: 'Ceylon Fin Services',
   employmentType: 'Permanent',
-  taskIds: ['t1', 't2', 't3', 't7', 't9', 't10']
+  taskIds: ['t1', 't2', 't3', 't7', 't9', 't10'],
+  status: 'Active'
 },
 {
   id: 'tpl11',
@@ -98,7 +108,8 @@ export const seedTemplates: Template[] = [
   name: 'Engineering Permanent Onboarding',
   client: 'Zenlanka Technologies',
   employmentType: 'Permanent',
-  taskIds: ['t1', 't2', 't4', 't5', 't6', 't11', 't12']
+  taskIds: ['t1', 't2', 't4', 't5', 't6', 't11', 't12'],
+  status: 'Active'
 },
 {
   id: 'tpl12',
@@ -107,7 +118,8 @@ export const seedTemplates: Template[] = [
   name: 'Short-Term Consultant Onboarding',
   client: 'Accxis Holdings (Pvt) Ltd',
   employmentType: 'Consultant',
-  taskIds: ['t1', 't4']
+  taskIds: ['t1', 't4'],
+  status: 'Inactive'
 },
 {
   id: 'tpl13',
@@ -116,7 +128,8 @@ export const seedTemplates: Template[] = [
   name: 'Warehouse Staff Onboarding',
   client: 'Serendib Logistics',
   employmentType: 'Permanent',
-  taskIds: ['t1', 't2', 't3', 't8', 't13']
+  taskIds: ['t1', 't2', 't3', 't8', 't13'],
+  status: 'Inactive'
 },
 {
   id: 'tpl14',
@@ -125,5 +138,6 @@ export const seedTemplates: Template[] = [
   name: 'Remote Engineer Onboarding',
   client: 'Zenlanka Technologies',
   employmentType: 'Contract',
-  taskIds: ['t2', 't4', 't6', 't14']
+  taskIds: ['t2', 't4', 't6', 't14'],
+  status: 'Active'
 }];
