@@ -55,7 +55,10 @@ export function Transitions() {
   const navigate = useNavigate();
   const init = useScreenInit() as {tab?: TransitionStatusGroup;assignedToMe?: boolean;};
   const { transitions, currentUserId, oboPermissions, hasOboPermission } = useAppData();
-  const [tab, setTab] = useState<TransitionStatusGroup>(init.tab ?? 'Active');
+  const [searchParams, setSearchParams] = useSearchParams();
+  // The dashboard links here with ?status=Active.
+  const linkedStatus = STATUS_TABS.find((status) => status === searchParams.get('status'));
+  const [tab, setTab] = useState<TransitionStatusGroup>(init.tab ?? linkedStatus ?? 'Active');
   const [assignedToMe, setAssignedToMe] = useState(init.assignedToMe ?? false);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [query, setQuery] = useState('');
@@ -66,7 +69,6 @@ export function Transitions() {
 
   const kinds = useMemo(() => visibleKinds(oboPermissions), [oboPermissions]);
   // Set by the dashboard counts: only transitions with a task in that set are listed.
-  const [searchParams, setSearchParams] = useSearchParams();
   const attentionParam = searchParams.get('attention');
   const attention = isAttentionFilter(attentionParam) ? attentionParam : null;
   const canSeeRestricted = hasOboPermission('View Restricted Tasks');
