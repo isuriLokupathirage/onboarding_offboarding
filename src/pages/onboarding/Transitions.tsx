@@ -33,6 +33,7 @@ import {
   daysLabel,
   hasTaskOwnedBy,
   isOverdue,
+  PROTOTYPE_TODAY,
   statusGroup,
   taskOwnerIds,
   transitionProgress,
@@ -41,6 +42,7 @@ import {
   type TransitionStatusGroup } from
 '../../utils/transitions';
 import { attentionLabels, attentionTasks, isAttentionFilter } from '../../utils/attention';
+import { isUpcomingPeriod, startsWithin, upcomingPeriodPhrase } from '../../utils/upcoming';
 import { useScreenInit } from '../../useScreenInit.js';
 
 type TypeFilter = 'all' | TransitionKind;
@@ -71,6 +73,20 @@ export function Transitions() {
   // Set by the dashboard counts: only transitions with a task in that set are listed.
   const attentionParam = searchParams.get('attention');
   const attention = isAttentionFilter(attentionParam) ? attentionParam : null;
+  // Set by the dashboard's Upcoming Transitions: only transitions starting in that period are listed.
+  const startingParam = searchParams.get('starting');
+  const starting = isUpcomingPeriod(startingParam) ? startingParam : null;
+  const clearParam = (name: string) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete(name);
+        return next;
+      },
+      { replace: true }
+    );
+    setPage(1);
+  };
   const canSeeRestricted = hasOboPermission('View Restricted Tasks');
   const canSendForms = hasOboPermission('Manage Onboarding Transitions');
   const canStartTransition = canSendForms || hasOboPermission('Manage Offboarding Transitions');
@@ -93,13 +109,14 @@ export function Transitions() {
       (transition) =>
       statusGroup(transition) === tab && (
       !attention || attentionTasks(transition, attention, canSeeRestricted).length > 0) && (
+      !starting || startsWithin(transition, PROTOTYPE_TODAY, starting)) && (
       typeFilter === 'all' || transition.kind === typeFilter) && (
       !needle ||
       `${transition.candidate.firstName} ${transition.candidate.lastName}`.
       toLowerCase().
       includes(needle))
     );
-  }, [scoped, tab, typeFilter, query, attention, canSeeRestricted]);
+  }, [scoped, tab, typeFilter, query, attention, starting, canSeeRestricted]);
 
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
@@ -178,14 +195,19 @@ export function Transitions() {
               Showing transitions with <span className="font-medium">{attentionLabels[attention]}</span>{' '}
               tasks.
             </span>
-            <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setSearchParams({}, { replace: true });
-              setPage(1);
-            }}>
+            <Button size="sm" variant="ghost" onClick={() => clearParam('attention')}>
+              <XIcon className="h-3.5 w-3.5" />
+              Clear filter
+            </Button>
+          </div>
+        }
 
+        {starting &&
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-sky-50 px-3.5 py-2.5 text-[13px] text-sky-900 ring-1 ring-inset ring-sky-200">
+            <span>
+              Showing transitions starting in <span className="font-medium">{upcomingPeriodPhrase(starting)}</span>.
+            </span>
+            <Button size="sm" variant="ghost" onClick={() => clearParam('starting')}>
               <XIcon className="h-3.5 w-3.5" />
               Clear filter
             </Button>

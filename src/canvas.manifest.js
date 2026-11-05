@@ -26,6 +26,8 @@ export const manifest = {
     scr_ns3trn: { name: "Transition – Owner without Sign-in", route: "/onboarding/transitions/tr1", state: { "view": "tasks", "openTask": "tpl1-t9" }, position: { "x": 32360, "y": 220 } },
     scr_au1trl: { name: "Transition – Audit Trail", route: "/onboarding/transitions/tr1", state: { "view": "audit" }, position: { "x": 33760, "y": 220 } },
     scr_au2off: { name: "Transition – Offboarding Detail", route: "/onboarding/transitions/tr3", state: { "view": "tasks" }, position: { "x": 35160, "y": 220 } },
+    scr_db1blk: { name: "Dashboard – Blocked Tasks", route: "/onboarding/dashboard", state: { "attentionView": "blocked" }, position: { "x": 36560, "y": 220 } },
+    scr_db2up7: { name: "Dashboard – Upcoming, Next 7 Days", route: "/onboarding/dashboard", state: { "upcomingPeriod": "7d" }, position: { "x": 37960, "y": 220 } },
     scr_k6sk4f: { name: "Templates – Onboarding Tasks", route: "/onboarding/templates", state: { "kind": "Onboarding", "view": "tasks" }, position: { "x": 160, "y": 2200 } },
     scr_8fhwxw: { name: "Templates – Onboarding Templates", route: "/onboarding/templates", state: { "kind": "Onboarding", "view": "templates" }, position: { "x": 1560, "y": 2200 } },
     scr_9x51nl: { name: "Templates – Offboarding Tasks", route: "/onboarding/templates", state: { "kind": "Offboarding", "view": "tasks" }, position: { "x": 2960, "y": 2200 } },
@@ -89,7 +91,7 @@ export const manifest = {
     scr_fbdina: { name: "Exit Feedback Form – Sent and Inactive", route: "/templates/forms/exit-feedback/fbf5", position: { "x": 16960, "y": 17800 } }
   },
   sections: {
-    sec_h9tl61: { name: "Onboarding – Overview & Transitions", x: 0, y: 0, width: 36520, height: 1180 },
+    sec_h9tl61: { name: "Onboarding – Overview & Transitions", x: 0, y: 0, width: 39320, height: 1180 },
     sec_sv0spb: { name: "Onboarding – Templates", x: 0, y: 1980, width: 9920, height: 1180 },
     sec_gut05a: { name: "Employee Management", x: 0, y: 3960, width: 26720, height: 1180 },
     sec_luokg9: { name: "Form Templates – Employee", x: 0, y: 5940, width: 8520, height: 1180 },
@@ -127,7 +129,9 @@ export const manifest = {
     { kind: "screen", id: "scr_ns2not" },
     { kind: "screen", id: "scr_ns3trn" },
     { kind: "screen", id: "scr_au1trl" },
-    { kind: "screen", id: "scr_au2off" }]
+    { kind: "screen", id: "scr_au2off" },
+    { kind: "screen", id: "scr_db1blk" },
+    { kind: "screen", id: "scr_db2up7" }]
   },
   { kind: "section", id: "sec_sv0spb", children: [
     { kind: "screen", id: "scr_k6sk4f" },
