@@ -77,17 +77,18 @@ const baseTransitions: TransitionSeed[] = [
     recipient: 'anushka.rajapaksha@gmail.com',
     sentAt: '2026-09-08T09:14:00',
     content: 'form',
-    formId: 'frm1'
+    formId: 'frm1',
+    replacedBy: 'em1'
   },
   {
     id: 'em1',
     subject: 'Complete your Permanent Employee Onboarding Form',
     recipient: 'anushka.rajapaksha@gmail.com',
-    sentAt: '2026-09-22T09:10:00',
+    sentAt: '2026-09-14T09:10:00',
     content: 'form',
     formId: 'frm1',
     draft: {
-      savedAt: '2026-09-23T20:15:00',
+      savedAt: '2026-09-15T20:15:00',
       responses: {
         firstName: 'Anushka',
         lastName: 'Rajapaksha',
@@ -103,14 +104,14 @@ const baseTransitions: TransitionSeed[] = [
     id: 'em2',
     subject: 'Document upload reminder',
     recipient: 'anushka.rajapaksha@gmail.com',
-    sentAt: '2026-09-23T14:02:00',
+    sentAt: '2026-09-15T14:02:00',
     content: 'reminder'
   },
   {
     id: 'em3',
     subject: 'Complete your Document Verification Form',
     recipient: 'anushka.rajapaksha@gmail.com',
-    sentAt: '2026-09-24T11:30:00',
+    sentAt: '2026-09-15T11:30:00',
     content: 'form',
     formId: 'frm4'
   }],
@@ -120,7 +121,7 @@ const baseTransitions: TransitionSeed[] = [
   {
     emailId: 'em3',
     formId: 'frm4',
-    submittedAt: '2026-09-25T18:05:00',
+    submittedAt: '2026-09-16T08:05:00',
     responses: {},
     documents: [
     { name: 'National Identity Card', fileName: 'NIC-front-back.pdf' },
@@ -168,14 +169,14 @@ const baseTransitions: TransitionSeed[] = [
     id: 'em10',
     subject: 'Complete your Permanent Employee Onboarding Form',
     recipient: 'hiruni.dissa@gmail.com',
-    sentAt: '2026-09-26T09:10:00',
+    sentAt: '2026-09-14T09:10:00',
     content: 'form'
   },
   {
     id: 'em11',
     subject: 'Reminder — complete your employee data form',
     recipient: 'hiruni.dissa@gmail.com',
-    sentAt: '2026-09-28T10:00:00',
+    sentAt: '2026-09-15T10:00:00',
     content: 'reminder'
   }],
   emailEvents: [
@@ -258,7 +259,7 @@ const baseTransitions: TransitionSeed[] = [
     id: 'em7',
     subject: 'Internship onboarding — complete your Intern Onboarding Form',
     recipient: 'tharindu.alwis@gmail.com',
-    sentAt: '2026-09-25T09:05:00',
+    sentAt: '2026-09-15T15:05:00',
     content: 'form'
   }],
 
@@ -328,6 +329,14 @@ const baseTransitions: TransitionSeed[] = [
     recipient: 'chamod.weera@gmail.com',
     sentAt: '2026-09-02T09:00:00',
     content: 'reminder'
+  },
+  {
+    id: 'em12',
+    subject: 'Please complete your employee form by 14 Sept 2026',
+    recipient: 'chamod.weera@gmail.com',
+    sentAt: '2026-08-31T13:12:00',
+    content: 'form',
+    formId: 'frm4'
   }],
 
   formStatus: 'Submitted',
@@ -455,6 +464,31 @@ function seedAudit(transition: TransitionSeed): AuditEntry[] {
     detail: transition.templateName
   }];
 
+  const sender = peopleById[transition.ownerIds[0]]?.name ?? 'System';
+  transition.emails.forEach((email) => {
+    if (email.content !== 'form') return;
+    const form = seedForms.find((item) => item.id === (email.formId ?? transition.candidate.employeeFormId));
+    entries.push({
+      id: `${transition.id}-${email.id}-sent`,
+      action: 'Form sent',
+      actor: sender,
+      at: email.sentAt,
+      detail: `${form ? `${form.code} ${form.name}` : email.subject} · ${email.recipient} · expires ${formatDate(
+        addDays(email.sentAt, FORM_LINK_EXPIRY_DAYS)
+      )}`
+    });
+  });
+  (transition.emailEvents ?? []).forEach((event) => {
+    const email = transition.emails.find((item) => item.id === event.emailId);
+    const form = seedForms.find((item) => item.id === (email?.formId ?? transition.candidate.employeeFormId));
+    entries.push({
+      id: `${transition.id}-${event.id}`,
+      action: 'Form revoked',
+      actor: event.actor,
+      at: event.at,
+      detail: `${form?.name ?? email?.subject ?? 'Form'} · removed from the candidate's portal`
+    });
+  });
   (transition.submissions ?? []).forEach((submission, index) => {
     entries.push({
       id: `${transition.id}-sub${index}`,

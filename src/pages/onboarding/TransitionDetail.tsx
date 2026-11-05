@@ -21,7 +21,7 @@ import { EditExitDetailsDrawer } from '../../components/onboarding/EditExitDetai
 import { Progress } from '../../components/ui/Progress';
 import { Tabs } from '../../components/ui/Segmented';
 import { TaskDetailPanel } from '../../components/tasks/TaskDetailPanel';
-import { EmailHistory } from '../../components/onboarding/EmailHistory';
+import { SentForms } from '../../components/onboarding/SentForms';
 import { SubmissionPanel } from '../../components/onboarding/SubmissionPanel';
 import { SendTransitionFormDialog } from '../../components/onboarding/SendTransitionFormDialog';
 import { TaskStatusBadge } from '../../components/tasks/TaskStatusBadge';
@@ -42,13 +42,15 @@ import {
   daysLabel,
   isOverdue,
   managePermissionFor,
+  sentFormEmails,
+  sentFormStatus,
   statusGroup,
   transitionProgress,
   transitionTargetDate } from
 '../../utils/transitions';
 import { useScreenInit } from '../../useScreenInit.js';
 
-/** 'emails' is the Form Access tab: forms sent to the candidate and whether they can still open them. */
+/** 'emails' is the Sent Forms tab: forms sent to the candidate, their status and dates. */
 type View = 'tasks' | 'emails' | 'audit';
 const VIEWS: View[] = ['tasks', 'emails', 'audit'];
 
@@ -104,10 +106,20 @@ function TransitionView({ transition }: {transition: Transition;}) {
   const gender = transition.candidate.gender ?? leaver?.record.gender;
   const targetDate = transitionTargetDate(transition);
   const isLeaver = transition.kind === 'Offboarding';
-  const auditTrail = useMemo(
-    () => [...transition.auditTrail].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()),
-    [transition.auditTrail]
-  );
+  const sentForms = sentFormEmails(transition);
+  // A form expiring is not an action anyone takes, so its entry is added from the form's expiry date.
+  const auditTrail = useMemo(() => {
+    const expired = sentFormEmails(transition).
+    filter((email) => sentFormStatus(transition, email) === 'Expired' && email.linkExpiresAt).
+    map((email) => ({
+      id: `${email.id}-expired`,
+      action: 'Form expired',
+      actor: 'System',
+      at: email.linkExpiresAt as string,
+      detail: `${forms.find((form) => form.id === email.formId)?.name ?? email.subject} · no longer in the candidate's portal`
+    }));
+    return [...transition.auditTrail, ...expired].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  }, [transition, forms]);
   const canCancel = active && hasOboPermission(managePermissionFor(transition.kind));
   // Exit details can change while the offboarding is in progress, by whoever can manage it.
   const canEditExit = Boolean(transition.exit) && canCancel;
@@ -237,7 +249,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
             <Tabs
               options={[
               { value: 'tasks', label: 'Tasks', count: total },
-              { value: 'emails', label: 'Form Access', count: transition.emails.length },
+              { value: 'emails', label: 'Sent Forms', count: sentForms.length },
               { value: 'audit', label: 'Audit Trail', count: auditTrail.length }]
               }
               value={view}
@@ -306,8 +318,9 @@ function TransitionView({ transition }: {transition: Transition;}) {
             }
 
             {view === 'emails' &&
-            <EmailHistory
+            <SentForms
               transition={transition}
+              canRevoke={hasOboPermission('Manage Onboarding Transitions')}
               onRevoke={(emailId) => {
                 revokeEmail(transition.id, emailId);
                 setNotice("The form was revoked and removed from the candidate's portal.");

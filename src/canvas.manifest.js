@@ -3,7 +3,7 @@ export const manifest = {
     scr_464ptg: { name: "Dashboard", route: "/onboarding/dashboard", position: { "x": 160, "y": 220 } },
     scr_5nxd8j: { name: "Transitions", route: "/onboarding/transitions", position: { "x": 1560, "y": 220 } },
     scr_yi1qbz: { name: "Transition – Tasks", route: "/onboarding/transitions/tr1", state: { "view": "tasks" }, position: { "x": 2960, "y": 220 } },
-    scr_fqlim1: { name: "Transition – Form Access", route: "/onboarding/transitions/tr1", state: { "view": "emails" }, position: { "x": 4360, "y": 220 } },
+    scr_fqlim1: { name: "Transition – Sent Forms", route: "/onboarding/transitions/tr1", state: { "view": "emails" }, position: { "x": 4360, "y": 220 } },
     scr_7fvoja: { name: "New Transition – Type", route: "/onboarding/transitions/new", state: { "step": 0 }, position: { "x": 5760, "y": 220 } },
     scr_ymm9lw: { name: "New Transition – Candidate", route: "/onboarding/transitions/new", state: { "step": 1, "templateId": "tpl1", "candidateId": "rc1", "managerIds": ["u4"] }, position: { "x": 7160, "y": 220 } },
     scr_kux07h: { name: "New Transition – Tasks & Owners", route: "/onboarding/transitions/new", state: { "step": 2, "templateId": "tpl1", "candidateId": "rc1", "managerIds": ["u4"] }, position: { "x": 8560, "y": 220 } },
@@ -12,10 +12,11 @@ export const manifest = {
     scr_tr6atm: { name: "Transitions – Assigned to Me", route: "/onboarding/transitions", state: { "assignedToMe": true }, position: { "x": 12760, "y": 220 } },
     scr_td7pnl: { name: "Transition – Task Detail", route: "/onboarding/transitions/tr1", state: { "view": "tasks", "openTask": "tpl1-t4" }, position: { "x": 14160, "y": 220 } },
     scr_td8ovd: { name: "Transition – Overdue", route: "/onboarding/transitions/tr7", position: { "x": 15560, "y": 220 } },
-    scr_em1sub: { name: "Transition – Form Access (Form Submitted)", route: "/onboarding/transitions/tr6", state: { "view": "emails" }, position: { "x": 16960, "y": 220 } },
+    scr_em1sub: { name: "Transition – Sent Forms (Form Submitted)", route: "/onboarding/transitions/tr6", state: { "view": "emails" }, position: { "x": 16960, "y": 220 } },
     scr_em2pnl: { name: "Transition – View Submission", route: "/onboarding/transitions/tr6", state: { "view": "emails", "submission": true }, position: { "x": 18360, "y": 220 } },
-    scr_em3nil: { name: "Transition – Form Access (Empty)", route: "/onboarding/transitions/tr5", state: { "view": "emails" }, position: { "x": 19760, "y": 220 } },
+    scr_em3nil: { name: "Transition – Sent Forms (Empty)", route: "/onboarding/transitions/tr5", state: { "view": "emails" }, position: { "x": 19760, "y": 220 } },
     scr_sf1dlg: { name: "Transition – Send Form (Replaces Open Link)", route: "/onboarding/transitions/tr1", state: { "view": "emails", "sendForm": true }, position: { "x": 21160, "y": 220 } },
+    scr_em5rvk: { name: "Transition – Sent Forms (Revoked & Sent)", route: "/onboarding/transitions/tr2", state: { "view": "emails" }, position: { "x": 43560, "y": 220 } },
     scr_cx1dlg: { name: "Transition – Cancel Transition", route: "/onboarding/transitions/tr2", state: { "cancel": true }, position: { "x": 22560, "y": 220 } },
     scr_cx2don: { name: "Transition – Cancelled", route: "/onboarding/transitions/tr15", position: { "x": 23960, "y": 220 } },
     scr_nt1cnd: { name: "New Transition – Candidate Selected", route: "/onboarding/transitions/new", state: { "step": 0, "kind": "Onboarding", "candidateId": "rc1", "templateId": "tpl1" }, position: { "x": 25360, "y": 220 } },
@@ -94,7 +95,7 @@ export const manifest = {
     scr_fbdina: { name: "Exit Feedback Form – Sent and Inactive", route: "/templates/forms/exit-feedback/fbf5", position: { "x": 16960, "y": 17800 } }
   },
   sections: {
-    sec_h9tl61: { name: "Onboarding – Overview & Transitions", x: 0, y: 0, width: 43520, height: 1180 },
+    sec_h9tl61: { name: "Onboarding – Overview & Transitions", x: 0, y: 0, width: 44920, height: 1180 },
     sec_sv0spb: { name: "Onboarding – Templates", x: 0, y: 1980, width: 9920, height: 1180 },
     sec_gut05a: { name: "Employee Management", x: 0, y: 3960, width: 26720, height: 1180 },
     sec_luokg9: { name: "Form Templates – Employee", x: 0, y: 5940, width: 8520, height: 1180 },
@@ -137,7 +138,8 @@ export const manifest = {
     { kind: "screen", id: "scr_db2up7" },
     { kind: "screen", id: "scr_tr7flt" },
     { kind: "screen", id: "scr_tr8str" },
-    { kind: "screen", id: "scr_tr9emp" }]
+    { kind: "screen", id: "scr_tr9emp" },
+    { kind: "screen", id: "scr_em5rvk" }]
   },
   { kind: "section", id: "sec_sv0spb", children: [
     { kind: "screen", id: "scr_k6sk4f" },

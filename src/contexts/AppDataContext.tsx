@@ -23,6 +23,8 @@ import { buildSections, seedForms } from '../data/forms';
 import { peopleById } from '../data/people';
 import {
   FORM_LINK_EXPIRY_DAYS,
+  formEmailSubject,
+  prototypeNow,
   canReceiveForm,
   canRevokeEmail,
   isOpenFormEmail,
@@ -570,6 +572,9 @@ export function AppDataProvider({
       setTransitions((prev) =>
       prev.map((transition) => {
         if (transition.id !== transitionId || !canRevokeEmail(transition, emailId)) return transition;
+        const at = prototypeNow();
+        const email = transition.emails.find((item) => item.id === emailId);
+        const formName = forms.find((form) => form.id === email?.formId)?.name ?? email?.subject;
         return {
           ...transition,
           emails: transition.emails.map((email) =>
@@ -582,27 +587,38 @@ export function AppDataProvider({
             emailId,
             action: 'Link revoked',
             actor,
-            at: new Date().toISOString()
+            at
+          }],
+
+          auditTrail: [
+          ...transition.auditTrail,
+          {
+            id: `au-${Date.now()}`,
+            action: 'Form revoked',
+            actor,
+            at,
+            detail: `${formName} · removed from the candidate's portal`
           }]
 
         };
       })
       );
     },
-    [currentUserId]
+    [currentUserId, forms]
   );
 
   const sendTransitionForm = useCallback(
     (transitionIds: string[], formId: string) => {
       const form = forms.find((item) => item.id === formId);
       if (!form || !oboPermissions.includes('Manage Onboarding Transitions')) return;
-      const now = new Date();
-      const sentAt = now.toISOString();
+      const stamp = Date.now();
+      const sentAt = prototypeNow();
       const expiresAt = addDays(sentAt, FORM_LINK_EXPIRY_DAYS);
+      const actor = peopleById[currentUserId]?.name ?? currentUserId;
       setTransitions((prev) =>
       prev.map((transition, index) => {
         if (!transitionIds.includes(transition.id) || !canReceiveForm(transition)) return transition;
-        const emailId = `em-${now.getTime()}-${index}`;
+        const emailId = `em-${stamp}-${index}`;
         // Other forms in the portal are untouched. Only an open copy of this same form is
         // replaced, and its draft moves to the new one.
         const previous = openFormEmail(transition, form.id);
@@ -620,7 +636,7 @@ export function AppDataProvider({
           ),
           {
             id: emailId,
-            subject: `Complete your ${form.name}`,
+            subject: formEmailSubject(expiresAt),
             recipient: transition.candidate.personalEmail,
             sentAt,
             content: 'form',
@@ -628,13 +644,24 @@ export function AppDataProvider({
             linkExpiresAt: expiresAt,
             draftCarriedForward: Boolean(previous?.draft),
             draft: previous?.draft
+          }],
+
+          auditTrail: [
+          ...transition.auditTrail,
+          {
+            id: `au-${stamp}-${index}`,
+            action: 'Form sent',
+            actor,
+            at: sentAt,
+            detail: `${form.code} ${form.name} · ${transition.candidate.personalEmail} · expires ${formatDate(expiresAt)}${
+            previous ? ' · replaces the copy sent earlier' : ''}`
           }]
 
         };
       })
       );
     },
-    [forms, oboPermissions]
+    [forms, oboPermissions, currentUserId]
   );
 
   const saveTransitionDraft = useCallback(
@@ -671,7 +698,7 @@ export function AppDataProvider({
     responses: Record<string, string>,
     documents: SubmittedDocument[]) =>
     {
-      const submittedAt = new Date().toISOString();
+      const submittedAt = prototypeNow();
       setTransitions((prev) =>
       prev.map((transition) => {
         const email = transition.emails.find((item) => item.id === emailId);

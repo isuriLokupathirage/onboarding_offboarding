@@ -6,6 +6,7 @@ import type {
   TransitionKind,
   TransitionTask } from
 '../types';
+import { formatDate } from './format';
 
 export function toTransitionTask(task: Task, id: string, dueDate: string | null): TransitionTask {
   return {
@@ -82,6 +83,16 @@ export const FORM_LINK_EXPIRY_DAYS = 14;
 
 export type EmailStatus = 'Sent' | 'Submitted' | 'Expired' | 'Revoked' | 'Replaced' | 'Closed';
 
+/** The current moment on the prototype's fixed date, so new records sit beside the seeded ones. */
+export function prototypeNow(): string {
+  return `${PROTOTYPE_TODAY}T${new Date().toTimeString().slice(0, 8)}`;
+}
+
+/** True once the form's expiry date is behind the prototype's today. It stays open all of its last day. */
+export function isFormExpired(email: EmailRecord): boolean {
+  return Boolean(email.linkExpiresAt) && (email.linkExpiresAt as string).slice(0, 10) < PROTOTYPE_TODAY;
+}
+
 export function emailStatus(transition: Transition, email: EmailRecord): EmailStatus | null {
   if (email.content === 'reminder') return null;
   if (email.linkRevoked) return 'Revoked';
@@ -94,7 +105,7 @@ export function emailStatus(transition: Transition, email: EmailRecord): EmailSt
   return 'Submitted';
   if (email.replacedBy) return 'Replaced';
   if (statusGroup(transition) !== 'Active') return 'Closed';
-  if (email.linkExpiresAt && new Date(email.linkExpiresAt).getTime() < Date.now()) return 'Expired';
+  if (isFormExpired(email)) return 'Expired';
   return 'Sent';
 }
 
@@ -113,6 +124,58 @@ export function openFormEmail(transition: Transition, formId: string): EmailReco
   return transition.emails.find(
     (email) => email.formId === formId && isOpenFormEmail(transition, email)
   );
+}
+
+/** Form emails only; reminders are not forms. */
+export function sentFormEmails(transition: Transition): EmailRecord[] {
+  return transition.emails.filter((email) => email.content === 'form');
+}
+
+/** How the Sent Forms tab reports a form: revoked, replaced and finished-transition forms read as Closed. */
+export type SentFormStatus = 'Sent' | 'Submitted' | 'Closed' | 'Expired';
+
+export function sentFormStatus(transition: Transition, email: EmailRecord): SentFormStatus {
+  const status = emailStatus(transition, email);
+  if (status === 'Sent' || status === 'Submitted' || status === 'Expired') return status;
+  return 'Closed';
+}
+
+/** Why a closed form closed, for the line under its status. */
+export function sentFormClosedReason(transition: Transition, email: EmailRecord): string | undefined {
+  const status = emailStatus(transition, email);
+  if (status === 'Revoked') {
+    const event = transition.emailEvents.find((item) => item.emailId === email.id);
+    return event ? `Revoked by ${event.actor}` : 'Revoked';
+  }
+  if (status === 'Replaced') return 'Replaced when sent again';
+  if (status === 'Closed') return `Transition ${statusGroup(transition).toLowerCase()}`;
+  return undefined;
+}
+
+/**
+ * When the form stopped accepting answers: submitted, revoked, replaced by a new send, expired, or
+ * the transition was cancelled. Undefined while it is open, or when the date is not recorded.
+ */
+export function sentFormClosedAt(transition: Transition, email: EmailRecord): string | undefined {
+  switch (emailStatus(transition, email)) {
+    case 'Submitted':
+      return transition.submissions.find((item) => item.emailId === email.id)?.submittedAt;
+    case 'Revoked':
+      return transition.emailEvents.find((item) => item.emailId === email.id)?.at;
+    case 'Replaced':
+      return transition.emails.find((item) => item.id === email.replacedBy)?.sentAt;
+    case 'Expired':
+      return email.linkExpiresAt;
+    case 'Closed':
+      return transition.cancellation?.recordedAt;
+    default:
+      return undefined;
+  }
+}
+
+/** The subject of the email that sends a form. */
+export function formEmailSubject(expiresOn: string): string {
+  return `Please complete your employee form by ${formatDate(expiresOn)}`;
 }
 
 export function managePermissionFor(kind: TransitionKind): OboPermission {
