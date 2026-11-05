@@ -15,7 +15,7 @@ import {
 import { twMerge } from 'tailwind-merge';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/Button';
-import { Segmented, Tabs } from '../../components/ui/Segmented';
+import { Segmented } from '../../components/ui/Segmented';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { Toggle } from '../../components/ui/Toggle';
 import { FacetedFilter } from '../../components/ui/FacetedFilter';
@@ -50,11 +50,15 @@ import { useScreenInit } from '../../useScreenInit.js';
 type TypeFilter = 'all' | TransitionKind;
 
 const PAGE_SIZE = 10;
-const STATUS_TABS: TransitionStatusGroup[] = ['Active', 'Completed', 'Cancelled'];
+const STATUS_OPTIONS: TransitionStatusGroup[] = ['Active', 'Completed', 'Cancelled'];
+/** The list opens on transitions in progress. */
+const DEFAULT_STATUSES: TransitionStatusGroup[] = ['Active'];
 const ATTENTION_OPTIONS: AttentionFilter[] = ['overdue', 'blocked', 'due-today'];
 
 interface ListScreenState {
+  /** Canvas: one status, as the screens set before Status became a filter. */
   tab?: TransitionStatusGroup;
+  statuses?: TransitionStatusGroup[];
   assignedToMe?: boolean;
   type?: TypeFilter;
   query?: string;
@@ -73,6 +77,15 @@ function parseAttention(value: string | null): AttentionFilter[] {
   const values = (value ?? '').split(',').filter(isAttentionFilter);
   return ATTENTION_OPTIONS.filter((option) => values.includes(option));
 }
+
+/** ?status= holds one status (the dashboard sends Active) or several separated by commas. */
+function parseStatuses(value: string | null): TransitionStatusGroup[] {
+  const values = (value ?? '').split(',');
+  return STATUS_OPTIONS.filter((option) => values.includes(option));
+}
+
+const sameStatuses = (a: TransitionStatusGroup[], b: TransitionStatusGroup[]): boolean =>
+a.length === b.length && a.every((status) => b.includes(status));
 const PERMISSION_NOTE = 'Requires the Manage Onboarding Transitions permission';
 const GRID =
 'grid grid-cols-[20px_minmax(200px,2.2fr)_110px_minmax(150px,1.6fr)_130px_90px_150px_84px] items-center gap-4';
@@ -82,9 +95,14 @@ export function Transitions() {
   const init = useScreenInit() as ListScreenState;
   const { transitions, currentUserId, oboPermissions, hasOboPermission } = useAppData();
   const [searchParams, setSearchParams] = useSearchParams();
-  // The dashboard links here with ?status=Active.
-  const linkedStatus = STATUS_TABS.find((status) => status === searchParams.get('status'));
-  const [tab, setTab] = useState<TransitionStatusGroup>(init.tab ?? linkedStatus ?? 'Active');
+  // The dashboard links here with ?status=Active. No status chosen lists every status.
+  const linkedStatuses = parseStatuses(searchParams.get('status'));
+  const [statuses, setStatuses] = useState<TransitionStatusGroup[]>(() => {
+    if (init.statuses) return init.statuses;
+    if (init.tab) return [init.tab];
+    if (searchParams.get('status') === 'All') return [];
+    return linkedStatuses.length > 0 ? linkedStatuses : DEFAULT_STATUSES;
+  });
   const [assignedToMe, setAssignedToMe] = useState(init.assignedToMe ?? false);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(init.type ?? 'all');
   const [query, setQuery] = useState(init.query ?? '');
@@ -105,11 +123,13 @@ export function Transitions() {
     isUpcomingPeriod(startingParam) ? startingParam : init.starting ?? null
   );
 
-  // Keep the address in step with the Attention and Starting filters, so a reload keeps them.
+  // Keep the address in step with the Status, Attention and Starting filters, so a reload keeps them.
   useEffect(() => {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
+        if (statuses.length > 0) next.set('status', statuses.join(','));else
+        next.set('status', 'All');
         if (attention.length > 0) next.set('attention', attention.join(','));else
         next.delete('attention');
         if (starting) next.set('starting', starting);else
@@ -118,7 +138,11 @@ export function Transitions() {
       },
       { replace: true }
     );
-  }, [attention, starting, setSearchParams]);
+  }, [statuses, attention, starting, setSearchParams]);
+  const statusMatches = useCallback(
+    (transition: Transition) => statuses.length === 0 || statuses.includes(statusGroup(transition)),
+    [statuses]
+  );
   const canSeeRestricted = hasOboPermission('View Restricted Tasks');
   const canSendForms = hasOboPermission('Manage Onboarding Transitions');
   const canStartTransition = canSendForms || hasOboPermission('Manage Offboarding Transitions');
@@ -139,7 +163,7 @@ export function Transitions() {
     const needle = query.trim().toLowerCase();
     return scoped.filter(
       (transition) =>
-      statusGroup(transition) === tab && (
+      statusMatches(transition) && (
       attention.length === 0 ||
       attention.some((filter) => attentionTasks(transition, filter, canSeeRestricted).length > 0)) && (
       !starting || startsWithin(transition, PROTOTYPE_TODAY, starting)) && (
@@ -149,18 +173,23 @@ export function Transitions() {
       toLowerCase().
       includes(needle))
     );
-  }, [scoped, tab, typeFilter, query, attention, starting, canSeeRestricted]);
+  }, [scoped, statusMatches, typeFilter, query, attention, starting, canSeeRestricted]);
 
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageItems = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const filtersApplied =
-  Boolean(query.trim()) || typeFilter !== 'all' || assignedToMe || attention.length > 0 || Boolean(starting);
+  Boolean(query.trim()) ||
+  typeFilter !== 'all' ||
+  assignedToMe ||
+  attention.length > 0 ||
+  Boolean(starting) ||
+  !sameStatuses(statuses, DEFAULT_STATUSES);
   const attentionCount = (filter: AttentionFilter) =>
   scoped.filter(
-    (transition) =>
-    statusGroup(transition) === tab && attentionTasks(transition, filter, canSeeRestricted).length > 0
+    (transition) => statusMatches(transition) && attentionTasks(transition, filter, canSeeRestricted).length > 0
   ).length;
+  const onlyStatus = statuses.length === 1 ? statuses[0].toLowerCase() : null;
   const selectableOnPage = pageItems.filter(isSelectable);
   const allOnPageSelected =
   selectableOnPage.length > 0 && selectableOnPage.every((transition) => selected.includes(transition.id));
@@ -178,14 +207,16 @@ export function Transitions() {
   [...new Set([...prev, ...selectableOnPage.map((transition) => transition.id)])]
   );
 
-  // Filters stay applied across status tabs; only the selection belongs to one tab.
-  const changeTab = (next: TransitionStatusGroup) => {
-    setTab(next);
+  // A selection only holds transitions the current statuses list.
+  const changeStatuses = (next: TransitionStatusGroup[]) => {
+    setStatuses(next);
     setPage(1);
     setSelected([]);
   };
 
+  // Clear filters puts the list back to how it opens: Active, nothing else applied.
   const clearFilters = () => {
+    changeStatuses(DEFAULT_STATUSES);
     setQuery('');
     setTypeFilter('all');
     setAssignedToMe(false);
@@ -194,7 +225,11 @@ export function Transitions() {
     setPage(1);
   };
 
-  const chips: FilterChip[] = [];
+  const chips: FilterChip[] = statuses.map((status) => ({
+    key: `status-${status}`,
+    label: `Status: ${status}`,
+    onRemove: () => changeStatuses(statuses.filter((item) => item !== status))
+  }));
   if (query.trim()) chips.push({ key: 'query', label: `Search: “${query.trim()}”`, onRemove: () => setQuery('') });
   if (typeFilter !== 'all') chips.push({ key: 'type', label: `Type: ${typeFilter}`, onRemove: () => setTypeFilter('all') });
   attention.forEach((filter) =>
@@ -245,17 +280,7 @@ export function Transitions() {
           </div>
         }
 
-        <Tabs
-          options={STATUS_TABS.map((status) => ({
-            value: status,
-            label: status,
-            count: scoped.filter((transition) => statusGroup(transition) === status).length
-          }))}
-          value={tab}
-          onChange={changeTab} />
-
-
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <SearchInput
               value={query}
@@ -265,6 +290,18 @@ export function Transitions() {
               }}
               placeholder="Search by candidate or employee name"
               className="w-72" />
+
+            <FacetedFilter
+              title="Status"
+              searchable={false}
+              showChips={false}
+              options={STATUS_OPTIONS.map((status) => ({
+                value: status,
+                label: status,
+                count: scoped.filter((transition) => statusGroup(transition) === status).length
+              }))}
+              selected={statuses}
+              onChange={(values) => changeStatuses(parseStatuses(values.join(',')))} />
 
             {kinds.length > 1 &&
             <Segmented
@@ -369,14 +406,16 @@ export function Transitions() {
                   </button>
                 </span>
             )}
-              <button
-              type="button"
-              onClick={clearFilters}
-              className="text-[12px] font-medium text-brand-700 transition-colors duration-150 ease-out hover:text-brand-600">
-
-                Clear filters
-              </button>
             </>
+          }
+          {filtersApplied &&
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="text-[12px] font-medium text-brand-700 transition-colors duration-150 ease-out hover:text-brand-600">
+
+              Clear filters
+            </button>
           }
         </div>
 
@@ -393,7 +432,7 @@ export function Transitions() {
             className={`${GRID} border-b border-line bg-slate-50/70 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-subtle`}>
 
             <span>
-              {tab === 'Active' && canSendForms &&
+              {(statuses.length === 0 || statuses.includes('Active')) && canSendForms &&
               <input
                 type="checkbox"
                 checked={allOnPageSelected}
@@ -417,11 +456,13 @@ export function Transitions() {
           <div className="p-6">
               <EmptyState
               icon={UsersIcon}
-              title={`No ${tab.toLowerCase()} transitions found`}
+              title={onlyStatus ? `No ${onlyStatus} transitions found` : 'No transitions found'}
               description={
               filtersApplied ?
               'No transitions match the current search and filters. Try adjusting or clearing them.' :
-              `There are no ${tab.toLowerCase()} transitions to show yet.`
+              onlyStatus ?
+              `There are no ${onlyStatus} transitions to show yet.` :
+              'There are no transitions to show yet.'
               }
               action={
               filtersApplied ?
