@@ -68,6 +68,19 @@ export interface LeaverSnapshot {
   joinedOn: string;
 }
 
+/**
+ * The joiner's job details, captured when the onboarding starts, so a later change to the template
+ * or the employee record does not alter past reports.
+ */
+export interface JoinerSnapshot {
+  jobTitle: string;
+  organizationUnit: Department;
+  /** From the template. */
+  employmentType: EmploymentType;
+  /** From the template. */
+  client: string;
+}
+
 /** What Step 2 of an offboarding records: why the employee is leaving, the exit dates and documents. */
 export interface ExitDetails {
   employeeId: string;
@@ -287,6 +300,13 @@ export interface Transition {
   startedOn: string;
   /** Set when the transition starts. Screens show the latest task due date instead (transitionTargetDate). */
   targetDate: string;
+  /**
+   * The latest task due date as calculated when the transition started. It does not change when
+   * due dates change later, so on-time completion is measured against the original plan.
+   */
+  plannedCompletionDate: string;
+  /** The day the transition was completed. Set only when status is 'Completed'. */
+  completedOn?: string;
   ownerIds: string[];
   tasks: TransitionTask[];
   emails: EmailRecord[];
@@ -300,6 +320,8 @@ export interface Transition {
   exit?: ExitDetails;
   /** Offboarding only: the leaver's employment details as they were when the offboarding started. */
   leaver?: LeaverSnapshot;
+  /** Onboarding only: the joiner's job details as they were when the onboarding started. */
+  joiner?: JoinerSnapshot;
   auditTrail: AuditEntry[];
 }
 

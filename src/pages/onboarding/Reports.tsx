@@ -7,11 +7,12 @@ import { FacetedFilter } from '../../components/ui/FacetedFilter';
 import { Input, Select } from '../../components/ui/Field';
 import { Tabs } from '../../components/ui/Segmented';
 import { ExitVolumeReport, type LeaverSelection } from '../../components/reports/ExitVolumeReport';
+import { OnboardingReport } from '../../components/reports/OnboardingReport';
 import { useAppData } from '../../contexts/AppDataContext';
 import { currentStaff } from '../../data/headcount';
 import { departments } from '../../data/people';
 import { OFFBOARDING_TYPES } from '../../data/exitReasons';
-import type { EmploymentType } from '../../types';
+import type { Department, EmploymentType } from '../../types';
 import { formatDate } from '../../utils/format';
 import { PROTOTYPE_TODAY } from '../../utils/transitions';
 import {
@@ -31,6 +32,7 @@ import {
   type ReportFilters,
   type ReportTab } from
 '../../utils/reports';
+import { filterJoinerRows, joinerRows, joinersInPeriod, onboardingSummary } from '../../utils/onboardingReports';
 import { useScreenInit } from '../../useScreenInit.js';
 
 const EMPLOYMENT_TYPES: EmploymentType[] = ['Permanent', 'Contract', 'Internship', 'Consultant'];
@@ -39,6 +41,8 @@ interface ReportsScreenState {
   tab?: ReportTab;
   filters?: Partial<ReportFilters>;
   selection?: LeaverSelection;
+  /** Onboarding tab: the organization unit picked in the chart. */
+  joinerUnit?: Department;
 }
 
 interface FilterChip {
@@ -60,11 +64,13 @@ export function Reports() {
     ...init.filters
   }));
   const [selection, setSelection] = useState<LeaverSelection>(init.selection ?? {});
+  const [joinerUnit, setJoinerUnit] = useState<Department | undefined>(init.joinerUnit);
 
-  // A new filter changes which leavers are in the report, so chart selections start again.
+  // A new filter changes who is in the report, so chart selections start again.
   const setFilters = (patch: Partial<ReportFilters>) => {
     setFiltersState((prev) => ({ ...prev, ...patch }));
     setSelection({});
+    setJoinerUnit(undefined);
   };
 
   const allLeavers = useMemo(() => leaverRows(transitions), [transitions]);
@@ -81,11 +87,29 @@ export function Reports() {
     () => filterPopulation(headcountPopulation(currentStaff, allLeavers), filters),
     [allLeavers, filters]
   );
+  const allJoiners = useMemo(() => joinerRows(transitions), [transitions]);
+  const onboardings = useMemo(() => filterJoinerRows(allJoiners, filters), [allJoiners, filters]);
+  const joiners = useMemo(() => range ? joinersInPeriod(onboardings, range) : [], [onboardings, range]);
+  // The Onboarding tab is empty only when no one joins and no onboarding starts in the period.
+  const onboardingHasData = useMemo(() => {
+    if (!range) return false;
+    const summary = onboardingSummary(onboardings, range);
+    return joiners.length > 0 || summary.started + summary.cancelled > 0;
+  }, [onboardings, joiners, range]);
   const isOffboarding = tab === 'Offboarding';
 
-  // Counts beside each filter option: leavers in the period, ignoring that filter's own choice.
-  const optionCount = (patch: Partial<ReportFilters>, match: (row: (typeof allLeavers)[number]) => boolean) =>
-  isOffboarding && range ? filterLeavers(allLeavers, range, { ...filters, ...patch }).filter(match).length : undefined;
+  // Counts beside each filter option, ignoring that filter's own choice: leavers in the period on
+  // the Offboarding tab, joiners in the period on the Onboarding tab.
+  const optionCount = (
+  patch: Partial<ReportFilters>,
+  match: (row: {organizationUnit: Department;employmentType: EmploymentType;client: string;}) => boolean) =>
+  {
+    if (!range) return undefined;
+    const next = { ...filters, ...patch };
+    return isOffboarding ?
+    filterLeavers(allLeavers, range, next).filter(match).length :
+    joinersInPeriod(filterJoinerRows(allJoiners, next), range).filter(match).length;
+  };
 
   const chips: FilterChip[] = [];
   if (filters.period !== DEFAULT_PERIOD) {
@@ -227,7 +251,9 @@ export function Reports() {
             options={OFFBOARDING_TYPES.map((type) => ({
               value: type,
               label: type,
-              count: optionCount({ offboardingTypes: [] }, (row) => row.type === type)
+              count: range ?
+              filterLeavers(allLeavers, range, { ...filters, offboardingTypes: [] }).filter((row) => row.type === type).length :
+              undefined
             }))}
             selected={filters.offboardingTypes}
             onChange={(values) =>
@@ -305,10 +331,27 @@ export function Reports() {
               onSelectionChange={setSelection} /> :
 
 
+            onboardingHasData ?
+            <OnboardingReport
+              joiners={joiners}
+              rows={onboardings}
+              range={range}
+              selectedUnit={joinerUnit}
+              onSelectUnit={setJoinerUnit} /> :
+
             <EmptyState
               icon={BarChart3Icon}
-              title="No onboarding report data for this period"
-              description="Onboarding reports for the selected period and filters will appear here." />
+              title="No onboardings in this period"
+              description={`No onboardings have a hire date or a start date in ${formatRange(range)}${
+              chips.some((chip) => chip.key !== 'period') ? ' that match the selected filters' : ''}.`
+              }
+              action={
+              chips.length > 0 ?
+              <Button size="sm" onClick={clearFilters}>
+                        Clear filters
+                      </Button> :
+              undefined
+              } />
 
             }
             </>

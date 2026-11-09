@@ -26,7 +26,7 @@ import { useAppData } from '../../contexts/AppDataContext';
 import { jobTitles } from '../../data/jobTitles';
 import { recruitmentCandidates } from '../../data/recruitmentCandidates';
 import { useEmployeeData } from '../../contexts/EmployeeDataContext';
-import { offboardingMilestones, people } from '../../data/people';
+import { departments, offboardingMilestones, people } from '../../data/people';
 import type {
   DueRule,
   Employee,
@@ -43,7 +43,7 @@ import {
   type SetupGrouping } from
 '../../utils/taskSetup';
 import { resolveDueDate } from '../../utils/format';
-import { managePermissionFor, toTransitionTask } from '../../utils/transitions';
+import { managePermissionFor, toTransitionTask, transitionTargetDate } from '../../utils/transitions';
 import { candidateCampaign, onboardableCandidates } from '../../utils/recruitment';
 import { offboardableEmployees } from '../../utils/employees';
 import {
@@ -67,6 +67,7 @@ interface Details {
   email: string;
   mobile: string;
   jobTitle: string;
+  organizationUnit: string;
   hireDate: string;
   dob: string;
   gender: string;
@@ -76,7 +77,7 @@ interface Details {
 
 type DetailKey = keyof Details;
 
-const REQUIRED_DETAILS: DetailKey[] = ['firstName', 'lastName', 'email', 'mobile', 'jobTitle', 'hireDate'];
+const REQUIRED_DETAILS: DetailKey[] = ['firstName', 'lastName', 'email', 'mobile', 'jobTitle', 'organizationUnit', 'hireDate'];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const GENDERS = ['Male', 'Female', 'Other'];
 const COUNTRIES = ['Sri Lanka', 'India', 'Singapore', 'Australia'];
@@ -97,6 +98,8 @@ function candidateDetails(candidate: RecruitmentCandidate | undefined): Details 
     email: pick(candidate?.personalEmail),
     mobile: pick(candidate?.mobile),
     jobTitle: pick(campaignTitle, jobTitles),
+    // Recruitment does not hold the organization unit, so it is always chosen here.
+    organizationUnit: '',
     hireDate: pick(candidate?.offeredStartDate),
     dob: pick(candidate?.dateOfBirth),
     gender: pick(candidate?.gender, GENDERS),
@@ -187,7 +190,7 @@ export function NewTransition() {
 
   // Past Step 1 a type is always chosen; the fallback only keeps the types simple.
   const chosenKind: TransitionKind = kind ?? 'Onboarding';
-  const { firstName, lastName, email, mobile, jobTitle, hireDate, dob, gender, country, address } = details;
+  const { firstName, lastName, email, mobile, jobTitle, organizationUnit, hireDate, dob, gender, country, address } = details;
   const setField = (key: DetailKey, value: string) => setDetails((prev) => ({ ...prev, [key]: value }));
   const selectedCandidate = candidates.find((candidate) => candidate.id === candidateId);
   const selectedCampaign = selectedCandidate ? candidateCampaign(selectedCandidate) : undefined;
@@ -347,6 +350,16 @@ export function NewTransition() {
         joinedOn: leaver.joinedOn
       } :
       undefined,
+      // Captured now for Onboarding Reports. Employment type and client come from the template.
+      joiner:
+      !leaver && template ?
+      {
+        jobTitle,
+        organizationUnit: departments.find((unit) => unit === organizationUnit) ?? departments[0],
+        employmentType: template.employmentType,
+        client: template.client
+      } :
+      undefined,
       templateId,
       templateName: template?.name ?? '',
       status: 'On Track',
@@ -355,6 +368,8 @@ export function NewTransition() {
       portalExpiresAt: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
       startedOn: new Date().toISOString().slice(0, 10),
       targetDate,
+      // Fixed now: on-time completion is measured against the plan at the start.
+      plannedCompletionDate: transitionTargetDate({ tasks: setupTasks, targetDate }),
       ownerIds: managerIds,
       tasks: setupTasks,
       emails: [],
@@ -602,6 +617,22 @@ export function NewTransition() {
                 searchPlaceholder="Search job titles"
                 invalid={Boolean(showError('jobTitle'))} />
                 <FieldError message={showError('jobTitle')} />
+              </FieldGroup>
+              <FieldGroup label="Organization Unit" required>
+                <Select
+                value={organizationUnit}
+                onChange={(event) => setField('organizationUnit', event.target.value)}
+                aria-invalid={Boolean(showError('organizationUnit'))}
+                className={showError('organizationUnit') ? 'border-red-300' : ''}>
+
+                  <option value="">Select an organization unit</option>
+                  {departments.map((unit) =>
+                <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                )}
+                </Select>
+                <FieldError message={showError('organizationUnit')} />
               </FieldGroup>
               <FieldGroup
               label="Hire Date"

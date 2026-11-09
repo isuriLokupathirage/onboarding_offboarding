@@ -184,7 +184,8 @@ export function leaverRows(transitions: Transition[]): LeaverRow[] {
   });
 }
 
-const within = <T,>(values: T[], value: T) => values.length === 0 || values.includes(value);
+/** True when nothing is selected for a filter, or the value is one of those selected. */
+export const within = <T,>(values: T[], value: T) => values.length === 0 || values.includes(value);
 
 /** Leavers whose Actual Exit Date falls in the range and who match every filter. */
 export function filterLeavers(rows: LeaverRow[], range: DateRange, filters: ReportFilters): LeaverRow[] {
@@ -205,7 +206,7 @@ export interface CountEntry {
 }
 
 /** Counts per value, highest first, then alphabetically. */
-export function countBy(rows: LeaverRow[], key: (row: LeaverRow) => string): CountEntry[] {
+export function countBy<T>(rows: T[], key: (row: T) => string): CountEntry[] {
   const counts = new Map<string, number>();
   rows.forEach((row) => counts.set(key(row), (counts.get(key(row)) ?? 0) + 1));
   return [...counts.entries()].
@@ -213,8 +214,15 @@ export function countBy(rows: LeaverRow[], key: (row: LeaverRow) => string): Cou
   sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
-/** Leavers in each month of the range, including months with none. */
-export function leaversByMonth(rows: LeaverRow[], range: DateRange): (CountEntry & {key: string;})[] {
+/** Leavers in each month of the range, by Actual Exit Date, including months with none. */
+export const leaversByMonth = (rows: LeaverRow[], range: DateRange): (CountEntry & {key: string;})[] =>
+countByMonth(
+  rows.map((row) => row.exitDate),
+  range
+);
+
+/** How many of the dates fall in each month of the range, including months with none. */
+export function countByMonth(dates: string[], range: DateRange): (CountEntry & {key: string;})[] {
   const [fromYear, fromMonth] = range.from.split('-').map(Number);
   const [toYear, toMonth] = range.to.split('-').map(Number);
   const spansYears = fromYear !== toYear;
@@ -227,7 +235,7 @@ export function leaversByMonth(rows: LeaverRow[], range: DateRange): (CountEntry
     months.push({
       key,
       label: spansYears ? `${name} ${String(year).slice(2)}` : name,
-      count: rows.filter((row) => row.exitDate.startsWith(key)).length
+      count: dates.filter((date) => date.startsWith(key)).length
     });
   }
   return months;

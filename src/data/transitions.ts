@@ -1,6 +1,8 @@
 import type {
   AuditEntry,
+  Department,
   EmailRecord,
+  JoinerSnapshot,
   LeaverSnapshot,
   OffboardingType,
   Transition,
@@ -12,12 +14,14 @@ import { seedTasks } from './tasks';
 import { seedTemplates } from './templates';
 import { seedForms } from './forms';
 import { addDays, formatDate } from '../utils/format';
-import { FORM_LINK_EXPIRY_DAYS, toTransitionTask } from '../utils/transitions';
+import { FORM_LINK_EXPIRY_DAYS, toTransitionTask, transitionTargetDate } from '../utils/transitions';
 
 type TransitionSeed = Omit<
   Transition,
-  'portalToken' | 'portalAccess' | 'portalExpiresAt' | 'emailEvents' | 'auditTrail' | 'submissions'> &
+  'portalToken' | 'portalAccess' | 'portalExpiresAt' | 'emailEvents' | 'auditTrail' | 'submissions' | 'plannedCompletionDate'> &
 {
+  /** Defaults to the latest task due date. */
+  plannedCompletionDate?: string;
   emailEvents?: Transition['emailEvents'];
   submissions?: Transition['submissions'];
 };
@@ -407,6 +411,7 @@ interface CompactSeed {
   cancellation?: TransitionCancellation;
   exit?: Transition['exit'];
   leaver?: LeaverSnapshot;
+  completedOn?: string;
   emails?: EmailRecord[];
   portalCancellation?: Transition['portalCancellation'];
 }
@@ -453,7 +458,91 @@ function completedLeaver(seed: LeaverSeed): CompactSeed {
       },
       documents: []
     },
-    leaver: seed.leaver
+    leaver: seed.leaver,
+    completedOn: seed.exitDate
+  };
+}
+
+interface JoinerSeed {
+  id: string;
+  name: [string, string];
+  position: string;
+  templateId: string;
+  hireDate: string;
+  /** Days between starting the onboarding and the hire date. */
+  leadDays: number;
+  /** Days after the Planned Completion Date that it was completed. Negative is early. */
+  daysLate: number;
+  managerId: string;
+}
+
+/** A completed onboarding, for the Reports section. Its tasks fall due around the hire date. */
+function completedJoiner(seed: JoinerSeed): CompactSeed {
+  const taskCount = seedTemplates.find((template) => template.id === seed.templateId)?.taskIds.length ?? 1;
+  const planned = shiftDate(seed.hireDate, taskCount - 1);
+  return {
+    id: seed.id,
+    kind: 'Onboarding',
+    name: seed.name,
+    position: seed.position,
+    templateId: seed.templateId,
+    status: 'Completed',
+    startedOn: daysBefore(seed.hireDate, seed.leadDays),
+    targetDate: seed.hireDate,
+    completedTasks: 'all',
+    managerIds: [seed.managerId],
+    completedOn: daysBefore(planned, -seed.daysLate)
+  };
+}
+
+/** Completed onboardings across last year and this year, so the Onboarding Reports have data to show. */
+const joinerSeeds: JoinerSeed[] = [
+{ id: 'tr34', name: ['Nimesha', 'Fernando'], position: 'Software Engineer', templateId: 'tpl1', hireDate: '2026-01-12', leadDays: 14, daysLate: -2, managerId: 'u9' },
+{ id: 'tr35', name: ['Charith', 'Senanayake'], position: 'Backend Engineer', templateId: 'tpl1', hireDate: '2026-01-26', leadDays: 21, daysLate: 0, managerId: 'u9' },
+{ id: 'tr36', name: ['Ayesha', 'Rahman'], position: 'Financial Analyst', templateId: 'tpl3', hireDate: '2026-02-09', leadDays: 14, daysLate: 3, managerId: 'u5' },
+{ id: 'tr37', name: ['Tharindu', 'Wijeratne'], position: 'Network Engineer', templateId: 'tpl4', hireDate: '2026-02-23', leadDays: 10, daysLate: -1, managerId: 'u2' },
+{ id: 'tr38', name: ['Malsha', 'Gunawardena'], position: 'HR Assistant', templateId: 'tpl1', hireDate: '2026-03-09', leadDays: 14, daysLate: 0, managerId: 'u1' },
+{ id: 'tr39', name: ['Pasindu', 'Kodikara'], position: 'Engineering Intern', templateId: 'tpl2', hireDate: '2026-03-16', leadDays: 12, daysLate: 5, managerId: 'u9' },
+{ id: 'tr40', name: ['Dulani', 'Amarasinghe'], position: 'Procurement Executive', templateId: 'tpl3', hireDate: '2026-04-06', leadDays: 14, daysLate: -3, managerId: 'u5' },
+{ id: 'tr41', name: ['Heshan', 'Mendis'], position: 'Systems Engineer', templateId: 'tpl4', hireDate: '2026-04-20', leadDays: 10, daysLate: 0, managerId: 'u2' },
+{ id: 'tr42', name: ['Kaveesha', 'Ranasinghe'], position: 'Software Intern', templateId: 'tpl8', hireDate: '2026-05-04', leadDays: 12, daysLate: 2, managerId: 'u9' },
+{ id: 'tr43', name: ['Janith', 'Wickramaratne'], position: 'Frontend Engineer', templateId: 'tpl1', hireDate: '2026-05-18', leadDays: 21, daysLate: -1, managerId: 'u9' },
+{ id: 'tr44', name: ['Ruvini', 'Seneviratne'], position: 'Payroll Assistant', templateId: 'tpl3', hireDate: '2026-06-01', leadDays: 14, daysLate: 0, managerId: 'u5' },
+{ id: 'tr45', name: ['Mohamed', 'Rizwan'], position: 'Security Analyst', templateId: 'tpl4', hireDate: '2026-06-15', leadDays: 10, daysLate: 4, managerId: 'u6' },
+{ id: 'tr46', name: ['Sithara', 'Jayawardena'], position: 'Data Analyst', templateId: 'tpl1', hireDate: '2026-06-29', leadDays: 14, daysLate: 0, managerId: 'u4' },
+{ id: 'tr47', name: ['Lakmal', 'Dissanayake'], position: 'DevOps Engineer', templateId: 'tpl1', hireDate: '2026-07-13', leadDays: 21, daysLate: 6, managerId: 'u2' },
+{ id: 'tr48', name: ['Hasini', 'Perera'], position: 'Associate Finance Executive', templateId: 'tpl3', hireDate: '2026-08-10', leadDays: 14, daysLate: -2, managerId: 'u5' },
+{ id: 'tr49', name: ['Chathura', 'Bandara'], position: 'QA Engineer', templateId: 'tpl1', hireDate: '2025-04-07', leadDays: 14, daysLate: 0, managerId: 'u9' },
+{ id: 'tr50', name: ['Nirosha', 'Fernando'], position: 'HR Executive', templateId: 'tpl1', hireDate: '2025-08-18', leadDays: 14, daysLate: 3, managerId: 'u1' },
+{ id: 'tr51', name: ['Dineth', 'Samarakoon'], position: 'Logistics Coordinator', templateId: 'tpl4', hireDate: '2025-11-03', leadDays: 10, daysLate: -1, managerId: 'u5' }];
+
+/** Organization units for the seeded joiners' job titles. Real onboardings record it in Step 2. */
+const SEED_UNIT_BY_JOB_TITLE: Record<string, Department> = {
+  'Network Engineer': 'IT Ops',
+  'Systems Engineer': 'IT Ops',
+  'DevOps Engineer': 'IT Ops',
+  'Solutions Consultant': 'IT Ops',
+  'Financial Analyst': 'Finance',
+  'Procurement Executive': 'Finance',
+  'Payroll Assistant': 'Finance',
+  'Accounts Executive': 'Finance',
+  'Associate Finance Executive': 'Finance',
+  'Logistics Coordinator': 'Finance',
+  'HR Assistant': 'HR',
+  'HR Executive': 'HR',
+  'Security Analyst': 'Security'
+};
+
+/** The joiner snapshot a seeded onboarding would have captured when it started. */
+function seedJoiner(transition: TransitionSeed): JoinerSnapshot | undefined {
+  if (transition.kind !== 'Onboarding') return undefined;
+  const template = seedTemplates.find((item) => item.id === transition.templateId);
+  if (!template) return undefined;
+  return {
+    jobTitle: transition.candidate.position,
+    organizationUnit: SEED_UNIT_BY_JOB_TITLE[transition.candidate.position] ?? 'Engineering',
+    employmentType: template.employmentType,
+    client: template.client
   };
 }
 
@@ -514,7 +603,8 @@ function compactSeed(seed: CompactSeed): TransitionSeed {
     cancellation: seed.cancellation,
     portalCancellation: seed.portalCancellation,
     exit: seed.exit,
-    leaver: seed.leaver
+    leaver: seed.leaver,
+    completedOn: seed.completedOn
   };
 }
 
@@ -535,7 +625,7 @@ const compactSeeds: CompactSeed[] = [
 { id: 'tr9', kind: 'Offboarding', name: ['Kavindi', 'Samarasinghe'], position: 'Software Intern', templateId: 'tpl7', status: 'On Track', startedOn: '2026-09-09', targetDate: '2026-09-30', completedTasks: 1, managerIds: ['u9'] },
 { id: 'tr10', kind: 'Onboarding', name: ['Ravindu', 'Jayasuriya'], position: 'Solutions Consultant', templateId: 'tpl4', status: 'On Track', startedOn: '2026-09-11', targetDate: '2026-09-25', completedTasks: 2, managerIds: ['u1'] },
 { id: 'tr11', kind: 'Offboarding', name: ['Lahiru', 'Gamage'], position: 'Payroll Assistant', templateId: 'tpl5', status: 'At Risk', startedOn: '2026-08-20', targetDate: '2026-09-10', completedTasks: 3, managerIds: ['u5'] },
-{ id: 'tr12', kind: 'Onboarding', name: ['Oshadi', 'Fonseka'], position: 'UX Designer', templateId: 'tpl1', status: 'Completed', startedOn: '2026-07-20', targetDate: '2026-08-04', completedTasks: 'all', managerIds: ['u4'],
+{ id: 'tr12', kind: 'Onboarding', name: ['Oshadi', 'Fonseka'], position: 'UX Designer', templateId: 'tpl1', status: 'Completed', startedOn: '2026-07-20', targetDate: '2026-08-04', completedTasks: 'all', managerIds: ['u4'], completedOn: '2026-08-07',
   emails: [
   {
     id: 'em14',
@@ -554,7 +644,9 @@ const compactSeeds: CompactSeed[] = [
     documents: []
   },
   leaver: { jobTitle: 'Network Engineer', organizationUnit: 'IT Ops', employmentType: 'Contract', client: CEYLON_FIN, joinedOn: '2023-05-02' } },
-{ id: 'tr14', kind: 'Onboarding', name: ['Ishani', 'Wijesekara'], position: 'Accounts Executive', templateId: 'tpl3', status: 'Completed', startedOn: '2026-08-03', targetDate: '2026-08-18', completedTasks: 'all', managerIds: ['u5'] },
+{ id: 'tr14', kind: 'Onboarding', name: ['Ishani', 'Wijesekara'], position: 'Accounts Executive', templateId: 'tpl3', status: 'Completed', startedOn: '2026-08-03', targetDate: '2026-08-18', completedTasks: 'all', managerIds: ['u5'], completedOn: '2026-08-21' },
+{ id: 'tr52', kind: 'Onboarding', name: ['Ishara', 'Kumari'], position: 'Accounts Executive', templateId: 'tpl3', status: 'Cancelled', startedOn: '2026-03-30', targetDate: '2026-04-13', completedTasks: 0, managerIds: ['u5'],
+  cancellation: { date: '2026-04-02', reason: 'The candidate withdrew before the hire date for personal reasons.', cancelledBy: 'Nimal Perera', recordedAt: '2026-04-02T10:20:00' } },
 { id: 'tr15', kind: 'Onboarding', name: ['Supun', 'Abeywickrama'], position: 'Mobile Engineer', templateId: 'tpl2', status: 'Cancelled', startedOn: '2026-08-12', targetDate: '2026-09-01', completedTasks: 1, managerIds: ['u9'],
   cancellation: { date: '2026-08-21', reason: 'The candidate declined the offer after accepting a counter-offer from their current employer.', cancelledBy: 'Nimal Perera', recordedAt: '2026-08-21T11:40:00' } },
 { id: 'tr16', kind: 'Offboarding', name: ['Pavithra', 'Liyanage'], position: 'HR Assistant', templateId: 'tpl5', status: 'Cancelled', startedOn: '2026-08-18', targetDate: '2026-09-08', completedTasks: 2, managerIds: ['u1'],
@@ -579,7 +671,8 @@ const compactSeeds: CompactSeed[] = [
     { id: 'exd-tr17-2', name: 'Final_Settlement_Statement.docx', bytes: 88064 }]
   },
   leaver: { jobTitle: 'Security Analyst', organizationUnit: 'Security', employmentType: 'Contract', client: SERENDIB, joinedOn: '2022-06-15' } },
-...leaverSeeds.map(completedLeaver)];
+...leaverSeeds.map(completedLeaver),
+...joinerSeeds.map(completedJoiner)];
 
 const compactTransitions: TransitionSeed[] = compactSeeds.map(compactSeed);
 
@@ -661,6 +754,8 @@ function seedAudit(transition: TransitionSeed): AuditEntry[] {
 
 export const seedTransitions: Transition[] = [...baseTransitions, ...compactTransitions].map((transition, index) => ({
   ...transition,
+  plannedCompletionDate: transition.plannedCompletionDate ?? transitionTargetDate(transition),
+  joiner: transition.joiner ?? seedJoiner(transition),
   emailEvents: transition.emailEvents ?? [],
   submissions: transition.submissions ?? [],
   auditTrail: seedAudit(transition),

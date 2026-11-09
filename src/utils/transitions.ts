@@ -60,7 +60,7 @@ export const PROTOTYPE_TODAY = '2026-09-16';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The latest due date among the transition's tasks. Falls back to the stored date when no task has one. */
-export function transitionTargetDate(transition: Transition): string {
+export function transitionTargetDate(transition: Pick<Transition, 'tasks' | 'targetDate'>): string {
   const dueDates = transition.tasks.
   map((task) => task.dueDate?.slice(0, 10)).
   filter((date): date is string => Boolean(date));
