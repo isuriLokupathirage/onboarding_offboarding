@@ -1,4 +1,12 @@
-import type { AuditEntry, EmailRecord, Transition, TransitionCancellation, TransitionTask } from '../types';
+import type {
+  AuditEntry,
+  EmailRecord,
+  LeaverSnapshot,
+  OffboardingType,
+  Transition,
+  TransitionCancellation,
+  TransitionTask } from
+'../types';
 import { peopleById } from './people';
 import { seedTasks } from './tasks';
 import { seedTemplates } from './templates';
@@ -215,6 +223,13 @@ const baseTransitions: TransitionSeed[] = [
     { id: 'exd-tr3-2', name: 'Resignation_Acceptance_Letter.pdf', bytes: 154624 }]
 
   },
+  leaver: {
+    jobTitle: 'Senior Accountant',
+    department: 'Finance',
+    employmentType: 'Permanent',
+    client: 'Accxis Holdings (Pvt) Ltd',
+    joinedOn: '2021-02-01'
+  },
   status: 'At Risk',
   startedOn: '2026-08-29',
   targetDate: '2026-09-18',
@@ -391,9 +406,80 @@ interface CompactSeed {
   managerIds: string[];
   cancellation?: TransitionCancellation;
   exit?: Transition['exit'];
+  leaver?: LeaverSnapshot;
   emails?: EmailRecord[];
   portalCancellation?: Transition['portalCancellation'];
 }
+
+function daysBefore(iso: string, days: number): string {
+  const date = new Date(iso);
+  date.setDate(date.getDate() - days);
+  return date.toISOString().slice(0, 10);
+}
+
+interface LeaverSeed {
+  id: string;
+  name: [string, string];
+  leaver: LeaverSnapshot;
+  type: OffboardingType;
+  reason: string;
+  /** The Actual Exit Date. The Last Working Date is the same day. */
+  exitDate: string;
+  templateId: string;
+  managerId: string;
+}
+
+/** A completed offboarding with its exit details, for the Reports section. */
+function completedLeaver(seed: LeaverSeed): CompactSeed {
+  return {
+    id: seed.id,
+    kind: 'Offboarding',
+    name: seed.name,
+    position: seed.leaver.jobTitle,
+    templateId: seed.templateId,
+    status: 'Completed',
+    startedOn: daysBefore(seed.exitDate, 28),
+    targetDate: seed.exitDate,
+    completedTasks: 'all',
+    managerIds: [seed.managerId],
+    exit: {
+      employeeId: `emp-${seed.id}`,
+      type: seed.type,
+      reason: seed.reason,
+      dates: {
+        'Resignation Effective Date': daysBefore(seed.exitDate, 30),
+        'Last Working Date': seed.exitDate,
+        'Actual Exit Date': seed.exitDate
+      },
+      documents: []
+    },
+    leaver: seed.leaver
+  };
+}
+
+const ACCXIS = 'Accxis Holdings (Pvt) Ltd';
+const ZENLANKA = 'Zenlanka Technologies';
+const CEYLON_FIN = 'Ceylon Fin Services';
+const SERENDIB = 'Serendib Logistics';
+
+/** Completed offboardings across last year and this year, so every report has data to show. */
+const leaverSeeds: LeaverSeed[] = [
+{ id: 'tr18', name: ['Chamara', 'Dissanayake'], leaver: { jobTitle: 'Senior Software Engineer', department: 'Engineering', employmentType: 'Permanent', client: ZENLANKA, joinedOn: '2020-03-02' }, type: 'Voluntary', reason: 'Better Employment Opportunity', exitDate: '2026-01-30', templateId: 'tpl5', managerId: 'u9' },
+{ id: 'tr19', name: ['Hiruni', 'Rajapaksha'], leaver: { jobTitle: 'Financial Analyst', department: 'Finance', employmentType: 'Permanent', client: CEYLON_FIN, joinedOn: '2023-04-17' }, type: 'Voluntary', reason: 'Further Education', exitDate: '2026-02-13', templateId: 'tpl5', managerId: 'u5' },
+{ id: 'tr20', name: ['Kasun', 'Bandara'], leaver: { jobTitle: 'Systems Engineer', department: 'IT Ops', employmentType: 'Contract', client: SERENDIB, joinedOn: '2024-02-05' }, type: 'Mutual', reason: 'Contract Non-Renewal', exitDate: '2026-02-27', templateId: 'tpl6', managerId: 'u2' },
+{ id: 'tr21', name: ['Dilshan', 'Fernando'], leaver: { jobTitle: 'QA Engineer', department: 'Engineering', employmentType: 'Permanent', client: ZENLANKA, joinedOn: '2022-08-08' }, type: 'Voluntary', reason: 'Better Employment Opportunity', exitDate: '2026-03-20', templateId: 'tpl5', managerId: 'u9' },
+{ id: 'tr22', name: ['Tharushi', 'Weerasinghe'], leaver: { jobTitle: 'HR Executive', department: 'HR', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2021-11-01' }, type: 'Voluntary', reason: 'Relocation', exitDate: '2026-04-10', templateId: 'tpl5', managerId: 'u1' },
+{ id: 'tr23', name: ['Ruwan', 'Kumara'], leaver: { jobTitle: 'Network Engineer', department: 'IT Ops', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2019-06-03' }, type: 'Involuntary', reason: 'Redundancy', exitDate: '2026-04-30', templateId: 'tpl5', managerId: 'u2' },
+{ id: 'tr24', name: ['Amaya', 'Silva'], leaver: { jobTitle: 'Software Intern', department: 'Engineering', employmentType: 'Internship', client: ZENLANKA, joinedOn: '2025-10-06' }, type: 'Mutual', reason: 'Mutual Agreement', exitDate: '2026-05-15', templateId: 'tpl7', managerId: 'u9' },
+{ id: 'tr25', name: ['Gayan', 'Ekanayake'], leaver: { jobTitle: 'Senior Accountant', department: 'Finance', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2018-01-15' }, type: 'Voluntary', reason: 'Retirement', exitDate: '2026-05-29', templateId: 'tpl5', managerId: 'u5' },
+{ id: 'tr26', name: ['Sanduni', 'Herath'], leaver: { jobTitle: 'Frontend Engineer', department: 'Engineering', employmentType: 'Permanent', client: ZENLANKA, joinedOn: '2023-01-09' }, type: 'Voluntary', reason: 'Better Employment Opportunity', exitDate: '2026-07-17', templateId: 'tpl5', managerId: 'u9' },
+{ id: 'tr27', name: ['Prasad', 'Wickramasinghe'], leaver: { jobTitle: 'Security Analyst', department: 'Security', employmentType: 'Contract', client: SERENDIB, joinedOn: '2024-07-01' }, type: 'Involuntary', reason: 'Misconduct', exitDate: '2026-07-24', templateId: 'tpl6', managerId: 'u6' },
+{ id: 'tr28', name: ['Madhavi', 'Jayasekara'], leaver: { jobTitle: 'Payroll Executive', department: 'Finance', employmentType: 'Contract', client: CEYLON_FIN, joinedOn: '2023-09-11' }, type: 'Voluntary', reason: 'Compensation and Benefits', exitDate: '2026-08-14', templateId: 'tpl6', managerId: 'u5' },
+{ id: 'tr29', name: ['Isuru', 'Rathnayake'], leaver: { jobTitle: 'DevOps Engineer', department: 'IT Ops', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2022-03-21' }, type: 'Voluntary', reason: 'Work-Life Balance', exitDate: '2026-08-28', templateId: 'tpl5', managerId: 'u2' },
+{ id: 'tr30', name: ['Nadeesha', 'Perera'], leaver: { jobTitle: 'Solutions Consultant', department: 'Engineering', employmentType: 'Consultant', client: SERENDIB, joinedOn: '2025-02-03' }, type: 'Involuntary', reason: 'Poor Performance', exitDate: '2026-09-04', templateId: 'tpl6', managerId: 'u1' },
+{ id: 'tr31', name: ['Shehan', 'Gunasekara'], leaver: { jobTitle: 'Data Analyst', department: 'Engineering', employmentType: 'Permanent', client: ZENLANKA, joinedOn: '2021-07-12' }, type: 'Voluntary', reason: 'Better Employment Opportunity', exitDate: '2025-06-27', templateId: 'tpl5', managerId: 'u4' },
+{ id: 'tr32', name: ['Kumudu', 'Abeysekera'], leaver: { jobTitle: 'Accounts Executive', department: 'Finance', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2020-09-14' }, type: 'Voluntary', reason: 'Family Commitments', exitDate: '2025-10-31', templateId: 'tpl5', managerId: 'u5' },
+{ id: 'tr33', name: ['Roshan', 'Peiris'], leaver: { jobTitle: 'IT Support Engineer', department: 'IT Ops', employmentType: 'Contract', client: SERENDIB, joinedOn: '2023-03-06' }, type: 'Mutual', reason: 'Contract Non-Renewal', exitDate: '2025-12-19', templateId: 'tpl6', managerId: 'u2' }];
 
 function compactSeed(seed: CompactSeed): TransitionSeed {
   const [firstName, lastName] = seed.name;
@@ -427,7 +513,8 @@ function compactSeed(seed: CompactSeed): TransitionSeed {
     formStatus: seed.emails?.length ? 'Sent' : 'Not Sent',
     cancellation: seed.cancellation,
     portalCancellation: seed.portalCancellation,
-    exit: seed.exit
+    exit: seed.exit,
+    leaver: seed.leaver
   };
 }
 
@@ -458,12 +545,29 @@ const compactSeeds: CompactSeed[] = [
     content: 'form',
     formId: 'frm1'
   }] },
-{ id: 'tr13', kind: 'Offboarding', name: ['Nuwan', 'Karunaratne'], position: 'Network Engineer', templateId: 'tpl6', status: 'Completed', startedOn: '2026-07-01', targetDate: '2026-07-31', completedTasks: 'all', managerIds: ['u2'] },
+{ id: 'tr13', kind: 'Offboarding', name: ['Nuwan', 'Karunaratne'], position: 'Network Engineer', templateId: 'tpl6', status: 'Completed', startedOn: '2026-07-01', targetDate: '2026-07-31', completedTasks: 'all', managerIds: ['u2'],
+  exit: {
+    employeeId: 'emp-tr13',
+    type: 'Mutual',
+    reason: 'Contract Non-Renewal',
+    dates: { 'Last Working Date': '2026-07-31', 'Actual Exit Date': '2026-07-31' },
+    documents: []
+  },
+  leaver: { jobTitle: 'Network Engineer', department: 'IT Ops', employmentType: 'Contract', client: CEYLON_FIN, joinedOn: '2023-05-02' } },
 { id: 'tr14', kind: 'Onboarding', name: ['Ishani', 'Wijesekara'], position: 'Accounts Executive', templateId: 'tpl3', status: 'Completed', startedOn: '2026-08-03', targetDate: '2026-08-18', completedTasks: 'all', managerIds: ['u5'] },
 { id: 'tr15', kind: 'Onboarding', name: ['Supun', 'Abeywickrama'], position: 'Mobile Engineer', templateId: 'tpl2', status: 'Cancelled', startedOn: '2026-08-12', targetDate: '2026-09-01', completedTasks: 1, managerIds: ['u9'],
   cancellation: { date: '2026-08-21', reason: 'The candidate declined the offer after accepting a counter-offer from their current employer.', cancelledBy: 'Nimal Perera', recordedAt: '2026-08-21T11:40:00' } },
 { id: 'tr16', kind: 'Offboarding', name: ['Pavithra', 'Liyanage'], position: 'HR Assistant', templateId: 'tpl5', status: 'Cancelled', startedOn: '2026-08-18', targetDate: '2026-09-08', completedTasks: 2, managerIds: ['u1'],
-  cancellation: { date: '2026-08-27', reason: 'Resignation withdrawn after a discussion with the reporting manager. Pavithra will continue in her current role.', cancelledBy: 'Dilani Jayawardena', recordedAt: '2026-08-27T15:05:00' } },
+  cancellation: { date: '2026-08-27', reason: 'Resignation withdrawn after a discussion with the reporting manager. Pavithra will continue in her current role.', cancelledBy: 'Dilani Jayawardena', recordedAt: '2026-08-27T15:05:00' },
+  // Cancelled, so reports leave it out even though its Actual Exit Date falls in this year.
+  exit: {
+    employeeId: 'emp-tr16',
+    type: 'Voluntary',
+    reason: 'Personal Reasons',
+    dates: { 'Resignation Effective Date': '2026-08-08', 'Last Working Date': '2026-09-08', 'Actual Exit Date': '2026-09-08' },
+    documents: []
+  },
+  leaver: { jobTitle: 'HR Assistant', department: 'HR', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2024-01-08' } },
 { id: 'tr17', kind: 'Offboarding', name: ['Nethmi', 'Gunawardena'], position: 'Security Analyst', templateId: 'tpl5', status: 'Completed', startedOn: '2026-06-02', targetDate: '2026-06-30', completedTasks: 'all', managerIds: ['u6'],
   exit: {
     employeeId: 'emp8',
@@ -473,7 +577,9 @@ const compactSeeds: CompactSeed[] = [
     documents: [
     { id: 'exd-tr17-1', name: 'Redundancy_Notice_Nethmi_Gunawardena.pdf', bytes: 301056 },
     { id: 'exd-tr17-2', name: 'Final_Settlement_Statement.docx', bytes: 88064 }]
-  } }];
+  },
+  leaver: { jobTitle: 'Security Analyst', department: 'Security', employmentType: 'Contract', client: SERENDIB, joinedOn: '2022-06-15' } },
+...leaverSeeds.map(completedLeaver)];
 
 const compactTransitions: TransitionSeed[] = compactSeeds.map(compactSeed);
 

@@ -94,7 +94,12 @@ export const manifest = {
     scr_fbapvw: { name: "Exit Feedback Form – Preview", route: "/templates/forms/exit-feedback/fbf1", state: { "preview": true }, position: { "x": 12760, "y": 17800 } },
     scr_fbbnew: { name: "Exit Feedback Form – Never Sent", route: "/templates/forms/exit-feedback/fbf12", position: { "x": 14160, "y": 17800 } },
     scr_fbcedt: { name: "Edit Exit Feedback Form (Never Sent)", route: "/templates/forms/exit-feedback/fbf12/edit", position: { "x": 15560, "y": 17800 } },
-    scr_fbdina: { name: "Exit Feedback Form – Sent and Inactive", route: "/templates/forms/exit-feedback/fbf5", position: { "x": 16960, "y": 17800 } }
+    scr_fbdina: { name: "Exit Feedback Form – Sent and Inactive", route: "/templates/forms/exit-feedback/fbf5", position: { "x": 16960, "y": 17800 } },
+    scr_rp1off: { name: "Reports – Offboarding (This Year)", route: "/onboarding/reports", position: { "x": 160, "y": 19780 } },
+    scr_rp2onb: { name: "Reports – Onboarding Tab", route: "/onboarding/reports", state: { "tab": "Onboarding" }, position: { "x": 1560, "y": 19780 } },
+    scr_rp3sel: { name: "Reports – Table Filtered by Department", route: "/onboarding/reports", state: { "selection": { "department": "Engineering" } }, position: { "x": 2960, "y": 19780 } },
+    scr_rp4flt: { name: "Reports – Filters as Chips", route: "/onboarding/reports", state: { "filters": { "period": "last-quarter", "offboardingTypes": ["Voluntary"], "employmentTypes": ["Permanent"] } }, position: { "x": 4360, "y": 19780 } },
+    scr_rp5emp: { name: "Reports – No Leavers in Period", route: "/onboarding/reports", state: { "filters": { "period": "custom", "customFrom": "2024-01-01", "customTo": "2024-12-31" } }, position: { "x": 5760, "y": 19780 } }
   },
   sections: {
     sec_h9tl61: { name: "Onboarding – Overview & Transitions", x: 0, y: 0, width: 47720, height: 1180 },
@@ -106,7 +111,8 @@ export const manifest = {
     sec_q5yje6: { name: "Candidate Portal", x: 0, y: 11880, width: 8520, height: 1180 },
     sec_mkpg06: { name: "Employee Portal", x: 0, y: 13860, width: 7120, height: 1180 },
     sec_mytsk1: { name: "Tasks – My Tasks", x: 0, y: 15840, width: 4320, height: 1180 },
-    sec_fbform: { name: "Form Templates – Exit Feedback", x: 0, y: 17580, width: 18320, height: 1180 }
+    sec_fbform: { name: "Form Templates – Exit Feedback", x: 0, y: 17580, width: 18320, height: 1180 },
+    sec_report: { name: "Onboarding & Offboarding – Reports", x: 0, y: 19560, width: 7120, height: 1180 }
   },
   layers: [
   { kind: "section", id: "sec_h9tl61", children: [
@@ -223,6 +229,13 @@ export const manifest = {
     { kind: "screen", id: "scr_fbbnew" },
     { kind: "screen", id: "scr_fbcedt" },
     { kind: "screen", id: "scr_fbdina" }]
+  },
+  { kind: "section", id: "sec_report", children: [
+    { kind: "screen", id: "scr_rp1off" },
+    { kind: "screen", id: "scr_rp2onb" },
+    { kind: "screen", id: "scr_rp3sel" },
+    { kind: "screen", id: "scr_rp4flt" },
+    { kind: "screen", id: "scr_rp5emp" }]
   }]
 
 };

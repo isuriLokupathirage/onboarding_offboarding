@@ -19,7 +19,9 @@ export type OboPermission =
 /** Templates → Forms → Exit Feedback (obo.feedback_form.view): open the list and view a form. */
 'View Exit Feedback Forms' |
 /** obo.feedback_form.manage: create, edit, duplicate, deactivate and delete exit feedback forms. */
-'Manage Exit Feedback Forms';
+'Manage Exit Feedback Forms' |
+/** obo.report.view: open Onboarding & Offboarding → Reports. */
+'View Reports';
 
 export type Priority = 'Low' | 'Medium' | 'High';
 
@@ -53,6 +55,18 @@ export interface ExitDocument {
 
 /** The part of an offboarding's Step 2 that is entered, before it is tied to the employee. */
 export type ExitDetailsDraft = Omit<ExitDetails, 'employeeId'>;
+
+/**
+ * The leaver's employment details, captured when the offboarding starts. Reports read these, so a
+ * later change to the employee record does not alter past reports.
+ */
+export interface LeaverSnapshot {
+  jobTitle: string;
+  department: Department;
+  employmentType: EmploymentType;
+  client: string;
+  joinedOn: string;
+}
 
 /** What Step 2 of an offboarding records: why the employee is leaving, the exit dates and documents. */
 export interface ExitDetails {
@@ -284,6 +298,8 @@ export interface Transition {
   portalCancellation?: {at: string;by: string;};
   /** Offboarding only: the exit type, reason, dates and documents from Step 2. */
   exit?: ExitDetails;
+  /** Offboarding only: the leaver's employment details as they were when the offboarding started. */
+  leaver?: LeaverSnapshot;
   auditTrail: AuditEntry[];
 }
 

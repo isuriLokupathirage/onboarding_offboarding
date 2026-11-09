@@ -337,6 +337,16 @@ export function NewTransition() {
         // No employee form yet: one is linked when it is sent with Send Form.
       },
       exit: leaver ? { ...exit, employeeId: leaver.id, otherReason: exit.otherReason?.trim() || undefined } : undefined,
+      // Captured now so reports keep these values if the employee record changes later.
+      leaver: leaver ?
+      {
+        jobTitle: leaver.jobTitle,
+        department: leaver.department,
+        employmentType: leaver.employmentType,
+        client: leaver.client,
+        joinedOn: leaver.joinedOn
+      } :
+      undefined,
       templateId,
       templateName: template?.name ?? '',
       status: 'On Track',

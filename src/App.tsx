@@ -18,6 +18,8 @@ import { TaskDetail } from './pages/onboarding/TaskDetail';
 import { TemplateDetail } from './pages/onboarding/TemplateDetail';
 import { OboAccessGate } from './components/layout/AccessGate';
 import { canOpenTemplates } from './utils/library';
+import { canViewReports } from './utils/reports';
+import { Reports } from './pages/onboarding/Reports';
 import { visibleKinds } from './utils/transitions';
 import { EmployeeForms } from './pages/templates/EmployeeForms';
 import { FormDetail } from './pages/templates/FormDetail';
@@ -93,6 +95,9 @@ export function App({
                 <Route path="transitions" element={<Transitions />} />
                 <Route path="transitions/new" element={<NewTransition />} />
                 <Route path="transitions/:transitionId" element={<TransitionDetail />} />
+              </Route>
+              <Route element={<OboAccessGate allowed={canViewReports} />}>
+                <Route path="reports" element={<Reports />} />
               </Route>
               <Route element={<OboAccessGate allowed={canOpenTemplates} />}>
                 <Route path="templates" element={<TaskTemplates />} />
