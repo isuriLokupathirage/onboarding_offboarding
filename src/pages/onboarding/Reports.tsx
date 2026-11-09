@@ -6,11 +6,13 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { FacetedFilter } from '../../components/ui/FacetedFilter';
 import { Input, Select } from '../../components/ui/Field';
 import { Tabs } from '../../components/ui/Segmented';
+import { Toast } from '../../components/ui/Toast';
+import { ExportHistoryButton, ExportHistoryDrawer, ExportMenu } from '../../components/reports/ExportControls';
 import { ExitVolumeReport, type LeaverSelection } from '../../components/reports/ExitVolumeReport';
 import { OnboardingReport } from '../../components/reports/OnboardingReport';
 import { useAppData } from '../../contexts/AppDataContext';
 import { currentStaff } from '../../data/headcount';
-import { departments } from '../../data/people';
+import { departments, peopleById } from '../../data/people';
 import { OFFBOARDING_TYPES } from '../../data/exitReasons';
 import type { Department, EmploymentType } from '../../types';
 import { formatDate } from '../../utils/format';
@@ -33,6 +35,8 @@ import {
   type ReportTab } from
 '../../utils/reports';
 import { filterJoinerRows, joinerRows, joinersInPeriod, onboardingSummary } from '../../utils/onboardingReports';
+import { exportFileName, offboardingExport, onboardingExport } from '../../utils/reportExport';
+import { downloadFile, excelFile, pdfFile, type ExportFormat } from '../../utils/reportFiles';
 import { useScreenInit } from '../../useScreenInit.js';
 
 const EMPLOYMENT_TYPES: EmploymentType[] = ['Permanent', 'Contract', 'Internship', 'Consultant'];
@@ -43,6 +47,8 @@ interface ReportsScreenState {
   selection?: LeaverSelection;
   /** Onboarding tab: the organization unit picked in the chart. */
   joinerUnit?: Department;
+  /** Opens the Export history drawer. */
+  historyOpen?: boolean;
 }
 
 interface FilterChip {
@@ -57,7 +63,9 @@ interface FilterChip {
  */
 export function Reports() {
   const init = useScreenInit() as ReportsScreenState;
-  const { transitions, templates } = useAppData();
+  const { transitions, templates, currentUserId, hasOboPermission, reportExports, recordReportExport } = useAppData();
+  const [historyOpen, setHistoryOpen] = useState(Boolean(init.historyOpen));
+  const [notice, setNotice] = useState<string | null>(null);
   const [tab, setTab] = useState<ReportTab>(init.tab ?? 'Offboarding');
   const [filters, setFiltersState] = useState<ReportFilters>(() => ({
     ...DEFAULT_REPORT_FILTERS,
@@ -152,11 +160,41 @@ export function Reports() {
   }
   const clearFilters = () => setFilters(DEFAULT_REPORT_FILTERS);
 
+  // Export covers what is on screen: this tab, its period, filters and chart selection.
+  const hasData = Boolean(range) && (isOffboarding ? leavers.length > 0 : onboardingHasData);
+  const exportDisabledReason = !range ?
+  'Choose a complete date range to export' :
+  !hasData ?
+  'There is no data to export for this period and these filters' :
+  undefined;
+
+  const handleExport = (format: ExportFormat) => {
+    if (!range || !hasOboPermission('View Reports')) return;
+    const context = {
+      range,
+      period: formatRange(range),
+      filters: chips.filter((chip) => chip.key !== 'period').map((chip) => chip.label),
+      generatedOn: formatDate(PROTOTYPE_TODAY),
+      generatedBy: peopleById[currentUserId]?.name ?? currentUserId
+    };
+    const report = isOffboarding ?
+    offboardingExport({ ...context, rows: leavers, headcount, selection }) :
+    onboardingExport({ ...context, joiners, onboardings, selectedUnit: joinerUnit });
+    const record = recordReportExport({ report: report.name, format, period: report.period, filters: report.filters });
+    if (!record) return;
+    const isExcel = format === 'Excel';
+    downloadFile(
+      isExcel ? excelFile(report) : pdfFile(report),
+      exportFileName(report, PROTOTYPE_TODAY, isExcel ? 'xlsx' : 'pdf')
+    );
+    setNotice(`${report.name} exported to ${format}`);
+  };
+
   return (
     <div className="pb-24">
       <PageHeader title="Reports" breadcrumb={[{ label: 'Onboarding & Offboarding' }, { label: 'Reports' }]} />
 
-      <div className="px-8 pt-4">
+      <div className="flex flex-wrap items-end justify-between gap-3 px-8 pt-4">
         <Tabs<ReportTab>
           options={[
           { value: 'Onboarding', label: 'Onboarding Reports' },
@@ -165,6 +203,10 @@ export function Reports() {
           value={tab}
           onChange={setTab} />
 
+        <div className="flex items-center gap-2 pb-2">
+          <ExportHistoryButton onClick={() => setHistoryOpen(true)} />
+          <ExportMenu onExport={handleExport} disabledReason={exportDisabledReason} />
+        </div>
       </div>
 
       <div className="px-8 py-5">
@@ -358,6 +400,8 @@ export function Reports() {
           }
         </div>
       </div>
+      <ExportHistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} records={reportExports} />
+      <Toast message={notice} onClose={() => setNotice(null)} />
     </div>);
 
 }

@@ -7,6 +7,7 @@ import type {
   FormPart,
   FormSection,
   FormSubmission,
+  ReportExportRecord,
   RequiredDocument,
   Task,
   Template,
@@ -106,7 +107,35 @@ interface AppData {
   responses: Record<string, string>,
   documents: SubmittedDocument[])
   => void;
+  /** The Reports audit trail: every export, newest first. */
+  reportExports: ReportExportRecord[];
+  /** Records an export as the current user. Returns null without View Reports. */
+  recordReportExport: (
+  record: Omit<ReportExportRecord, 'id' | 'actor' | 'at'>)
+  => ReportExportRecord | null;
 }
+
+/** Earlier exports, so the audit trail is not empty in the prototype. */
+const seedReportExports: ReportExportRecord[] = [
+{
+  id: 'rx2',
+  report: 'Offboarding Report',
+  format: 'Excel',
+  period: '01 Jul 2026 – 30 Sept 2026',
+  filters: ['Organization unit: Engineering'],
+  actor: 'Nimal Perera',
+  at: '2026-09-14T10:42:00'
+},
+{
+  id: 'rx1',
+  report: 'Onboarding Report',
+  format: 'PDF',
+  period: '01 Jan 2026 – 31 Dec 2026',
+  filters: [],
+  actor: 'Dilani Jayawardena',
+  at: '2026-09-02T15:18:00'
+}];
+
 
 const AppDataContext = createContext<AppData | null>(null);
 
@@ -196,6 +225,7 @@ export function AppDataProvider({
   const [templates, setTemplates] = useState<Template[]>(seedTemplates);
   const [transitions, setTransitions] = useState<Transition[]>(seedTransitions);
   const [forms, setForms] = useState<EmployeeForm[]>(seedForms);
+  const [reportExports, setReportExports] = useState<ReportExportRecord[]>(seedReportExports);
   // Props set by the design canvas win; otherwise the tester's last choice, then full access.
   const [oboPermissions, setPermissionsState] = useState<OboPermission[]>(
     () => initialPermissions ?? storedAccess().permissions ?? DEFAULT_OBO_PERMISSIONS
@@ -382,6 +412,21 @@ export function AppDataProvider({
   const deleteTemplates = useCallback((ids: string[]) => {
     setTemplates((prev) => prev.filter((template) => !ids.includes(template.id)));
   }, []);
+  const recordReportExport = useCallback(
+    (record: Omit<ReportExportRecord, 'id' | 'actor' | 'at'>): ReportExportRecord | null => {
+      if (!oboPermissions.includes('View Reports')) return null;
+      const entry: ReportExportRecord = {
+        ...record,
+        id: `rx-${Date.now()}`,
+        actor: peopleById[currentUserId]?.name ?? currentUserId,
+        at: prototypeNow()
+      };
+      setReportExports((prev) => [entry, ...prev]);
+      return entry;
+    },
+    [oboPermissions, currentUserId]
+  );
+
   const addTransition = useCallback(
     (transition: Transition) => setTransitions((prev) => [transition, ...prev]),
     []
@@ -840,7 +885,9 @@ export function AppDataProvider({
       cancelPortalAccess,
       sendTransitionForm,
       saveTransitionDraft,
-      submitTransitionForm
+      submitTransitionForm,
+      reportExports,
+      recordReportExport
     }),
     [
     canManageForms,
@@ -883,7 +930,9 @@ export function AppDataProvider({
     cancelPortalAccess,
     sendTransitionForm,
     saveTransitionDraft,
-    submitTransitionForm]
+    submitTransitionForm,
+    reportExports,
+    recordReportExport]
 
   );
 

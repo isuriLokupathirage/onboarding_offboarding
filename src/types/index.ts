@@ -243,6 +243,19 @@ export interface AuditEntry {
   detail?: string;
 }
 
+/** One report export, kept in the Reports audit trail. */
+export interface ReportExportRecord {
+  id: string;
+  report: string;
+  format: 'Excel' | 'PDF';
+  period: string;
+  filters: string[];
+  /** Name of the user who exported. */
+  actor: string;
+  /** ISO date and time of the export. */
+  at: string;
+}
+
 export interface FormDraft {
   savedAt: string;
   responses: Record<string, string>;
