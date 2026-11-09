@@ -2,35 +2,40 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { XIcon } from 'lucide-react';
 import { ReportCard, BarList, ColumnChart, StatTile } from './ReportCharts';
+import { TenureTurnoverReport } from './TenureTurnoverReport';
+import type { EmploymentRecord } from '../../data/headcount';
 import { OFFBOARDING_TYPES } from '../../data/exitReasons';
 import type { Department, OffboardingType } from '../../types';
 import { formatDate } from '../../utils/format';
 import {
-  averageTenureMonths,
   countBy,
+  formatPercent,
   formatTenure,
   leaversByMonth,
+  tenureBand,
   type DateRange,
   type LeaverRow } from
 '../../utils/reports';
 
-/** The chart segments picked to narrow the leavers table: at most one type, reason and organization unit. */
+/** The chart segments picked to narrow the leavers table: at most one of each. */
 export interface LeaverSelection {
   type?: OffboardingType;
   reason?: string;
   organizationUnit?: Department;
+  tenureBand?: string;
 }
 
 const SELECTION_LABELS: Record<keyof LeaverSelection, string> = {
   type: 'Offboarding Type',
   reason: 'Exit Reason',
-  organizationUnit: 'Organization unit'
+  organizationUnit: 'Organization unit',
+  tenureBand: 'Tenure'
 };
 
 const TABLE_GRID =
 'grid grid-cols-[minmax(170px,1.4fr)_110px_minmax(150px,1.2fr)_110px_minmax(170px,1.4fr)_110px_110px_110px] items-center gap-4';
 
-const percentOf = (count: number, total: number) => `${Math.round(count / Math.max(1, total) * 100)}% of leavers`;
+const shareOf = (count: number, total: number) => total === 0 ? 0 : count / total * 100;
 
 /**
  * Offboarding Reports → exit volume: who left in the period, when, why and from where. `rows`
@@ -39,11 +44,14 @@ const percentOf = (count: number, total: number) => `${Math.round(count / Math.m
 export function ExitVolumeReport({
   rows,
   range,
+  headcount,
   selection,
   onSelectionChange
 }: {
   rows: LeaverRow[];
   range: DateRange;
+  /** Employments matching the organization unit, employment type and client filters, for turnover. */
+  headcount: EmploymentRecord[];
   selection: LeaverSelection;
   onSelectionChange: (next: LeaverSelection) => void;
 }) {
@@ -63,7 +71,8 @@ export function ExitVolumeReport({
       (row) =>
       (!selection.type || row.type === selection.type) && (
       !selection.reason || row.reason === selection.reason) && (
-      !selection.organizationUnit || row.organizationUnit === selection.organizationUnit)
+      !selection.organizationUnit || row.organizationUnit === selection.organizationUnit) && (
+      !selection.tenureBand || tenureBand(row.tenureMonths) === selection.tenureBand)
     ).
     sort((a, b) => b.exitDate.localeCompare(a.exitDate) || a.name.localeCompare(b.name)),
     [rows, selection]
@@ -77,21 +86,38 @@ export function ExitVolumeReport({
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-        <StatTile label="Total leavers" value={String(rows.length)} note="Completed offboardings" />
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <StatTile
+          label="Total leavers"
+          value={String(rows.length)}
+          note="Completed offboardings"
+          formula={'Total leavers = Completed offboardings with an Actual Exit Date in the period\nCancelled and in-progress offboardings are not counted'} />
+
         {OFFBOARDING_TYPES.map((type) => {
           const count = byType.find((entry) => entry.label === type)?.count ?? 0;
-          return <StatTile key={type} label={type} value={String(count)} note={percentOf(count, rows.length)} />;
-        })}
-        <StatTile
-          label="Average tenure"
-          value={formatTenure(averageTenureMonths(rows))}
-          note="Date of joining to exit date" />
+          const share = formatPercent(shareOf(count, rows.length));
+          return (
+            <StatTile
+              key={type}
+              label={type}
+              value={String(count)}
+              note={`${share} of leavers`}
+              formula={`Share = ${type} leavers ÷ Total leavers × 100\n${count} ÷ ${rows.length} × 100 = ${share}`} />);
 
+        })}
       </div>
 
       <ReportCard title="Leavers per month" description="By Actual Exit Date">
-        <ColumnChart entries={byMonth} noun="leavers" />
+        <ColumnChart
+          label="Leavers per month"
+          entries={byMonth.map((month) => ({
+            key: month.key,
+            label: month.label,
+            value: month.count,
+            valueLabel: month.count > 0 ? String(month.count) : '',
+            hover: `${month.label}: ${month.count} leaver${month.count === 1 ? '' : 's'}`
+          }))} />
+
       </ReportCard>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
@@ -120,6 +146,14 @@ export function ExitVolumeReport({
 
         </ReportCard>
       </div>
+
+      <TenureTurnoverReport
+        rows={rows}
+        range={range}
+        headcount={headcount}
+        selectedBand={selection.tenureBand}
+        onSelectBand={(band) => toggle('tenureBand', band)} />
+
 
       <ReportCard
         title="Leavers"
@@ -196,7 +230,12 @@ export function ExitVolumeReport({
                   </span>
                   <span className="text-muted">{formatDate(row.joinedOn)}</span>
                   <span className="text-ink">{formatDate(row.exitDate)}</span>
-                  <span className="text-muted">{formatTenure(row.tenureMonths)}</span>
+                  <span
+                  className="cursor-help text-muted"
+                  title={`Tenure = Actual Exit Date − Date of Joining\n${formatDate(row.exitDate)} − ${formatDate(row.joinedOn)} = ${formatTenure(row.tenureMonths)}`}>
+
+                    {formatTenure(row.tenureMonths)}
+                  </span>
                 </li>
               )}
             </ul>

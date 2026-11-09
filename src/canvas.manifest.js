@@ -99,7 +99,9 @@ export const manifest = {
     scr_rp2onb: { name: "Reports – Onboarding Tab", route: "/onboarding/reports", state: { "tab": "Onboarding" }, position: { "x": 1560, "y": 19780 } },
     scr_rp3sel: { name: "Reports – Table Filtered by Organization Unit", route: "/onboarding/reports", state: { "selection": { "organizationUnit": "Engineering" } }, position: { "x": 2960, "y": 19780 } },
     scr_rp4flt: { name: "Reports – Filters as Chips", route: "/onboarding/reports", state: { "filters": { "period": "last-quarter", "offboardingTypes": ["Voluntary"], "employmentTypes": ["Permanent"] } }, position: { "x": 4360, "y": 19780 } },
-    scr_rp5emp: { name: "Reports – No Leavers in Period", route: "/onboarding/reports", state: { "filters": { "period": "custom", "customFrom": "2024-01-01", "customTo": "2024-12-31" } }, position: { "x": 5760, "y": 19780 } }
+    scr_rp5emp: { name: "Reports – No Leavers in Period", route: "/onboarding/reports", state: { "filters": { "period": "custom", "customFrom": "2024-01-01", "customTo": "2024-12-31" } }, position: { "x": 5760, "y": 19780 } },
+    scr_rp6unv: { name: "Reports – Turnover Unavailable (Before Headcount Records)", route: "/onboarding/reports", state: { "filters": { "period": "custom", "customFrom": "2024-07-01", "customTo": "2025-12-31" } }, position: { "x": 7160, "y": 19780 } },
+    scr_rp7ten: { name: "Reports – Table Filtered by Tenure Band", route: "/onboarding/reports", state: { "selection": { "tenureBand": "3 to 5 years" } }, position: { "x": 8560, "y": 19780 } }
   },
   sections: {
     sec_h9tl61: { name: "Onboarding – Overview & Transitions", x: 0, y: 0, width: 47720, height: 1180 },
@@ -112,7 +114,7 @@ export const manifest = {
     sec_mkpg06: { name: "Employee Portal", x: 0, y: 13860, width: 7120, height: 1180 },
     sec_mytsk1: { name: "Tasks – My Tasks", x: 0, y: 15840, width: 4320, height: 1180 },
     sec_fbform: { name: "Form Templates – Exit Feedback", x: 0, y: 17580, width: 18320, height: 1180 },
-    sec_report: { name: "Onboarding & Offboarding – Reports", x: 0, y: 19560, width: 7120, height: 1180 }
+    sec_report: { name: "Onboarding & Offboarding – Reports", x: 0, y: 19560, width: 9920, height: 1180 }
   },
   layers: [
   { kind: "section", id: "sec_h9tl61", children: [
@@ -235,7 +237,9 @@ export const manifest = {
     { kind: "screen", id: "scr_rp2onb" },
     { kind: "screen", id: "scr_rp3sel" },
     { kind: "screen", id: "scr_rp4flt" },
-    { kind: "screen", id: "scr_rp5emp" }]
+    { kind: "screen", id: "scr_rp5emp" },
+    { kind: "screen", id: "scr_rp6unv" },
+    { kind: "screen", id: "scr_rp7ten" }]
   }]
 
 };

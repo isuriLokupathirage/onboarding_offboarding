@@ -1,5 +1,7 @@
 import React from 'react';
+import { InfoIcon } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
+import { Tooltip } from '../ui/Tooltip';
 import type { CountEntry } from '../../utils/reports';
 
 /** A titled card that holds one chart or table. */
@@ -30,13 +32,49 @@ export function ReportCard({
 
 }
 
-export function StatTile({ label, value, note }: {label: string;value: string;note?: string;}) {
-  return (
-    <div className="rounded-xl border border-line bg-white px-4 py-3.5 shadow-card">
-      <p className="text-[12px] font-medium text-muted">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight text-ink">{value}</p>
+/**
+ * One headline figure. A tile with a `formula` shows how the figure is calculated on hover and on
+ * keyboard focus.
+ */
+export function StatTile({
+  label,
+  value,
+  note,
+  formula,
+  muted = false
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  formula?: string;
+  /** For a figure that is unavailable rather than a number. */
+  muted?: boolean;
+}) {
+  const tile =
+  <div
+    tabIndex={formula ? 0 : undefined}
+    className={twMerge(
+      'flex-1 rounded-xl border border-line bg-white px-4 py-3.5 text-left shadow-card',
+      formula && 'cursor-help outline-none transition-colors duration-150 ease-out hover:border-brand-200 focus-visible:ring-2 focus-visible:ring-brand-300'
+    )}>
+
+      <p className="flex items-center gap-1 text-[12px] font-medium text-muted">
+        {label}
+        {formula && <InfoIcon className="h-3 w-3 text-subtle" aria-hidden="true" />}
+      </p>
+      <p className={twMerge('mt-1 font-semibold tracking-tight', muted ? 'text-lg text-subtle' : 'text-2xl text-ink')}>
+        {value}
+      </p>
       {note && <p className="mt-0.5 text-[12px] text-subtle">{note}</p>}
-    </div>);
+      {formula && <span className="sr-only">. How it is calculated: {formula}</span>}
+    </div>;
+
+  return formula ?
+  <Tooltip label={formula} multiline className="flex w-full">
+      {tile}
+    </Tooltip> :
+
+  tile;
 
 }
 
@@ -97,30 +135,48 @@ export function BarList({
 
 }
 
-/** Vertical columns, one per period, with the count above each and the label below. */
-export function ColumnChart({ entries, noun }: {entries: CountEntry[];noun: string;}) {
-  const max = Math.max(1, ...entries.map((entry) => entry.count));
+export interface ColumnEntry {
+  key: string;
+  label: string;
+  /** Null when the figure cannot be determined for this column. */
+  value: number | null;
+  /** Shown above the column, such as "3" or "1.4%". Empty hides it. */
+  valueLabel: string;
+  /** Hover text. It may run over several lines. */
+  hover: string;
+}
+
+/**
+ * Vertical columns, one per period, with the value above each and the label below. A column whose
+ * value is unavailable shows a dashed stub, so a gap is never mistaken for zero.
+ */
+export function ColumnChart({ entries, label }: {entries: ColumnEntry[];label: string;}) {
+  const max = Math.max(0, ...entries.map((entry) => entry.value ?? 0)) || 1;
   return (
     <div>
-      <ul className="flex h-48 items-end gap-2 border-b border-line">
+      <ul className="flex h-48 items-end gap-2 border-b border-line" aria-label={label}>
         {entries.map((entry) =>
         <li
-          key={entry.label}
-          title={`${entry.label}: ${entry.count} ${noun}`}
-          aria-label={`${entry.label}: ${entry.count} ${noun}`}
-          className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end">
+          key={entry.key}
+          title={entry.hover}
+          aria-label={entry.hover.replace(/\n/g, '. ')}
+          className="group flex h-full min-w-0 flex-1 cursor-default flex-col items-center justify-end">
 
-            <span className="mb-1 font-mono text-[11px] font-medium text-ink">{entry.count > 0 ? entry.count : ''}</span>
-            <span
+            <span className="mb-1 font-mono text-[11px] font-medium text-ink">{entry.valueLabel}</span>
+            {entry.value === null ?
+          <span className="h-3 w-full max-w-[36px] rounded-t border border-b-0 border-dashed border-slate-300" /> :
+
+          <span
             className="w-full max-w-[36px] rounded-t bg-brand-500 transition-colors duration-150 ease-out group-hover:bg-brand-600"
-            style={{ height: `${entry.count / max * 80}%`, minHeight: entry.count > 0 ? 4 : 0 }} />
+            style={{ height: `${entry.value / max * 80}%`, minHeight: entry.value > 0 ? 4 : 0 }} />
 
+          }
           </li>
         )}
       </ul>
       <div className="mt-1.5 flex gap-2" aria-hidden="true">
         {entries.map((entry) =>
-        <span key={entry.label} className="min-w-0 flex-1 truncate text-center text-[11px] text-muted">
+        <span key={entry.key} className="min-w-0 flex-1 truncate text-center text-[11px] text-muted">
             {entry.label}
           </span>
         )}

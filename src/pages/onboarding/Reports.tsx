@@ -8,6 +8,7 @@ import { Input, Select } from '../../components/ui/Field';
 import { Tabs } from '../../components/ui/Segmented';
 import { ExitVolumeReport, type LeaverSelection } from '../../components/reports/ExitVolumeReport';
 import { useAppData } from '../../contexts/AppDataContext';
+import { currentStaff } from '../../data/headcount';
 import { departments } from '../../data/people';
 import { OFFBOARDING_TYPES } from '../../data/exitReasons';
 import type { EmploymentType } from '../../types';
@@ -19,6 +20,8 @@ import {
   PERIOD_OPTIONS,
   customRangeError,
   filterLeavers,
+  filterPopulation,
+  headcountPopulation,
   formatRange,
   isPeriodPreset,
   leaverRows,
@@ -73,6 +76,11 @@ export function Reports() {
   const range = useMemo(() => reportRange(filters), [filters]);
   const rangeError = filters.period === 'custom' ? customRangeError(filters.customFrom, filters.customTo) : undefined;
   const leavers = useMemo(() => range ? filterLeavers(allLeavers, range, filters) : [], [allLeavers, range, filters]);
+  // Headcount follows organization unit, employment type and client, but not Offboarding Type.
+  const headcount = useMemo(
+    () => filterPopulation(headcountPopulation(currentStaff, allLeavers), filters),
+    [allLeavers, filters]
+  );
   const isOffboarding = tab === 'Offboarding';
 
   // Counts beside each filter option: leavers in the period, ignoring that filter's own choice.
@@ -292,6 +300,7 @@ export function Reports() {
             <ExitVolumeReport
               rows={leavers}
               range={range}
+              headcount={headcount}
               selection={selection}
               onSelectionChange={setSelection} /> :
 

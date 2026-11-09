@@ -1,4 +1,5 @@
 import type { Department, EmploymentType, OboPermission, OffboardingType, Transition } from '../types';
+import { HEADCOUNT_RECORDS_FROM, type EmploymentRecord } from '../data/headcount';
 import { exitReasonLabel } from './offboarding';
 import { formatDate } from './format';
 import { PROTOTYPE_TODAY } from './transitions';
@@ -234,3 +235,147 @@ export function leaversByMonth(rows: LeaverRow[], range: DateRange): (CountEntry
 
 export const averageTenureMonths = (rows: LeaverRow[]): number =>
 rows.length === 0 ? 0 : Math.round(rows.reduce((total, row) => total + row.tenureMonths, 0) / rows.length);
+
+export const formatPercent = (value: number): string => `${value.toFixed(1)}%`;
+export const formatNumber = (value: number): string => (Number.isInteger(value) ? String(value) : value.toFixed(1));
+
+/* ---------- Tenure ---------- */
+
+export interface TenureBand {
+  label: string;
+  /** Whole months, from `min` up to but not including `max`. */
+  min: number;
+  max: number;
+  /** The band's exact bounds, for hover text. */
+  bounds: string;
+}
+
+export const TENURE_BANDS: TenureBand[] = [
+{ label: 'Under 6 months', min: 0, max: 6, bounds: 'Less than 6 months' },
+{ label: '6 to 12 months', min: 6, max: 12, bounds: '6 months up to 12 months' },
+{ label: '1 to 3 years', min: 12, max: 36, bounds: '1 year up to 3 years' },
+{ label: '3 to 5 years', min: 36, max: 60, bounds: '3 years up to 5 years' },
+{ label: 'Over 5 years', min: 60, max: Infinity, bounds: '5 years or more' }];
+
+
+export const tenureBand = (months: number): string =>
+(TENURE_BANDS.find((band) => months >= band.min && months < band.max) ?? TENURE_BANDS[TENURE_BANDS.length - 1]).label;
+
+/** Leavers in each band, in band order, including bands with none. */
+export const leaversByTenureBand = (rows: LeaverRow[]): CountEntry[] =>
+TENURE_BANDS.map((band) => ({
+  label: band.label,
+  count: rows.filter((row) => tenureBand(row.tenureMonths) === band.label).length
+}));
+
+export const totalTenureMonths = (rows: LeaverRow[]): number => rows.reduce((total, row) => total + row.tenureMonths, 0);
+
+/** Leavers with tenure under 12 months, as a share of all leavers. */
+export function earlyAttrition(rows: LeaverRow[]): {early: number;total: number;percent: number;} {
+  const early = rows.filter((row) => row.tenureMonths < 12).length;
+  return { early, total: rows.length, percent: rows.length === 0 ? 0 : early / rows.length * 100 };
+}
+
+/* ---------- Headcount and turnover ---------- */
+
+/** Everyone who was employed at some point: current staff plus every leaver, until their exit date. */
+export const headcountPopulation = (staff: EmploymentRecord[], leavers: LeaverRow[]): EmploymentRecord[] => [
+...staff,
+...leavers.map((row) => ({
+  organizationUnit: row.organizationUnit,
+  employmentType: row.employmentType,
+  client: row.client,
+  joinedOn: row.joinedOn,
+  leftOn: row.exitDate
+}))];
+
+
+/** Organization unit, employment type and client narrow headcount too. Offboarding Type does not. */
+export const filterPopulation = (records: EmploymentRecord[], filters: ReportFilters): EmploymentRecord[] =>
+records.filter(
+  (record) =>
+  within(filters.orgUnits, record.organizationUnit) &&
+  within(filters.employmentTypes, record.employmentType) &&
+  within(filters.clients, record.client)
+);
+
+/** People employed on a day. A leaver still counts on their Actual Exit Date. */
+export const headcountOn = (records: EmploymentRecord[], date: string): number =>
+records.filter((record) => record.joinedOn <= date && (!record.leftOn || record.leftOn >= date)).length;
+
+export type Turnover =
+{
+  available: true;
+  leavers: number;
+  startDate: string;
+  endDate: string;
+  startHeadcount: number;
+  endHeadcount: number;
+  averageHeadcount: number;
+  rate: number;
+} |
+{available: false;reason: string;};
+
+/**
+ * Turnover rate = leavers ÷ average headcount × 100, where average headcount = (headcount at the
+ * start + headcount at the end) ÷ 2. While a period is still running, its end is today.
+ */
+export function turnoverFor(
+leavers: number,
+records: EmploymentRecord[],
+range: DateRange,
+today: string = PROTOTYPE_TODAY)
+: Turnover {
+  if (range.from > today) {
+    return { available: false, reason: 'This period has not started yet, so there is no headcount for it.' };
+  }
+  if (range.from < HEADCOUNT_RECORDS_FROM) {
+    return {
+      available: false,
+      reason: `Headcount records start on ${formatDate(HEADCOUNT_RECORDS_FROM)}, so headcount at the start of this period is not known.`
+    };
+  }
+  const endDate = range.to < today ? range.to : today;
+  const startHeadcount = headcountOn(records, range.from);
+  const endHeadcount = headcountOn(records, endDate);
+  const averageHeadcount = (startHeadcount + endHeadcount) / 2;
+  if (averageHeadcount === 0) {
+    return { available: false, reason: 'No one matching the selected filters was employed in this period.' };
+  }
+  return {
+    available: true,
+    leavers,
+    startDate: range.from,
+    endDate,
+    startHeadcount,
+    endHeadcount,
+    averageHeadcount,
+    rate: leavers / averageHeadcount * 100
+  };
+}
+
+export const TURNOVER_FORMULA = 'Turnover rate = Leavers in the period ÷ Average headcount × 100';
+export const AVERAGE_HEADCOUNT_FORMULA = 'Average headcount = (Headcount at start + Headcount at end) ÷ 2';
+
+/** The turnover sum with its figures, such as "2 ÷ 141.5 × 100 = 1.4%". */
+export const turnoverWorking = (turnover: Extract<Turnover, {available: true;}>): string =>
+`${turnover.leavers} ÷ ${formatNumber(turnover.averageHeadcount)} × 100 = ${formatPercent(turnover.rate)}`;
+
+export const averageHeadcountWorking = (turnover: Extract<Turnover, {available: true;}>): string =>
+`(${turnover.startHeadcount} on ${formatDate(turnover.startDate)} + ${turnover.endHeadcount} on ${formatDate(
+  turnover.endDate
+)}) ÷ 2 = ${formatNumber(turnover.averageHeadcount)}`;
+
+/** Turnover for each month of the range. Partial first and last months use only the days in range. */
+export function turnoverByMonth(
+rows: LeaverRow[],
+records: EmploymentRecord[],
+range: DateRange)
+: {key: string;label: string;turnover: Turnover;}[] {
+  return leaversByMonth(rows, range).map((month) => {
+    const [year, monthNumber] = month.key.split('-').map(Number);
+    const full = monthsRange(year, monthNumber - 1, 1);
+    const clipped = { from: full.from < range.from ? range.from : full.from, to: full.to > range.to ? range.to : full.to };
+    return { key: month.key, label: month.label, turnover: turnoverFor(month.count, records, clipped) };
+  });
+}
