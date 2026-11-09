@@ -12,7 +12,8 @@ export const oboPermissionCatalogue: {permission: OboPermission;key?: string;}[]
 { permission: 'Manage Task Library', key: 'obo.task.manage' },
 { permission: 'View Employee Profiles', key: 'employee.view' },
 { permission: 'View Exit Feedback Forms', key: 'obo.feedback_form.view' },
-{ permission: 'Manage Exit Feedback Forms', key: 'obo.feedback_form.manage' }];
+{ permission: 'Manage Exit Feedback Forms', key: 'obo.feedback_form.manage' },
+{ permission: 'View Reports', key: 'obo.report.view' }];
 
 
 export const ALL_OBO_PERMISSIONS: OboPermission[] = oboPermissionCatalogue.map((item) => item.permission);

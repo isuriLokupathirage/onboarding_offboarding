@@ -19,7 +19,9 @@ export type OboPermission =
 /** Templates → Forms → Exit Feedback (obo.feedback_form.view): open the list and view a form. */
 'View Exit Feedback Forms' |
 /** obo.feedback_form.manage: create, edit, duplicate, deactivate and delete exit feedback forms. */
-'Manage Exit Feedback Forms';
+'Manage Exit Feedback Forms' |
+/** obo.report.view: open Onboarding & Offboarding → Reports. */
+'View Reports';
 
 export type Priority = 'Low' | 'Medium' | 'High';
 
@@ -53,6 +55,31 @@ export interface ExitDocument {
 
 /** The part of an offboarding's Step 2 that is entered, before it is tied to the employee. */
 export type ExitDetailsDraft = Omit<ExitDetails, 'employeeId'>;
+
+/**
+ * The leaver's employment details, captured when the offboarding starts. Reports read these, so a
+ * later change to the employee record does not alter past reports.
+ */
+export interface LeaverSnapshot {
+  jobTitle: string;
+  organizationUnit: Department;
+  employmentType: EmploymentType;
+  client: string;
+  joinedOn: string;
+}
+
+/**
+ * The joiner's job details, captured when the onboarding starts, so a later change to the template
+ * or the employee record does not alter past reports.
+ */
+export interface JoinerSnapshot {
+  jobTitle: string;
+  organizationUnit: Department;
+  /** From the template. */
+  employmentType: EmploymentType;
+  /** From the template. */
+  client: string;
+}
 
 /** What Step 2 of an offboarding records: why the employee is leaving, the exit dates and documents. */
 export interface ExitDetails {
@@ -216,6 +243,19 @@ export interface AuditEntry {
   detail?: string;
 }
 
+/** One report export, kept in the Reports audit trail. */
+export interface ReportExportRecord {
+  id: string;
+  report: string;
+  format: 'Excel' | 'PDF';
+  period: string;
+  filters: string[];
+  /** Name of the user who exported. */
+  actor: string;
+  /** ISO date and time of the export. */
+  at: string;
+}
+
 export interface FormDraft {
   savedAt: string;
   responses: Record<string, string>;
@@ -273,6 +313,13 @@ export interface Transition {
   startedOn: string;
   /** Set when the transition starts. Screens show the latest task due date instead (transitionTargetDate). */
   targetDate: string;
+  /**
+   * The latest task due date as calculated when the transition started. It does not change when
+   * due dates change later, so on-time completion is measured against the original plan.
+   */
+  plannedCompletionDate: string;
+  /** The day the transition was completed. Set only when status is 'Completed'. */
+  completedOn?: string;
   ownerIds: string[];
   tasks: TransitionTask[];
   emails: EmailRecord[];
@@ -284,6 +331,10 @@ export interface Transition {
   portalCancellation?: {at: string;by: string;};
   /** Offboarding only: the exit type, reason, dates and documents from Step 2. */
   exit?: ExitDetails;
+  /** Offboarding only: the leaver's employment details as they were when the offboarding started. */
+  leaver?: LeaverSnapshot;
+  /** Onboarding only: the joiner's job details as they were when the onboarding started. */
+  joiner?: JoinerSnapshot;
   auditTrail: AuditEntry[];
 }
 

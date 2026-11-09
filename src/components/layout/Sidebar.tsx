@@ -17,6 +17,7 @@ import type { OboPermission } from '../../types';
 import { canOpenTemplates } from '../../utils/library';
 import { visibleKinds } from '../../utils/transitions';
 import { canViewFeedbackForms } from '../../utils/feedbackForms';
+import { canViewReports } from '../../utils/reports';
 
 interface NavAccess {
   oboModulePurchased: boolean;
@@ -77,6 +78,11 @@ const modules: NavModule[] = [
       label: 'Templates',
       to: '/onboarding/templates',
       visible: ({ oboPermissions }) => canOpenTemplates(oboPermissions)
+    },
+    {
+      label: 'Reports',
+      to: '/onboarding/reports',
+      visible: ({ oboPermissions }) => canViewReports(oboPermissions)
     }]
 
   }]
