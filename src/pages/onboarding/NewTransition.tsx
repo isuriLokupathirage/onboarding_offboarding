@@ -341,7 +341,7 @@ export function NewTransition() {
       leaver: leaver ?
       {
         jobTitle: leaver.jobTitle,
-        department: leaver.department,
+        organizationUnit: leaver.department,
         employmentType: leaver.employmentType,
         client: leaver.client,
         joinedOn: leaver.joinedOn

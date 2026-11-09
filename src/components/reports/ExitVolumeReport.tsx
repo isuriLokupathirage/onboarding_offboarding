@@ -14,17 +14,17 @@ import {
   type LeaverRow } from
 '../../utils/reports';
 
-/** The chart segments picked to narrow the leavers table: at most one type, reason and department. */
+/** The chart segments picked to narrow the leavers table: at most one type, reason and organization unit. */
 export interface LeaverSelection {
   type?: OffboardingType;
   reason?: string;
-  department?: Department;
+  organizationUnit?: Department;
 }
 
 const SELECTION_LABELS: Record<keyof LeaverSelection, string> = {
   type: 'Offboarding Type',
   reason: 'Exit Reason',
-  department: 'Department'
+  organizationUnit: 'Organization unit'
 };
 
 const TABLE_GRID =
@@ -49,7 +49,7 @@ export function ExitVolumeReport({
 }) {
   const byMonth = useMemo(() => leaversByMonth(rows, range), [rows, range]);
   const byReason = useMemo(() => countBy(rows, (row) => row.reason), [rows]);
-  const byDepartment = useMemo(() => countBy(rows, (row) => row.department), [rows]);
+  const byOrgUnit = useMemo(() => countBy(rows, (row) => row.organizationUnit), [rows]);
   // Types keep their fixed order and show at zero, so the three are always comparable.
   const byType = OFFBOARDING_TYPES.map((type) => ({
     label: type,
@@ -63,7 +63,7 @@ export function ExitVolumeReport({
       (row) =>
       (!selection.type || row.type === selection.type) && (
       !selection.reason || row.reason === selection.reason) && (
-      !selection.department || row.department === selection.department)
+      !selection.organizationUnit || row.organizationUnit === selection.organizationUnit)
     ).
     sort((a, b) => b.exitDate.localeCompare(a.exitDate) || a.name.localeCompare(b.name)),
     [rows, selection]
@@ -111,11 +111,11 @@ export function ExitVolumeReport({
             noun="leavers" />
 
         </ReportCard>
-        <ReportCard title="Leavers by department" description="Highest first. Select a department to filter the table">
+        <ReportCard title="Leavers by organization unit" description="Highest first. Select an organization unit to filter the table">
           <BarList
-            entries={byDepartment}
-            selected={selection.department}
-            onSelect={(label) => toggle('department', label as Department)}
+            entries={byOrgUnit}
+            selected={selection.organizationUnit}
+            onSelect={(label) => toggle('organizationUnit', label as Department)}
             noun="leavers" />
 
         </ReportCard>
@@ -164,7 +164,7 @@ export function ExitVolumeReport({
               className={`${TABLE_GRID} border-b border-line bg-slate-50/70 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-subtle`}>
 
               <span>Name</span>
-              <span>Department</span>
+              <span>Organization unit</span>
               <span>Job title</span>
               <span>Offboarding type</span>
               <span>Exit reason</span>
@@ -186,7 +186,7 @@ export function ExitVolumeReport({
 
                     {row.name}
                   </Link>
-                  <span className="truncate text-muted">{row.department}</span>
+                  <span className="truncate text-muted">{row.organizationUnit}</span>
                   <span className="truncate text-muted" title={row.jobTitle}>
                     {row.jobTitle}
                   </span>

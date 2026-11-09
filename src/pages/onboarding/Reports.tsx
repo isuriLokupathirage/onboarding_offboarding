@@ -181,7 +181,7 @@ export function Reports() {
             options={departments.map((unit) => ({
               value: unit,
               label: unit,
-              count: optionCount({ orgUnits: [] }, (row) => row.department === unit)
+              count: optionCount({ orgUnits: [] }, (row) => row.organizationUnit === unit)
             }))}
             selected={filters.orgUnits}
             onChange={(values) => setFilters({ orgUnits: departments.filter((unit) => values.includes(unit)) })} />

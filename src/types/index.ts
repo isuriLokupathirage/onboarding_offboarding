@@ -62,7 +62,7 @@ export type ExitDetailsDraft = Omit<ExitDetails, 'employeeId'>;
  */
 export interface LeaverSnapshot {
   jobTitle: string;
-  department: Department;
+  organizationUnit: Department;
   employmentType: EmploymentType;
   client: string;
   joinedOn: string;

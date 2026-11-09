@@ -97,7 +97,7 @@ export const manifest = {
     scr_fbdina: { name: "Exit Feedback Form – Sent and Inactive", route: "/templates/forms/exit-feedback/fbf5", position: { "x": 16960, "y": 17800 } },
     scr_rp1off: { name: "Reports – Offboarding (This Year)", route: "/onboarding/reports", position: { "x": 160, "y": 19780 } },
     scr_rp2onb: { name: "Reports – Onboarding Tab", route: "/onboarding/reports", state: { "tab": "Onboarding" }, position: { "x": 1560, "y": 19780 } },
-    scr_rp3sel: { name: "Reports – Table Filtered by Department", route: "/onboarding/reports", state: { "selection": { "department": "Engineering" } }, position: { "x": 2960, "y": 19780 } },
+    scr_rp3sel: { name: "Reports – Table Filtered by Organization Unit", route: "/onboarding/reports", state: { "selection": { "organizationUnit": "Engineering" } }, position: { "x": 2960, "y": 19780 } },
     scr_rp4flt: { name: "Reports – Filters as Chips", route: "/onboarding/reports", state: { "filters": { "period": "last-quarter", "offboardingTypes": ["Voluntary"], "employmentTypes": ["Permanent"] } }, position: { "x": 4360, "y": 19780 } },
     scr_rp5emp: { name: "Reports – No Leavers in Period", route: "/onboarding/reports", state: { "filters": { "period": "custom", "customFrom": "2024-01-01", "customTo": "2024-12-31" } }, position: { "x": 5760, "y": 19780 } }
   },

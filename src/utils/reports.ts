@@ -125,7 +125,7 @@ export const periodLabel = (filters: ReportFilters): string => {
 export interface LeaverRow {
   transitionId: string;
   name: string;
-  department: Department;
+  organizationUnit: Department;
   jobTitle: string;
   employmentType: EmploymentType;
   client: string;
@@ -169,7 +169,7 @@ export function leaverRows(transitions: Transition[]): LeaverRow[] {
     {
       transitionId: transition.id,
       name: `${transition.candidate.firstName} ${transition.candidate.lastName}`,
-      department: leaver.department,
+      organizationUnit: leaver.organizationUnit,
       jobTitle: leaver.jobTitle,
       employmentType: leaver.employmentType,
       client: leaver.client,
@@ -191,7 +191,7 @@ export function filterLeavers(rows: LeaverRow[], range: DateRange, filters: Repo
     (row) =>
     row.exitDate >= range.from &&
     row.exitDate <= range.to &&
-    within(filters.orgUnits, row.department) &&
+    within(filters.orgUnits, row.organizationUnit) &&
     within(filters.employmentTypes, row.employmentType) &&
     within(filters.clients, row.client) &&
     within(filters.offboardingTypes, row.type)

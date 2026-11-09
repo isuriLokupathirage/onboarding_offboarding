@@ -225,7 +225,7 @@ const baseTransitions: TransitionSeed[] = [
   },
   leaver: {
     jobTitle: 'Senior Accountant',
-    department: 'Finance',
+    organizationUnit: 'Finance',
     employmentType: 'Permanent',
     client: 'Accxis Holdings (Pvt) Ltd',
     joinedOn: '2021-02-01'
@@ -464,22 +464,22 @@ const SERENDIB = 'Serendib Logistics';
 
 /** Completed offboardings across last year and this year, so every report has data to show. */
 const leaverSeeds: LeaverSeed[] = [
-{ id: 'tr18', name: ['Chamara', 'Dissanayake'], leaver: { jobTitle: 'Senior Software Engineer', department: 'Engineering', employmentType: 'Permanent', client: ZENLANKA, joinedOn: '2020-03-02' }, type: 'Voluntary', reason: 'Better Employment Opportunity', exitDate: '2026-01-30', templateId: 'tpl5', managerId: 'u9' },
-{ id: 'tr19', name: ['Hiruni', 'Rajapaksha'], leaver: { jobTitle: 'Financial Analyst', department: 'Finance', employmentType: 'Permanent', client: CEYLON_FIN, joinedOn: '2023-04-17' }, type: 'Voluntary', reason: 'Further Education', exitDate: '2026-02-13', templateId: 'tpl5', managerId: 'u5' },
-{ id: 'tr20', name: ['Kasun', 'Bandara'], leaver: { jobTitle: 'Systems Engineer', department: 'IT Ops', employmentType: 'Contract', client: SERENDIB, joinedOn: '2024-02-05' }, type: 'Mutual', reason: 'Contract Non-Renewal', exitDate: '2026-02-27', templateId: 'tpl6', managerId: 'u2' },
-{ id: 'tr21', name: ['Dilshan', 'Fernando'], leaver: { jobTitle: 'QA Engineer', department: 'Engineering', employmentType: 'Permanent', client: ZENLANKA, joinedOn: '2022-08-08' }, type: 'Voluntary', reason: 'Better Employment Opportunity', exitDate: '2026-03-20', templateId: 'tpl5', managerId: 'u9' },
-{ id: 'tr22', name: ['Tharushi', 'Weerasinghe'], leaver: { jobTitle: 'HR Executive', department: 'HR', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2021-11-01' }, type: 'Voluntary', reason: 'Relocation', exitDate: '2026-04-10', templateId: 'tpl5', managerId: 'u1' },
-{ id: 'tr23', name: ['Ruwan', 'Kumara'], leaver: { jobTitle: 'Network Engineer', department: 'IT Ops', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2019-06-03' }, type: 'Involuntary', reason: 'Redundancy', exitDate: '2026-04-30', templateId: 'tpl5', managerId: 'u2' },
-{ id: 'tr24', name: ['Amaya', 'Silva'], leaver: { jobTitle: 'Software Intern', department: 'Engineering', employmentType: 'Internship', client: ZENLANKA, joinedOn: '2025-10-06' }, type: 'Mutual', reason: 'Mutual Agreement', exitDate: '2026-05-15', templateId: 'tpl7', managerId: 'u9' },
-{ id: 'tr25', name: ['Gayan', 'Ekanayake'], leaver: { jobTitle: 'Senior Accountant', department: 'Finance', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2018-01-15' }, type: 'Voluntary', reason: 'Retirement', exitDate: '2026-05-29', templateId: 'tpl5', managerId: 'u5' },
-{ id: 'tr26', name: ['Sanduni', 'Herath'], leaver: { jobTitle: 'Frontend Engineer', department: 'Engineering', employmentType: 'Permanent', client: ZENLANKA, joinedOn: '2023-01-09' }, type: 'Voluntary', reason: 'Better Employment Opportunity', exitDate: '2026-07-17', templateId: 'tpl5', managerId: 'u9' },
-{ id: 'tr27', name: ['Prasad', 'Wickramasinghe'], leaver: { jobTitle: 'Security Analyst', department: 'Security', employmentType: 'Contract', client: SERENDIB, joinedOn: '2024-07-01' }, type: 'Involuntary', reason: 'Misconduct', exitDate: '2026-07-24', templateId: 'tpl6', managerId: 'u6' },
-{ id: 'tr28', name: ['Madhavi', 'Jayasekara'], leaver: { jobTitle: 'Payroll Executive', department: 'Finance', employmentType: 'Contract', client: CEYLON_FIN, joinedOn: '2023-09-11' }, type: 'Voluntary', reason: 'Compensation and Benefits', exitDate: '2026-08-14', templateId: 'tpl6', managerId: 'u5' },
-{ id: 'tr29', name: ['Isuru', 'Rathnayake'], leaver: { jobTitle: 'DevOps Engineer', department: 'IT Ops', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2022-03-21' }, type: 'Voluntary', reason: 'Work-Life Balance', exitDate: '2026-08-28', templateId: 'tpl5', managerId: 'u2' },
-{ id: 'tr30', name: ['Nadeesha', 'Perera'], leaver: { jobTitle: 'Solutions Consultant', department: 'Engineering', employmentType: 'Consultant', client: SERENDIB, joinedOn: '2025-02-03' }, type: 'Involuntary', reason: 'Poor Performance', exitDate: '2026-09-04', templateId: 'tpl6', managerId: 'u1' },
-{ id: 'tr31', name: ['Shehan', 'Gunasekara'], leaver: { jobTitle: 'Data Analyst', department: 'Engineering', employmentType: 'Permanent', client: ZENLANKA, joinedOn: '2021-07-12' }, type: 'Voluntary', reason: 'Better Employment Opportunity', exitDate: '2025-06-27', templateId: 'tpl5', managerId: 'u4' },
-{ id: 'tr32', name: ['Kumudu', 'Abeysekera'], leaver: { jobTitle: 'Accounts Executive', department: 'Finance', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2020-09-14' }, type: 'Voluntary', reason: 'Family Commitments', exitDate: '2025-10-31', templateId: 'tpl5', managerId: 'u5' },
-{ id: 'tr33', name: ['Roshan', 'Peiris'], leaver: { jobTitle: 'IT Support Engineer', department: 'IT Ops', employmentType: 'Contract', client: SERENDIB, joinedOn: '2023-03-06' }, type: 'Mutual', reason: 'Contract Non-Renewal', exitDate: '2025-12-19', templateId: 'tpl6', managerId: 'u2' }];
+{ id: 'tr18', name: ['Chamara', 'Dissanayake'], leaver: { jobTitle: 'Senior Software Engineer', organizationUnit: 'Engineering', employmentType: 'Permanent', client: ZENLANKA, joinedOn: '2020-03-02' }, type: 'Voluntary', reason: 'Better Employment Opportunity', exitDate: '2026-01-30', templateId: 'tpl5', managerId: 'u9' },
+{ id: 'tr19', name: ['Hiruni', 'Rajapaksha'], leaver: { jobTitle: 'Financial Analyst', organizationUnit: 'Finance', employmentType: 'Permanent', client: CEYLON_FIN, joinedOn: '2023-04-17' }, type: 'Voluntary', reason: 'Further Education', exitDate: '2026-02-13', templateId: 'tpl5', managerId: 'u5' },
+{ id: 'tr20', name: ['Kasun', 'Bandara'], leaver: { jobTitle: 'Systems Engineer', organizationUnit: 'IT Ops', employmentType: 'Contract', client: SERENDIB, joinedOn: '2024-02-05' }, type: 'Mutual', reason: 'Contract Non-Renewal', exitDate: '2026-02-27', templateId: 'tpl6', managerId: 'u2' },
+{ id: 'tr21', name: ['Dilshan', 'Fernando'], leaver: { jobTitle: 'QA Engineer', organizationUnit: 'Engineering', employmentType: 'Permanent', client: ZENLANKA, joinedOn: '2022-08-08' }, type: 'Voluntary', reason: 'Better Employment Opportunity', exitDate: '2026-03-20', templateId: 'tpl5', managerId: 'u9' },
+{ id: 'tr22', name: ['Tharushi', 'Weerasinghe'], leaver: { jobTitle: 'HR Executive', organizationUnit: 'HR', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2021-11-01' }, type: 'Voluntary', reason: 'Relocation', exitDate: '2026-04-10', templateId: 'tpl5', managerId: 'u1' },
+{ id: 'tr23', name: ['Ruwan', 'Kumara'], leaver: { jobTitle: 'Network Engineer', organizationUnit: 'IT Ops', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2019-06-03' }, type: 'Involuntary', reason: 'Redundancy', exitDate: '2026-04-30', templateId: 'tpl5', managerId: 'u2' },
+{ id: 'tr24', name: ['Amaya', 'Silva'], leaver: { jobTitle: 'Software Intern', organizationUnit: 'Engineering', employmentType: 'Internship', client: ZENLANKA, joinedOn: '2025-10-06' }, type: 'Mutual', reason: 'Mutual Agreement', exitDate: '2026-05-15', templateId: 'tpl7', managerId: 'u9' },
+{ id: 'tr25', name: ['Gayan', 'Ekanayake'], leaver: { jobTitle: 'Senior Accountant', organizationUnit: 'Finance', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2018-01-15' }, type: 'Voluntary', reason: 'Retirement', exitDate: '2026-05-29', templateId: 'tpl5', managerId: 'u5' },
+{ id: 'tr26', name: ['Sanduni', 'Herath'], leaver: { jobTitle: 'Frontend Engineer', organizationUnit: 'Engineering', employmentType: 'Permanent', client: ZENLANKA, joinedOn: '2023-01-09' }, type: 'Voluntary', reason: 'Better Employment Opportunity', exitDate: '2026-07-17', templateId: 'tpl5', managerId: 'u9' },
+{ id: 'tr27', name: ['Prasad', 'Wickramasinghe'], leaver: { jobTitle: 'Security Analyst', organizationUnit: 'Security', employmentType: 'Contract', client: SERENDIB, joinedOn: '2024-07-01' }, type: 'Involuntary', reason: 'Misconduct', exitDate: '2026-07-24', templateId: 'tpl6', managerId: 'u6' },
+{ id: 'tr28', name: ['Madhavi', 'Jayasekara'], leaver: { jobTitle: 'Payroll Executive', organizationUnit: 'Finance', employmentType: 'Contract', client: CEYLON_FIN, joinedOn: '2023-09-11' }, type: 'Voluntary', reason: 'Compensation and Benefits', exitDate: '2026-08-14', templateId: 'tpl6', managerId: 'u5' },
+{ id: 'tr29', name: ['Isuru', 'Rathnayake'], leaver: { jobTitle: 'DevOps Engineer', organizationUnit: 'IT Ops', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2022-03-21' }, type: 'Voluntary', reason: 'Work-Life Balance', exitDate: '2026-08-28', templateId: 'tpl5', managerId: 'u2' },
+{ id: 'tr30', name: ['Nadeesha', 'Perera'], leaver: { jobTitle: 'Solutions Consultant', organizationUnit: 'Engineering', employmentType: 'Consultant', client: SERENDIB, joinedOn: '2025-02-03' }, type: 'Involuntary', reason: 'Poor Performance', exitDate: '2026-09-04', templateId: 'tpl6', managerId: 'u1' },
+{ id: 'tr31', name: ['Shehan', 'Gunasekara'], leaver: { jobTitle: 'Data Analyst', organizationUnit: 'Engineering', employmentType: 'Permanent', client: ZENLANKA, joinedOn: '2021-07-12' }, type: 'Voluntary', reason: 'Better Employment Opportunity', exitDate: '2025-06-27', templateId: 'tpl5', managerId: 'u4' },
+{ id: 'tr32', name: ['Kumudu', 'Abeysekera'], leaver: { jobTitle: 'Accounts Executive', organizationUnit: 'Finance', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2020-09-14' }, type: 'Voluntary', reason: 'Family Commitments', exitDate: '2025-10-31', templateId: 'tpl5', managerId: 'u5' },
+{ id: 'tr33', name: ['Roshan', 'Peiris'], leaver: { jobTitle: 'IT Support Engineer', organizationUnit: 'IT Ops', employmentType: 'Contract', client: SERENDIB, joinedOn: '2023-03-06' }, type: 'Mutual', reason: 'Contract Non-Renewal', exitDate: '2025-12-19', templateId: 'tpl6', managerId: 'u2' }];
 
 function compactSeed(seed: CompactSeed): TransitionSeed {
   const [firstName, lastName] = seed.name;
@@ -553,7 +553,7 @@ const compactSeeds: CompactSeed[] = [
     dates: { 'Last Working Date': '2026-07-31', 'Actual Exit Date': '2026-07-31' },
     documents: []
   },
-  leaver: { jobTitle: 'Network Engineer', department: 'IT Ops', employmentType: 'Contract', client: CEYLON_FIN, joinedOn: '2023-05-02' } },
+  leaver: { jobTitle: 'Network Engineer', organizationUnit: 'IT Ops', employmentType: 'Contract', client: CEYLON_FIN, joinedOn: '2023-05-02' } },
 { id: 'tr14', kind: 'Onboarding', name: ['Ishani', 'Wijesekara'], position: 'Accounts Executive', templateId: 'tpl3', status: 'Completed', startedOn: '2026-08-03', targetDate: '2026-08-18', completedTasks: 'all', managerIds: ['u5'] },
 { id: 'tr15', kind: 'Onboarding', name: ['Supun', 'Abeywickrama'], position: 'Mobile Engineer', templateId: 'tpl2', status: 'Cancelled', startedOn: '2026-08-12', targetDate: '2026-09-01', completedTasks: 1, managerIds: ['u9'],
   cancellation: { date: '2026-08-21', reason: 'The candidate declined the offer after accepting a counter-offer from their current employer.', cancelledBy: 'Nimal Perera', recordedAt: '2026-08-21T11:40:00' } },
@@ -567,7 +567,7 @@ const compactSeeds: CompactSeed[] = [
     dates: { 'Resignation Effective Date': '2026-08-08', 'Last Working Date': '2026-09-08', 'Actual Exit Date': '2026-09-08' },
     documents: []
   },
-  leaver: { jobTitle: 'HR Assistant', department: 'HR', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2024-01-08' } },
+  leaver: { jobTitle: 'HR Assistant', organizationUnit: 'HR', employmentType: 'Permanent', client: ACCXIS, joinedOn: '2024-01-08' } },
 { id: 'tr17', kind: 'Offboarding', name: ['Nethmi', 'Gunawardena'], position: 'Security Analyst', templateId: 'tpl5', status: 'Completed', startedOn: '2026-06-02', targetDate: '2026-06-30', completedTasks: 'all', managerIds: ['u6'],
   exit: {
     employeeId: 'emp8',
@@ -578,7 +578,7 @@ const compactSeeds: CompactSeed[] = [
     { id: 'exd-tr17-1', name: 'Redundancy_Notice_Nethmi_Gunawardena.pdf', bytes: 301056 },
     { id: 'exd-tr17-2', name: 'Final_Settlement_Statement.docx', bytes: 88064 }]
   },
-  leaver: { jobTitle: 'Security Analyst', department: 'Security', employmentType: 'Contract', client: SERENDIB, joinedOn: '2022-06-15' } },
+  leaver: { jobTitle: 'Security Analyst', organizationUnit: 'Security', employmentType: 'Contract', client: SERENDIB, joinedOn: '2022-06-15' } },
 ...leaverSeeds.map(completedLeaver)];
 
 const compactTransitions: TransitionSeed[] = compactSeeds.map(compactSeed);
