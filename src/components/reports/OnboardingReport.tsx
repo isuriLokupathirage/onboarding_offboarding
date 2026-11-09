@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { XIcon } from 'lucide-react';
+import { Pagination } from '../ui/Pagination';
 import { ReportCard, BarList, ColumnChart, StatTile } from './ReportCharts';
 import { Badge } from '../ui/Badge';
 import { Progress } from '../ui/Progress';
@@ -8,6 +9,8 @@ import type { Department } from '../../types';
 import { formatDate } from '../../utils/format';
 import { countBy, countByMonth, formatNumber, formatPercent, type DateRange } from '../../utils/reports';
 import { daysBetween, onboardingSummary, type JoinerRow } from '../../utils/onboardingReports';
+
+const PAGE_SIZE = 10;
 
 const TABLE_GRID =
 'grid grid-cols-[minmax(170px,1.4fr)_120px_minmax(150px,1.2fr)_110px_110px_110px_minmax(130px,1fr)] items-center gap-4';
@@ -56,6 +59,11 @@ export function OnboardingReport({
     sort((a, b) => b.hireDate.localeCompare(a.hireDate) || a.name.localeCompare(b.name)),
     [joiners, selectedUnit]
   );
+
+  // Back to the first page whenever a filter or chart selection changes the rows.
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), [tableRows]);
+  const pageRows = tableRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const startedNote = `Of ${summary.started} started in the period`;
 
@@ -182,7 +190,8 @@ export function OnboardingReport({
 
         }>
 
-        <div className="-mx-5 -mb-5 overflow-x-auto border-t border-line">
+        <div className="-mx-5 -mb-5 border-t border-line">
+          <div className="overflow-x-auto">
           <div className="min-w-[1050px]">
             <div
               className={`${TABLE_GRID} border-b border-line bg-slate-50/70 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-subtle`}>
@@ -196,7 +205,7 @@ export function OnboardingReport({
               <span>Progress</span>
             </div>
             <ul className="divide-y divide-line">
-              {tableRows.map((row) =>
+              {pageRows.map((row) =>
               <li key={row.transitionId} className={`${TABLE_GRID} px-5 py-3 text-[13px]`}>
                   <Link
                   to={`/onboarding/transitions/${row.transitionId}`}
@@ -236,6 +245,16 @@ export function OnboardingReport({
               )}
             </ul>
           </div>
+          </div>
+          {tableRows.length > PAGE_SIZE &&
+          <Pagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={tableRows.length}
+            onChange={setPage}
+            className="border-t border-line px-5 py-3" />
+
+          }
         </div>
       </ReportCard>
     </div>);

@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { XIcon } from 'lucide-react';
+import { Pagination } from '../ui/Pagination';
 import { ReportCard, BarList, ColumnChart, StatTile } from './ReportCharts';
 import { TenureTurnoverReport } from './TenureTurnoverReport';
 import type { EmploymentRecord } from '../../data/headcount';
@@ -31,6 +32,8 @@ const SELECTION_LABELS: Record<keyof LeaverSelection, string> = {
   organizationUnit: 'Organization unit',
   tenureBand: 'Tenure'
 };
+
+const PAGE_SIZE = 10;
 
 const TABLE_GRID =
 'grid grid-cols-[minmax(170px,1.4fr)_110px_minmax(150px,1.2fr)_110px_minmax(170px,1.4fr)_110px_110px_110px] items-center gap-4';
@@ -77,6 +80,11 @@ export function ExitVolumeReport({
     sort((a, b) => b.exitDate.localeCompare(a.exitDate) || a.name.localeCompare(b.name)),
     [rows, selection]
   );
+
+  // Back to the first page whenever a filter or chart selection changes the rows.
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), [tableRows]);
+  const pageRows = tableRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // Selecting a segment again clears it.
   const toggle = <K extends keyof LeaverSelection,>(key: K, value: LeaverSelection[K]) =>
@@ -192,7 +200,8 @@ export function ExitVolumeReport({
 
         }>
 
-        <div className="-mx-5 -mb-5 overflow-x-auto border-t border-line">
+        <div className="-mx-5 -mb-5 border-t border-line">
+          <div className="overflow-x-auto">
           <div className="min-w-[1100px]">
             <div
               className={`${TABLE_GRID} border-b border-line bg-slate-50/70 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-subtle`}>
@@ -212,7 +221,7 @@ export function ExitVolumeReport({
               </p>
             }
             <ul className="divide-y divide-line">
-              {tableRows.map((row) =>
+              {pageRows.map((row) =>
               <li key={row.transitionId} className={`${TABLE_GRID} px-5 py-3 text-[13px]`}>
                   <Link
                   to={`/onboarding/transitions/${row.transitionId}`}
@@ -240,6 +249,16 @@ export function ExitVolumeReport({
               )}
             </ul>
           </div>
+          </div>
+          {tableRows.length > PAGE_SIZE &&
+          <Pagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={tableRows.length}
+            onChange={setPage}
+            className="border-t border-line px-5 py-3" />
+
+          }
         </div>
       </ReportCard>
     </div>);
