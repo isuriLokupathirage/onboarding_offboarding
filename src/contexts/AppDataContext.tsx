@@ -115,26 +115,6 @@ interface AppData {
   => ReportExportRecord | null;
 }
 
-/** Earlier exports, so the audit trail is not empty in the prototype. */
-const seedReportExports: ReportExportRecord[] = [
-{
-  id: 'rx2',
-  report: 'Offboarding Report',
-  format: 'Excel',
-  period: '01 Jul 2026 – 30 Sept 2026',
-  filters: ['Organization unit: Engineering'],
-  actor: 'Nimal Perera',
-  at: '2026-09-14T10:42:00'
-},
-{
-  id: 'rx1',
-  report: 'Onboarding Report',
-  format: 'PDF',
-  period: '01 Jan 2026 – 31 Dec 2026',
-  filters: [],
-  actor: 'Dilani Jayawardena',
-  at: '2026-09-02T15:18:00'
-}];
 
 
 const AppDataContext = createContext<AppData | null>(null);
@@ -225,7 +205,7 @@ export function AppDataProvider({
   const [templates, setTemplates] = useState<Template[]>(seedTemplates);
   const [transitions, setTransitions] = useState<Transition[]>(seedTransitions);
   const [forms, setForms] = useState<EmployeeForm[]>(seedForms);
-  const [reportExports, setReportExports] = useState<ReportExportRecord[]>(seedReportExports);
+  const [reportExports, setReportExports] = useState<ReportExportRecord[]>([]);
   // Props set by the design canvas win; otherwise the tester's last choice, then full access.
   const [oboPermissions, setPermissionsState] = useState<OboPermission[]>(
     () => initialPermissions ?? storedAccess().permissions ?? DEFAULT_OBO_PERMISSIONS

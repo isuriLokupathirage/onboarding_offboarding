@@ -7,7 +7,7 @@ import { FacetedFilter } from '../../components/ui/FacetedFilter';
 import { Input, Select } from '../../components/ui/Field';
 import { Tabs } from '../../components/ui/Segmented';
 import { Toast } from '../../components/ui/Toast';
-import { ExportHistoryButton, ExportHistoryDrawer, ExportMenu } from '../../components/reports/ExportControls';
+import { ExportMenu } from '../../components/reports/ExportControls';
 import { ExitVolumeReport, type LeaverSelection } from '../../components/reports/ExitVolumeReport';
 import { OnboardingReport } from '../../components/reports/OnboardingReport';
 import { useAppData } from '../../contexts/AppDataContext';
@@ -47,8 +47,6 @@ interface ReportsScreenState {
   selection?: LeaverSelection;
   /** Onboarding tab: the organization unit picked in the chart. */
   joinerUnit?: Department;
-  /** Opens the Export history drawer. */
-  historyOpen?: boolean;
 }
 
 interface FilterChip {
@@ -63,8 +61,7 @@ interface FilterChip {
  */
 export function Reports() {
   const init = useScreenInit() as ReportsScreenState;
-  const { transitions, templates, currentUserId, hasOboPermission, reportExports, recordReportExport } = useAppData();
-  const [historyOpen, setHistoryOpen] = useState(Boolean(init.historyOpen));
+  const { transitions, templates, currentUserId, hasOboPermission, recordReportExport } = useAppData();
   const [notice, setNotice] = useState<string | null>(null);
   const [tab, setTab] = useState<ReportTab>(init.tab ?? 'Offboarding');
   const [filters, setFiltersState] = useState<ReportFilters>(() => ({
@@ -203,8 +200,7 @@ export function Reports() {
           value={tab}
           onChange={setTab} />
 
-        <div className="flex items-center gap-2 pb-2">
-          <ExportHistoryButton onClick={() => setHistoryOpen(true)} />
+        <div className="pb-2">
           <ExportMenu onExport={handleExport} disabledReason={exportDisabledReason} />
         </div>
       </div>
@@ -400,7 +396,6 @@ export function Reports() {
           }
         </div>
       </div>
-      <ExportHistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} records={reportExports} />
       <Toast message={notice} onClose={() => setNotice(null)} />
     </div>);
 

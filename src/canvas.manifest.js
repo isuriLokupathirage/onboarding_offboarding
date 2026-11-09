@@ -102,8 +102,7 @@ export const manifest = {
     scr_rp5emp: { name: "Reports – No Leavers in Period", route: "/onboarding/reports", state: { "filters": { "period": "custom", "customFrom": "2024-01-01", "customTo": "2024-12-31" } }, position: { "x": 5760, "y": 19780 } },
     scr_rp6unv: { name: "Reports – Turnover Unavailable (Before Headcount Records)", route: "/onboarding/reports", state: { "filters": { "period": "custom", "customFrom": "2024-07-01", "customTo": "2025-12-31" } }, position: { "x": 7160, "y": 19780 } },
     scr_rp7ten: { name: "Reports – Table Filtered by Tenure Band", route: "/onboarding/reports", state: { "selection": { "tenureBand": "3 to 5 years" } }, position: { "x": 8560, "y": 19780 } },
-    scr_rp8onu: { name: "Reports – Onboarding Table Filtered by Organization Unit", route: "/onboarding/reports", state: { "tab": "Onboarding", "joinerUnit": "Engineering" }, position: { "x": 9960, "y": 19780 } },
-    scr_rp9his: { name: "Reports – Export History", route: "/onboarding/reports", state: { "historyOpen": true }, position: { "x": 11360, "y": 19780 } }
+    scr_rp8onu: { name: "Reports – Onboarding Table Filtered by Organization Unit", route: "/onboarding/reports", state: { "tab": "Onboarding", "joinerUnit": "Engineering" }, position: { "x": 9960, "y": 19780 } }
   },
   sections: {
     sec_h9tl61: { name: "Onboarding – Overview & Transitions", x: 0, y: 0, width: 47720, height: 1180 },
@@ -116,7 +115,7 @@ export const manifest = {
     sec_mkpg06: { name: "Employee Portal", x: 0, y: 13860, width: 7120, height: 1180 },
     sec_mytsk1: { name: "Tasks – My Tasks", x: 0, y: 15840, width: 4320, height: 1180 },
     sec_fbform: { name: "Form Templates – Exit Feedback", x: 0, y: 17580, width: 18320, height: 1180 },
-    sec_report: { name: "Onboarding & Offboarding – Reports", x: 0, y: 19560, width: 12720, height: 1180 }
+    sec_report: { name: "Onboarding & Offboarding – Reports", x: 0, y: 19560, width: 11320, height: 1180 }
   },
   layers: [
   { kind: "section", id: "sec_h9tl61", children: [
@@ -242,8 +241,7 @@ export const manifest = {
     { kind: "screen", id: "scr_rp5emp" },
     { kind: "screen", id: "scr_rp6unv" },
     { kind: "screen", id: "scr_rp7ten" },
-    { kind: "screen", id: "scr_rp8onu" },
-    { kind: "screen", id: "scr_rp9his" }]
+    { kind: "screen", id: "scr_rp8onu" }]
   }]
 
 };
