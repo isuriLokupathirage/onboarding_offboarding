@@ -26,6 +26,8 @@ import { Dialog } from '../../components/ui/Dialog';
 import { portalUrl } from '../../utils/portal';
 import { SubmissionPanel } from '../../components/onboarding/SubmissionPanel';
 import { SendTransitionFormDialog } from '../../components/onboarding/SendTransitionFormDialog';
+import { SendExitFeedbackFormDialog } from '../../components/onboarding/SendExitFeedbackFormDialog';
+import { Tooltip } from '../../components/ui/Tooltip';
 import { TaskStatusBadge } from '../../components/tasks/TaskStatusBadge';
 import { dueLabel } from '../../components/tasks/OboTaskCard';
 import { NoSignInBadge } from '../../components/common/NoSignInBadge';
@@ -40,6 +42,7 @@ import type {
 '../../types';
 import { formatDate, formatDateTime } from '../../utils/format';
 import {
+  canReceiveExitFeedback,
   canReceiveForm,
   daysLabel,
   isOverdue,
@@ -47,6 +50,7 @@ import {
   portalIssue,
   portalStatus,
   sentFormEmails,
+  sentFormName,
   type PortalStatus,
   sentFormStatus,
   statusGroup,
@@ -124,17 +128,31 @@ function TransitionView({ transition }: {transition: Transition;}) {
       action: 'Form expired',
       actor: 'System',
       at: email.linkExpiresAt as string,
-      detail: `${forms.find((form) => form.id === email.formId)?.name ?? email.subject} · no longer in the candidate's portal`
+      detail: `${sentFormName(email, forms)} · no longer in the ${isLeaver ? "employee's" : "candidate's"} portal`
     }));
     return [...transition.auditTrail, ...expired].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
-  }, [transition, forms]);
+  }, [transition, forms, isLeaver]);
   const canCancel = active && hasOboPermission(managePermissionFor(transition.kind));
   // Exit details can change while the offboarding is in progress, by whoever can manage it.
   const canEditExit = Boolean(transition.exit) && canCancel;
   const [editingExit, setEditingExit] = useState(Boolean(screenInit.editExit) && canEditExit);
   const closeEditExit = useCallback(() => setEditingExit(false), []);
   const canSendForm = canReceiveForm(transition) && hasOboPermission('Manage Onboarding Transitions');
-  const [sendingForm, setSendingForm] = useState(Boolean(screenInit.sendForm) && canSendForm);
+  // Offboarding: Send Form sends exit feedback forms to the official email on the employee's record.
+  // Whoever manages offboarding sees the button; without Send Exit Feedback Forms it is disabled.
+  const exitFeedbackRecipient = leaver?.officialEmail ?? '';
+  const showExitFeedbackSend =
+  canReceiveExitFeedback(transition) && hasOboPermission('Manage Offboarding Transitions');
+  let exitFeedbackBlocked: string | undefined;
+  if (!hasOboPermission('Send Exit Feedback Forms')) {
+    exitFeedbackBlocked = 'Requires the Send Exit Feedback Forms permission';
+  } else if (!exitFeedbackRecipient) {
+    exitFeedbackBlocked = 'No employee record is linked, so there is no official email to send to';
+  }
+  const canSendExitFeedback = showExitFeedbackSend && !exitFeedbackBlocked;
+  const [sendingForm, setSendingForm] = useState(
+    Boolean(screenInit.sendForm) && (canSendForm || canSendExitFeedback)
+  );
   const portal = portalStatus(transition);
   const issue = portalIssue(transition);
   const openForms = sentFormEmails(transition).filter((email) => sentFormStatus(transition, email) === 'Sent');
@@ -221,6 +239,22 @@ function TransitionView({ transition }: {transition: Transition;}) {
                   <SendIcon className="h-4 w-4" />
                   Send Form
                 </Button>
+            }
+              {showExitFeedbackSend && (
+            exitFeedbackBlocked ?
+            <Tooltip label={exitFeedbackBlocked}>
+                    <span>
+                      <Button size="sm" variant="primary" disabled>
+                        <SendIcon className="h-4 w-4" />
+                        Send Form
+                      </Button>
+                    </span>
+                  </Tooltip> :
+
+            <Button size="sm" variant="primary" onClick={() => setSendingForm(true)}>
+                    <SendIcon className="h-4 w-4" />
+                    Send Form
+                  </Button>)
             }
               {canCancel &&
             <Button
@@ -336,10 +370,12 @@ function TransitionView({ transition }: {transition: Transition;}) {
             {view === 'emails' &&
             <SentForms
               transition={transition}
-              canRevoke={hasOboPermission('Manage Onboarding Transitions')}
+              canRevoke={hasOboPermission(managePermissionFor(transition.kind))}
               onRevoke={(emailId) => {
                 revokeEmail(transition.id, emailId);
-                setNotice("The form was revoked and removed from the candidate's portal.");
+                setNotice(
+                  `The form was revoked and removed from the ${isLeaver ? "employee's" : "candidate's"} portal.`
+                );
               }}
               onViewSubmission={setSubmissionEmailId} />
             }
@@ -457,7 +493,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
 
             <section className="rounded-xl border border-line bg-white p-5">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-[13px] font-medium text-ink">Candidate portal</h2>
+                <h2 className="text-[13px] font-medium text-ink">{isLeaver ? 'Employee portal' : 'Candidate portal'}</h2>
                 <PortalStatusBadge status={portal} />
               </div>
               {issue ?
@@ -471,7 +507,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
               <p className="mt-2 text-[12px] leading-relaxed text-muted">
                   {transition.kind === 'Onboarding' ?
                 'The portal is issued with the first form sent to the candidate.' :
-                'Leavers are not sent forms, so no portal is issued.'}
+                'The portal is issued with the first exit feedback form sent to the employee.'}
                 </p>
               }
               {transition.portalCancellation &&
@@ -509,6 +545,20 @@ function TransitionView({ transition }: {transition: Transition;}) {
         onSave={saveStatus} />
 
 
+      {isLeaver ?
+      <SendExitFeedbackFormDialog
+        open={sendingForm}
+        transition={transition}
+        recipient={exitFeedbackRecipient}
+        onClose={closeSendForm}
+        onSent={(formNames) => {
+          setView('emails');
+          setNotice(
+            `${formNames.length === 1 ? formNames[0] : `${formNames.length} exit feedback forms`} ${
+            formNames.length === 1 ? 'was' : 'were'} sent to ${exitFeedbackRecipient}.`
+          );
+        }} /> :
+
       <SendTransitionFormDialog
         open={sendingForm}
         recipients={[transition]}
@@ -517,6 +567,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
           setView('emails');
           setNotice(`${formName} was sent to ${transition.candidate.personalEmail}.`);
         }} />
+      }
 
 
       <Dialog

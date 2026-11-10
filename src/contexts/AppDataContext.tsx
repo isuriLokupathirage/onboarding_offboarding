@@ -3,6 +3,7 @@ import type {
   EmailRecord,
   EmployeeForm,
   ExitDetailsDraft,
+  FeedbackForm,
   FieldState,
   FormPart,
   FormSection,
@@ -29,16 +30,23 @@ import {
   prototypeNow,
   canReceiveForm,
   canRevokeEmail,
+  canReceiveExitFeedback,
+  exitFeedbackEmailSubject,
   isOpenFormEmail,
   isTaskOpen,
   managePermissionFor,
   portalStatus,
+  openFeedbackFormEmail,
   openFormEmail,
+  sentFormName,
   statusGroup } from
 '../utils/transitions';
 import { addDays, formatDate, nextCode } from '../utils/format';
 import { describeExitChanges, exitTargetDate, resolveExitDueDate } from '../utils/offboarding';
 import { formParts, partLabels } from '../utils/portal';
+
+/** What sending needs to know about an exit feedback form. */
+export type SendableFeedbackForm = Pick<FeedbackForm, 'id' | 'code' | 'name'>;
 
 interface AppData {
   canManageForms: boolean;
@@ -93,6 +101,12 @@ interface AppData {
   /** Closes the candidate's portal and expires every form still open in it. */
   cancelPortalAccess: (transitionId: string) => void;
   sendTransitionForm: (transitionIds: string[], formId: string) => void;
+  /**
+   * Sends exit feedback forms from an offboarding to the employee's official email, each as its own
+   * form in their portal. A form already open on the transition is skipped. Needs Send Exit Feedback
+   * Forms and Manage Offboarding Transitions. Returns the forms actually sent.
+   */
+  sendExitFeedbackForms: (transitionId: string, feedbackForms: SendableFeedbackForm[], recipient: string) => SendableFeedbackForm[];
   /** Stores the candidate's entries against one form. Does not submit or change its expiry. */
   saveTransitionDraft: (
   transitionId: string,
@@ -603,7 +617,8 @@ export function AppDataProvider({
         if (transition.id !== transitionId || !canRevokeEmail(transition, emailId)) return transition;
         const at = prototypeNow();
         const email = transition.emails.find((item) => item.id === emailId);
-        const formName = forms.find((form) => form.id === email?.formId)?.name ?? email?.subject;
+        const formName = email ? sentFormName(email, forms) : 'Form';
+        const whose = transition.kind === 'Onboarding' ? "the candidate's" : "the employee's";
         return {
           ...transition,
           emails: transition.emails.map((email) =>
@@ -626,7 +641,7 @@ export function AppDataProvider({
             action: 'Form revoked',
             actor,
             at,
-            detail: `${formName} · removed from the candidate's portal`
+            detail: `${formName} · removed from ${whose} portal`
           }]
 
         };
@@ -649,8 +664,7 @@ export function AppDataProvider({
 
         return transition;
         const open = transition.emails.filter((email) => isOpenFormEmail(transition, email));
-        const formName = (email: EmailRecord) =>
-        forms.find((form) => form.id === email.formId)?.name ?? email.subject;
+        const formName = (email: EmailRecord) => sentFormName(email, forms);
         return {
           ...transition,
           portalAccess: 'Revoked',
@@ -717,6 +731,7 @@ export function AppDataProvider({
             content: 'form',
             formId: form.id,
             linkExpiresAt: expiresAt,
+            sentBy: actor,
             draftCarriedForward: Boolean(previous?.draft),
             draft: previous?.draft
           }],
@@ -737,6 +752,61 @@ export function AppDataProvider({
       );
     },
     [forms, oboPermissions, currentUserId]
+  );
+
+  const sendExitFeedbackForms = useCallback(
+    (transitionId: string, feedbackForms: SendableFeedbackForm[], recipient: string): SendableFeedbackForm[] => {
+      const transition = transitions.find((item) => item.id === transitionId);
+      if (
+      !transition ||
+      !recipient ||
+      !canReceiveExitFeedback(transition) ||
+      !oboPermissions.includes('Send Exit Feedback Forms') ||
+      !oboPermissions.includes('Manage Offboarding Transitions'))
+
+      return [];
+      // The same form cannot be sent again while an earlier send is still open.
+      const toSend = feedbackForms.filter((form) => !openFeedbackFormEmail(transition, form.id));
+      if (toSend.length === 0) return [];
+      const stamp = Date.now();
+      const sentAt = prototypeNow();
+      const expiresAt = addDays(sentAt, FORM_LINK_EXPIRY_DAYS);
+      const actor = peopleById[currentUserId]?.name ?? currentUserId;
+      const emails: EmailRecord[] = toSend.map((form, index) => ({
+        id: `em-${stamp}-${index}`,
+        subject: exitFeedbackEmailSubject(expiresAt),
+        recipient,
+        sentAt,
+        content: 'form',
+        feedbackFormId: form.id,
+        formName: form.name,
+        formCode: form.code,
+        linkExpiresAt: expiresAt,
+        sentBy: actor
+      }));
+      setTransitions((prev) =>
+      prev.map((item) =>
+      item.id !== transitionId ?
+      item :
+      {
+        ...item,
+        emails: [...item.emails, ...emails],
+        auditTrail: [
+        ...item.auditTrail,
+        ...toSend.map((form, index) => ({
+          id: `au-${stamp}-${index}`,
+          action: 'Exit feedback form sent',
+          actor,
+          at: sentAt,
+          detail: `${form.code} ${form.name} · ${recipient} · expires ${formatDate(expiresAt)}`
+        }))]
+
+      }
+      )
+      );
+      return toSend;
+    },
+    [transitions, oboPermissions, currentUserId]
   );
 
   const saveTransitionDraft = useCallback(
@@ -864,6 +934,7 @@ export function AppDataProvider({
       revokeEmail,
       cancelPortalAccess,
       sendTransitionForm,
+      sendExitFeedbackForms,
       saveTransitionDraft,
       submitTransitionForm,
       reportExports,
@@ -909,6 +980,7 @@ export function AppDataProvider({
     revokeEmail,
     cancelPortalAccess,
     sendTransitionForm,
+    sendExitFeedbackForms,
     saveTransitionDraft,
     submitTransitionForm,
     reportExports,

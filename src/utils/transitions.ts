@@ -191,6 +191,39 @@ export function canReceiveForm(transition: Transition): boolean {
 
 }
 
+/** An offboarding in progress whose portal has not been cancelled can be sent exit feedback forms. */
+export function canReceiveExitFeedback(transition: Transition): boolean {
+  return (
+    statusGroup(transition) === 'Active' &&
+    transition.kind === 'Offboarding' &&
+    transition.portalAccess === 'Active');
+
+}
+
+export function isExitFeedbackEmail(email: EmailRecord): boolean {
+  return Boolean(email.feedbackFormId);
+}
+
+/**
+ * The open send of an exit feedback form, if there is one. Unlike an employee form, an exit
+ * feedback form cannot be sent again until that send is submitted, revoked or expires.
+ */
+export function openFeedbackFormEmail(transition: Transition, feedbackFormId: string): EmailRecord | undefined {
+  return transition.emails.find(
+    (email) => email.feedbackFormId === feedbackFormId && isOpenFormEmail(transition, email)
+  );
+}
+
+/** The subject of the email that sends exit feedback forms. */
+export function exitFeedbackEmailSubject(expiresOn: string): string {
+  return `We'd value your feedback before you leave. Please respond by ${formatDate(expiresOn)}`;
+}
+
+/** A sent form's name: as recorded when it was sent, else looked up, else the email subject. */
+export function sentFormName(email: EmailRecord, employeeForms: {id: string;name: string;}[]): string {
+  return email.formName ?? employeeForms.find((form) => form.id === email.formId)?.name ?? email.subject;
+}
+
 export type PortalStatus = 'Active' | 'Closed' | 'Cancelled' | 'Not Issued';
 
 /** The portal is issued with the first form sent to the candidate. */

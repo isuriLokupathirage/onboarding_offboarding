@@ -14,7 +14,12 @@ import { seedTasks } from './tasks';
 import { seedTemplates } from './templates';
 import { seedForms } from './forms';
 import { addDays, formatDate } from '../utils/format';
-import { FORM_LINK_EXPIRY_DAYS, toTransitionTask, transitionTargetDate } from '../utils/transitions';
+import {
+  FORM_LINK_EXPIRY_DAYS,
+  exitFeedbackEmailSubject,
+  toTransitionTask,
+  transitionTargetDate } from
+'../utils/transitions';
 
 type TransitionSeed = Omit<
   Transition,
@@ -246,7 +251,19 @@ const baseTransitions: TransitionSeed[] = [
     t24: { status: 'In Progress' },
     t26: { status: 'Completed' }
   }),
-  emails: [],
+  // An exit feedback form still open, so it cannot be sent again from Send Form.
+  emails: [
+  {
+    id: 'em-tr3-1',
+    subject: exitFeedbackEmailSubject(addDays('2026-09-14T10:20:00', FORM_LINK_EXPIRY_DAYS)),
+    recipient: 'malith.senanayake@accxis.lk',
+    sentAt: '2026-09-14T10:20:00',
+    content: 'form',
+    feedbackFormId: 'fbf1',
+    formName: 'Standard Exit Interview',
+    formCode: 'EXF-001'
+  }],
+
   formStatus: 'Not Sent'
 },
 {
@@ -689,13 +706,16 @@ function seedAudit(transition: TransitionSeed): AuditEntry[] {
   const sender = peopleById[transition.ownerIds[0]]?.name ?? 'System';
   transition.emails.forEach((email) => {
     if (email.content !== 'form') return;
-    const form = seedForms.find((item) => item.id === (email.formId ?? transition.candidate.employeeFormId));
+    const form = email.feedbackFormId ?
+    undefined :
+    seedForms.find((item) => item.id === (email.formId ?? transition.candidate.employeeFormId));
+    const label = email.formName ? `${email.formCode} ${email.formName}` : form ? `${form.code} ${form.name}` : email.subject;
     entries.push({
       id: `${transition.id}-${email.id}-sent`,
-      action: 'Form sent',
-      actor: sender,
+      action: email.feedbackFormId ? 'Exit feedback form sent' : 'Form sent',
+      actor: email.sentBy ?? sender,
       at: email.sentAt,
-      detail: `${form ? `${form.code} ${form.name}` : email.subject} · ${email.recipient} · expires ${formatDate(
+      detail: `${label} · ${email.recipient} · expires ${formatDate(
         addDays(email.sentAt, FORM_LINK_EXPIRY_DAYS)
       )}`
     });
@@ -708,7 +728,8 @@ function seedAudit(transition: TransitionSeed): AuditEntry[] {
       action: 'Form revoked',
       actor: event.actor,
       at: event.at,
-      detail: `${form?.name ?? email?.subject ?? 'Form'} · removed from the candidate's portal`
+      detail: `${email?.formName ?? form?.name ?? email?.subject ?? 'Form'} · removed from the ${
+      transition.kind === 'Onboarding' ? "candidate's" : "employee's"} portal`
     });
   });
   if (transition.portalCancellation) {
@@ -763,8 +784,10 @@ export const seedTransitions: Transition[] = [...baseTransitions, ...compactTran
   email.content === 'form' ?
   {
     ...email,
-    formId: email.formId ?? transition.candidate.employeeFormId,
-    linkExpiresAt: addDays(email.sentAt, FORM_LINK_EXPIRY_DAYS)
+    // An exit feedback form names its form through feedbackFormId instead.
+    formId: email.feedbackFormId ? undefined : email.formId ?? transition.candidate.employeeFormId,
+    linkExpiresAt: addDays(email.sentAt, FORM_LINK_EXPIRY_DAYS),
+    sentBy: email.sentBy ?? peopleById[transition.ownerIds[0]]?.name ?? 'System'
   } :
   email
   ),

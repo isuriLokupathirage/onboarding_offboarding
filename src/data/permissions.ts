@@ -13,7 +13,8 @@ export const oboPermissionCatalogue: {permission: OboPermission;key?: string;}[]
 { permission: 'View Employee Profiles', key: 'employee.view' },
 { permission: 'View Exit Feedback Forms', key: 'obo.feedback_form.view' },
 { permission: 'Manage Exit Feedback Forms', key: 'obo.feedback_form.manage' },
-{ permission: 'View Reports', key: 'obo.report.view' }];
+{ permission: 'View Reports', key: 'obo.report.view' },
+{ permission: 'Send Exit Feedback Forms', key: 'template.exit_feedback_form.send' }];
 
 
 export const ALL_OBO_PERMISSIONS: OboPermission[] = oboPermissionCatalogue.map((item) => item.permission);
@@ -29,6 +30,11 @@ export const demoRoles: {name: string;description: string;permissions: OboPermis
   name: 'Onboarding Coordinator',
   description: 'Starts and manages onboarding transitions only',
   permissions: ['Manage Onboarding Transitions', 'Update Task Progress', 'View Templates']
+},
+{
+  name: 'Offboarding Coordinator',
+  description: 'Manages offboarding transitions but cannot send exit feedback forms',
+  permissions: ['Manage Offboarding Transitions', 'Update Task Progress', 'View Templates', 'View Employee Profiles']
 },
 {
   name: 'Template Viewer',

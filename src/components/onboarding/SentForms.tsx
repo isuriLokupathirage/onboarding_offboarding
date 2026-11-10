@@ -9,9 +9,12 @@ import { useAppData } from '../../contexts/AppDataContext';
 import type { EmailRecord, Transition } from '../../types';
 import { formatDate } from '../../utils/format';
 import {
+  isExitFeedbackEmail,
+  managePermissionFor,
   sentFormClosedAt,
   sentFormClosedReason,
   sentFormEmails,
+  sentFormName,
   sentFormStatus,
   type SentFormStatus } from
 '../../utils/transitions';
@@ -29,7 +32,10 @@ const revokeHints: Record<Exclude<SentFormStatus, 'Sent'>, string> = {
   Closed: 'The form is closed, so it is no longer in the portal.'
 };
 
-/** Transitions → [Transition] → Sent Forms: every form sent to the candidate, newest first. */
+/**
+ * Transitions → [Transition] → Sent Forms: every form sent to the candidate, or the exit feedback
+ * forms sent to a leaver, newest first.
+ */
 export function SentForms({
   transition,
   canRevoke,
@@ -44,6 +50,9 @@ export function SentForms({
   const { forms } = useAppData();
   const [confirming, setConfirming] = useState<EmailRecord | null>(null);
   const formOf = (email: EmailRecord) => forms.find((form) => form.id === email.formId);
+  const codeOf = (email: EmailRecord) => email.formCode ?? formOf(email)?.code;
+  const recipientWord = transition.kind === 'Onboarding' ? 'candidate' : 'employee';
+  const revokePermission = managePermissionFor(transition.kind);
   const rows = sentFormEmails(transition).sort(
     (a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
   );
@@ -54,7 +63,11 @@ export function SentForms({
         <EmptyState
           icon={FileTextIcon}
           title="No forms sent yet"
-          description="Forms sent to the candidate for this transition are listed here, with their status and dates." />
+          description={
+          transition.kind === 'Onboarding' ?
+          'Forms sent to the candidate for this transition are listed here, with their status and dates.' :
+          'Exit feedback forms sent to the employee are listed here, with their status, the date sent and who sent them.'
+          } />
 
       </div>);
 
@@ -63,7 +76,7 @@ export function SentForms({
   return (
     <section className="mt-4 overflow-hidden rounded-xl border border-line bg-white">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px] text-left text-[13px]">
+        <table className="w-full min-w-[960px] text-left text-[13px]">
           <thead className="border-b border-line bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wider text-subtle">
             <tr>
               <th className="px-4 py-2.5 font-semibold">Form code</th>
@@ -71,6 +84,7 @@ export function SentForms({
               <th className="px-4 py-2.5 font-semibold">Status</th>
               <th className="px-4 py-2.5 font-semibold">Sent to</th>
               <th className="px-4 py-2.5 font-semibold">Sent</th>
+              <th className="px-4 py-2.5 font-semibold">Sent by</th>
               <th className="px-4 py-2.5 font-semibold">Expires</th>
               <th className="px-4 py-2.5 font-semibold">Closed</th>
               <th className="px-4 py-2.5 text-right font-semibold">Actions</th>
@@ -78,18 +92,19 @@ export function SentForms({
           </thead>
           <tbody className="divide-y divide-line">
             {rows.map((email) => {
-              const form = formOf(email);
               const status = sentFormStatus(transition, email);
               const closedAt = sentFormClosedAt(transition, email);
               const reason = sentFormClosedReason(transition, email);
               const submission = transition.submissions.find((item) => item.emailId === email.id);
+              const feedback = isExitFeedbackEmail(email);
               // One part of a form can be in while the other is still open.
               const partSubmitted = status === 'Sent' && Boolean(submission);
               return (
                 <tr key={email.id} className="align-top">
-                  <td className="whitespace-nowrap px-4 py-3 font-mono text-[12px] text-subtle">{form?.code ?? '—'}</td>
+                  <td className="whitespace-nowrap px-4 py-3 font-mono text-[12px] text-subtle">{codeOf(email) ?? '—'}</td>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-ink">{form?.name ?? email.subject}</p>
+                    <p className="font-medium text-ink">{sentFormName(email, forms)}</p>
+                    {feedback && <p className="mt-0.5 text-[11px] text-muted">Exit feedback</p>}
                     {partSubmitted &&
                     <p className="mt-0.5 text-[11px] text-muted">One part submitted, the other still to come</p>
                     }
@@ -105,13 +120,14 @@ export function SentForms({
                     {email.recipient}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-muted">{formatDate(email.sentAt)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-muted">{email.sentBy ?? '—'}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-muted">
                     {email.linkExpiresAt ? formatDate(email.linkExpiresAt) : '—'}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-muted">{closedAt ? formatDate(closedAt) : '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1.5">
-                      {submission &&
+                      {submission && !feedback &&
                       <Button size="sm" onClick={() => onViewSubmission(email.id)}>
                           View Submission
                         </Button>
@@ -119,6 +135,7 @@ export function SentForms({
                       <RevokeButton
                         status={status}
                         canRevoke={canRevoke}
+                        permission={revokePermission}
                         onClick={() => setConfirming(email)} />
 
                     </div>
@@ -135,9 +152,9 @@ export function SentForms({
         title="Revoke this form?"
         body={
         <>
-            <span className="font-medium text-ink">{confirming ? formOf(confirming)?.name : ''}</span> is removed
-            from the candidate's portal immediately and can no longer be submitted. Other forms in the portal are
-            not affected.
+            <span className="font-medium text-ink">{confirming ? sentFormName(confirming, forms) : ''}</span> is
+            removed from the {recipientWord}'s portal immediately and can no longer be submitted. Other forms in the
+            portal are not affected.
           </>
         }
         confirmLabel="Revoke form"
@@ -155,14 +172,16 @@ export function SentForms({
 function RevokeButton({
   status,
   canRevoke,
+  permission,
   onClick
 
 
 
-}: {status: SentFormStatus;canRevoke: boolean;onClick: () => void;}) {
+
+}: {status: SentFormStatus;canRevoke: boolean;permission: string;onClick: () => void;}) {
   let hint: string | undefined;
   if (status !== 'Sent') hint = revokeHints[status];else
-  if (!canRevoke) hint = 'Requires the Manage Onboarding Transitions permission';
+  if (!canRevoke) hint = `Requires the ${permission} permission`;
   const button =
   <Button
     size="sm"
