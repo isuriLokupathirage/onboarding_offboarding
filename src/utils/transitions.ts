@@ -214,6 +214,16 @@ export function openFeedbackFormEmail(transition: Transition, feedbackFormId: st
   );
 }
 
+/**
+ * Why Send Form is disabled on an offboarding for someone who manages offboarding, or undefined when
+ * it is not: they lack Send Exit Feedback Forms, or no employee record gives an official email.
+ */
+export function exitFeedbackSendBlock(canSendExitFeedback: boolean, officialEmail: string | undefined): string | undefined {
+  if (!canSendExitFeedback) return 'Requires the Send Exit Feedback Forms permission';
+  if (!officialEmail) return 'No employee record is linked, so there is no official email to send to';
+  return undefined;
+}
+
 /** The subject of the email that sends exit feedback forms. */
 export function exitFeedbackEmailSubject(expiresOn: string): string {
   return `We'd value your feedback before you leave. Please respond by ${formatDate(expiresOn)}`;

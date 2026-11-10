@@ -45,6 +45,7 @@ import {
   canReceiveExitFeedback,
   canReceiveForm,
   daysLabel,
+  exitFeedbackSendBlock,
   isOverdue,
   managePermissionFor,
   portalIssue,
@@ -143,12 +144,10 @@ function TransitionView({ transition }: {transition: Transition;}) {
   const exitFeedbackRecipient = leaver?.officialEmail ?? '';
   const showExitFeedbackSend =
   canReceiveExitFeedback(transition) && hasOboPermission('Manage Offboarding Transitions');
-  let exitFeedbackBlocked: string | undefined;
-  if (!hasOboPermission('Send Exit Feedback Forms')) {
-    exitFeedbackBlocked = 'Requires the Send Exit Feedback Forms permission';
-  } else if (!exitFeedbackRecipient) {
-    exitFeedbackBlocked = 'No employee record is linked, so there is no official email to send to';
-  }
+  const exitFeedbackBlocked = exitFeedbackSendBlock(
+    hasOboPermission('Send Exit Feedback Forms'),
+    exitFeedbackRecipient
+  );
   const canSendExitFeedback = showExitFeedbackSend && !exitFeedbackBlocked;
   const [sendingForm, setSendingForm] = useState(
     Boolean(screenInit.sendForm) && (canSendForm || canSendExitFeedback)
