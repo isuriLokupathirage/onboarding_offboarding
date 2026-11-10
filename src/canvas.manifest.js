@@ -80,6 +80,8 @@ export const manifest = {
     scr_nt92mc: { name: "Employee Portal – My Forms", route: "/portal/emp-10ff5", position: { "x": 160, "y": 14080 } },
     scr_3p9fs4: { name: "Employee Portal – Form", route: "/portal/emp-10ff5", state: { "form": "asg1" }, position: { "x": 1560, "y": 14080 } },
     scr_ugx5in: { name: "Employee Portal – Submitted Form", route: "/portal/emp-21fea", state: { "form": "asg2" }, position: { "x": 2960, "y": 14080 } },
+    scr_xf4mfl: { name: "Employee Portal – Leaver My Forms (Employee Details & Exit Feedback)", route: "/portal/emp-98f9d", position: { "x": 4360, "y": 14080 } },
+    scr_xf5frm: { name: "Employee Portal – Exit Feedback Form", route: "/portal/emp-98f9d", state: { "form": "em-tr3-1" }, position: { "x": 5760, "y": 14080 } },
     scr_knlg8z: { name: "Employee Portal – Nothing Outstanding", route: "/portal/emp-43fd4", position: { "x": 4360, "y": 14080 } },
     scr_lxjszg: { name: "Employee Portal – No Longer Available", route: "/portal/emp-87fa8", position: { "x": 5760, "y": 14080 } },
     scr_mt1all: { name: "My Tasks – All", route: "/tasks/my-tasks", position: { "x": 160, "y": 16060 } },

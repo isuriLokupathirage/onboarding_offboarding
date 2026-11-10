@@ -25,6 +25,8 @@ interface FeedbackFormsValue {
   deleteFeedbackForm: (id: string) => void;
   /** Counts one more send of each form. A sent form can no longer be edited or deleted. */
   recordFeedbackFormsSent: (ids: string[]) => void;
+  /** Counts a response submitted from the portal. */
+  recordFeedbackResponse: (id: string) => void;
 }
 
 const FeedbackFormsContext = createContext<FeedbackFormsValue | null>(null);
@@ -110,6 +112,12 @@ export function FeedbackFormsProvider({ children }: {children: ReactNode;}) {
     );
   }, []);
 
+  const recordFeedbackResponse = useCallback((id: string) => {
+    setFeedbackForms((prev) =>
+    prev.map((item) => item.id === id ? { ...item, responseCount: item.responseCount + 1 } : item)
+    );
+  }, []);
+
   const value = useMemo(
     () => ({
       feedbackForms,
@@ -119,7 +127,8 @@ export function FeedbackFormsProvider({ children }: {children: ReactNode;}) {
       duplicateFeedbackForm,
       setFeedbackFormStatus,
       deleteFeedbackForm,
-      recordFeedbackFormsSent
+      recordFeedbackFormsSent,
+      recordFeedbackResponse
     }),
     [
     feedbackForms,
@@ -129,7 +138,8 @@ export function FeedbackFormsProvider({ children }: {children: ReactNode;}) {
     duplicateFeedbackForm,
     setFeedbackFormStatus,
     deleteFeedbackForm,
-    recordFeedbackFormsSent]
+    recordFeedbackFormsSent,
+    recordFeedbackResponse]
 
   );
 

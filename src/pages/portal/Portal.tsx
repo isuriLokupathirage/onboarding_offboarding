@@ -6,13 +6,17 @@ import { PortalShell, type PortalTab } from '../../components/portal/PortalShell
 import { PortalMessage } from '../../components/portal/PortalMessage';
 import { MyFormsList } from '../../components/portal/MyFormsList';
 import { PortalFormView } from '../../components/portal/PortalFormView';
+import { PortalFeedbackFormView } from '../../components/portal/PortalFeedbackFormView';
 import { PortalEvents } from './PortalEvents';
 import { useAppData } from '../../contexts/AppDataContext';
 import { useEmployeeData } from '../../contexts/EmployeeDataContext';
+import { useFeedbackForms } from '../../contexts/FeedbackFormsContext';
 import { formatDate } from '../../utils/format';
 import {
   employeePortalForms,
+  exitFeedbackPortalForms,
   formParts,
+  mergePortalForms,
   transitionPortalForms,
   uploadsFromSubmission,
   type PortalFormItem } from
@@ -174,18 +178,35 @@ function fieldLabels(form: EmployeeForm): Record<string, string> {
   return map;
 }
 
+/**
+ * The employee's own portal. It lists the forms sent from Employee Management and, for a leaver, the
+ * exit feedback forms sent from their offboarding transition, in one My Forms list.
+ */
 function EmployeePortal({ employee }: {employee: Employee;}) {
-  const { forms } = useAppData();
+  const { forms, transitions, saveTransitionDraft, submitTransitionForm } = useAppData();
   const { assignmentsFor, saveDraft, submitAssignment } = useEmployeeData();
+  const { feedbackForms, recordFeedbackResponse } = useFeedbackForms();
   const { changeTab, openFormId, openForm } = usePortalNavigation('forms');
 
   if (employee.status !== 'Active') return <Unavailable />;
 
   const assignments = assignmentsFor(employee.id);
-  const items = employeePortalForms(assignments);
+  const items = mergePortalForms(
+    employeePortalForms(assignments),
+    exitFeedbackPortalForms(transitions, employee.id)
+  );
   const openItem = items.find((item) => item.id === openFormId);
   const assignment = assignments.find((item) => item.id === openItem?.id);
-  const form = forms.find((item) => item.id === openItem?.formId);
+  const form = openItem?.type === 'Employee Details' ? forms.find((item) => item.id === openItem.formId) : undefined;
+  // Exit feedback forms keep their drafts and answers on the offboarding transition.
+  const transitionOf = (item: PortalFormItem) => transitions.find((transition) => transition.id === item.transitionId);
+  const feedbackEmail = (item: PortalFormItem) => transitionOf(item)?.emails.find((email) => email.id === item.id);
+  const feedbackForm =
+  openItem?.type === 'Exit Feedback' ? feedbackForms.find((item) => item.id === openItem.formId) : undefined;
+  const feedbackAnswers = (item: PortalFormItem) =>
+  item.status === 'Submitted' ?
+  transitionOf(item)?.submissions.find((submission) => submission.emailId === item.id)?.responses ?? {} :
+  feedbackEmail(item)?.draft?.responses ?? {};
 
   return (
     <PortalShell
@@ -194,7 +215,21 @@ function EmployeePortal({ employee }: {employee: Employee;}) {
       activeTab="forms"
       onTabChange={changeTab}>
 
-      {openItem && assignment && form ?
+      {openItem && feedbackForm && openItem.transitionId ?
+      <PortalFeedbackFormView
+        key={openItem.id}
+        form={feedbackForm}
+        item={openItem}
+        initialAnswers={feedbackAnswers(openItem)}
+        draftSavedAt={feedbackEmail(openItem)?.draft?.savedAt}
+        onSaveDraft={(answers) => saveTransitionDraft(openItem.transitionId as string, openItem.id, answers, {})}
+        onSubmit={(answers) => {
+          submitTransitionForm(openItem.transitionId as string, openItem.id, 'details', answers, []);
+          recordFeedbackResponse(feedbackForm.id);
+        }}
+        onBack={() => openForm(null)} /> :
+
+      openItem && assignment && form ?
       <PortalFormView
         key={openItem.id}
         form={form}
@@ -217,7 +252,11 @@ function EmployeePortal({ employee }: {employee: Employee;}) {
 
       <MyFormsList
         items={items}
-        hasDraft={(item) => Boolean(assignments.find((entry) => entry.id === item.id)?.draftSaved)}
+        hasDraft={(item) =>
+        item.type === 'Exit Feedback' ?
+        Boolean(feedbackEmail(item)?.draft) :
+        Boolean(assignments.find((entry) => entry.id === item.id)?.draftSaved)
+        }
         onOpen={(item) => openForm(item.id)} />
 
       }

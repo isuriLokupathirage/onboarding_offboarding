@@ -862,8 +862,10 @@ export function AppDataProvider({
           parts,
           pendingParts
         };
+        const feedback = Boolean(email.feedbackFormId);
         const count = part === 'details' ? Object.keys(responses).length : documents.length;
-        const unit = part === 'details' ? 'field' : 'document';
+        let unit = part === 'details' ? 'field' : 'document';
+        if (feedback) unit = 'answer';
         return {
           ...transition,
           formStatus: complete ? 'Submitted' : 'In Progress',
@@ -879,10 +881,10 @@ export function AppDataProvider({
           ...transition.auditTrail,
           {
             id: `au-${Date.now()}`,
-            action: 'Form submitted',
+            action: feedback ? 'Exit feedback form submitted' : 'Form submitted',
             actor: `${transition.candidate.firstName} ${transition.candidate.lastName}`,
             at: submittedAt,
-            detail: `${form?.name ?? email.subject} · ${partLabels[part]} · ${count} ${unit}${
+            detail: `${sentFormName(email, forms)}${feedback ? '' : ` · ${partLabels[part]}`} · ${count} ${unit}${
             count === 1 ? '' : 's'}`
           }]
 

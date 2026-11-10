@@ -500,7 +500,10 @@ function TransitionView({ transition }: {transition: Transition;}) {
                   <Detail label="Issued" value={formatDate(issue.issuedAt)} />
                   <Detail label="Open forms" value={String(openForms.length)} />
                   <Detail label="Sent to" value={issue.sentTo} wide />
-                  <Detail label="Portal link" value={portalUrl(transition.portalToken)} wide />
+                  <Detail
+                  label="Portal link"
+                  value={portalUrl(isLeaver && leaver ? leaver.portalToken : transition.portalToken)}
+                  wide />
                 </dl> :
 
               <p className="mt-2 text-[12px] leading-relaxed text-muted">

@@ -10,12 +10,22 @@ import { formHasFields } from '../components/forms/CandidateFormRenderer';
 
 export type PortalFormStatus = 'To complete' | 'Submitted';
 
+/** Employee data collection forms, or exit feedback forms sent from an offboarding transition. */
+export type PortalFormType = 'Employee Details' | 'Exit Feedback';
+
+export const PORTAL_FORM_TYPES: PortalFormType[] = ['Employee Details', 'Exit Feedback'];
+export const PORTAL_FORM_STATUSES: PortalFormStatus[] = ['To complete', 'Submitted'];
+
 /** One form in a recipient's portal, whichever side it was sent from. */
 export interface PortalFormItem {
   /** The form email id (transition) or assignment id (employee). */
   id: string;
+  /** The employee form id, or the exit feedback form id. */
   formId: string;
   formName: string;
+  type: PortalFormType;
+  /** Set when the form was sent from a transition: where its drafts and submission are kept. */
+  transitionId?: string;
   sentAt: string;
   expiresAt: string;
   submittedAt: string | null;
@@ -63,7 +73,9 @@ formName: (formId: string) => string)
     {
       id: email.id,
       formId: email.formId as string,
-      formName: formName(email.formId as string),
+      formName: email.formName ?? formName(email.formId as string),
+      type: 'Employee Details',
+      transitionId: transition.id,
       sentAt: email.sentAt,
       expiresAt: email.linkExpiresAt ?? '',
       submittedAt: submission?.submittedAt ?? null,
@@ -88,11 +100,74 @@ export function employeePortalForms(assignments: EmployeeFormAssignment[]): Port
   sort(newestFirst);
 }
 
+/**
+ * Exit feedback forms sent to an employee from their offboarding transitions. They are listed in the
+ * employee's own portal, beside the forms sent from Employee Management. Revoked, expired and
+ * closed forms are left out.
+ */
+export function exitFeedbackPortalForms(transitions: Transition[], employeeId: string): PortalFormItem[] {
+  return transitions.
+  filter((transition) => transition.exit?.employeeId === employeeId).
+  flatMap((transition) =>
+  transition.emails.
+  filter((email) => email.content === 'form' && email.feedbackFormId).
+  flatMap((email): PortalFormItem[] => {
+    const status = emailStatus(transition, email);
+    if (status !== 'Sent' && status !== 'Submitted') return [];
+    const submission = transition.submissions.find((item) => item.emailId === email.id);
+    return [
+    {
+      id: email.id,
+      formId: email.feedbackFormId as string,
+      formName: email.formName ?? email.subject,
+      type: 'Exit Feedback',
+      transitionId: transition.id,
+      sentAt: email.sentAt,
+      expiresAt: email.linkExpiresAt ?? '',
+      submittedAt: submission?.submittedAt ?? null,
+      submittedParts: {},
+      status: status === 'Submitted' ? 'Submitted' : 'To complete'
+    }];
+
+  })
+  ).
+  sort(newestFirst);
+}
+
+/** Everything in an employee's portal, newest first. */
+export function mergePortalForms(...lists: PortalFormItem[][]): PortalFormItem[] {
+  return lists.flat().sort(newestFirst);
+}
+
+export interface PortalFormFilters {
+  /** Matched against the form name, ignoring case. */
+  query: string;
+  /** Empty keeps every type. */
+  types: string[];
+  /** Empty keeps every status. */
+  statuses: string[];
+}
+
+export function hasPortalFilters({ query, types, statuses }: PortalFormFilters): boolean {
+  return query.trim() !== '' || types.length > 0 || statuses.length > 0;
+}
+
+export function filterPortalForms(items: PortalFormItem[], { query, types, statuses }: PortalFormFilters): PortalFormItem[] {
+  const term = query.trim().toLowerCase();
+  return items.filter(
+    (item) =>
+    (!term || item.formName.toLowerCase().includes(term)) && (
+    types.length === 0 || types.includes(item.type)) && (
+    statuses.length === 0 || statuses.includes(item.status))
+  );
+}
+
 function toItem(assignment: EmployeeFormAssignment): Omit<PortalFormItem, 'status'> {
   return {
     id: assignment.id,
     formId: assignment.formId,
     formName: assignment.formName,
+    type: 'Employee Details',
     sentAt: assignment.sentAt,
     expiresAt: assignment.expiresAt,
     submittedAt: assignment.submittedAt,
