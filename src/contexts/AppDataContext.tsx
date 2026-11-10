@@ -32,6 +32,8 @@ import {
   canRevokeEmail,
   canReceiveExitFeedback,
   exitFeedbackEmailSubject,
+  exitFeedbackResendBlock,
+  exitFeedbackStatus,
   isOpenFormEmail,
   isTaskOpen,
   managePermissionFor,
@@ -107,6 +109,11 @@ interface AppData {
    * Forms and Manage Offboarding Transitions. Returns the forms actually sent.
    */
   sendExitFeedbackForms: (transitionId: string, feedbackForms: SendableFeedbackForm[], recipient: string) => SendableFeedbackForm[];
+  /**
+   * Reissues a revoked or expired exit feedback form with a new link and a new expiry, to the
+   * employee's official email. Same permissions as sending. Returns the new send, or null.
+   */
+  resendExitFeedbackForm: (transitionId: string, emailId: string, recipient: string) => EmailRecord | null;
   /** Stores the candidate's entries against one form. Does not submit or change its expiry. */
   saveTransitionDraft: (
   transitionId: string,
@@ -809,6 +816,63 @@ export function AppDataProvider({
     [transitions, oboPermissions, currentUserId]
   );
 
+  const resendExitFeedbackForm = useCallback(
+    (transitionId: string, emailId: string, recipient: string): EmailRecord | null => {
+      const transition = transitions.find((item) => item.id === transitionId);
+      const previous = transition?.emails.find((item) => item.id === emailId);
+      if (
+      !transition ||
+      !previous ||
+      !recipient ||
+      exitFeedbackResendBlock(transition, previous) ||
+      !oboPermissions.includes('Send Exit Feedback Forms') ||
+      !oboPermissions.includes('Manage Offboarding Transitions'))
+
+      return null;
+      const sentAt = prototypeNow();
+      const expiresAt = addDays(sentAt, FORM_LINK_EXPIRY_DAYS);
+      const actor = peopleById[currentUserId]?.name ?? currentUserId;
+      const resent: EmailRecord = {
+        id: `em-${Date.now()}`,
+        subject: exitFeedbackEmailSubject(expiresAt),
+        recipient,
+        sentAt,
+        content: 'form',
+        feedbackFormId: previous.feedbackFormId,
+        formName: previous.formName,
+        formCode: previous.formCode,
+        linkExpiresAt: expiresAt,
+        sentBy: actor
+      };
+      const was = exitFeedbackStatus(transition, previous).toLowerCase();
+      setTransitions((prev) =>
+      prev.map((item) =>
+      item.id !== transitionId ?
+      item :
+      {
+        ...item,
+        emails: [
+        ...item.emails.map((email) => email.id === emailId ? { ...email, resentAs: resent.id } : email),
+        resent],
+
+        auditTrail: [
+        ...item.auditTrail,
+        {
+          id: `au-${Date.now()}-resent`,
+          action: 'Exit feedback form resent',
+          actor,
+          at: sentAt,
+          detail: `${previous.formCode} ${previous.formName} · ${recipient} · expires ${formatDate(expiresAt)} · reissues the ${was} send of ${formatDate(previous.sentAt)}`
+        }]
+
+      }
+      )
+      );
+      return resent;
+    },
+    [transitions, oboPermissions, currentUserId]
+  );
+
   const saveTransitionDraft = useCallback(
     (
     transitionId: string,
@@ -937,6 +1001,7 @@ export function AppDataProvider({
       cancelPortalAccess,
       sendTransitionForm,
       sendExitFeedbackForms,
+      resendExitFeedbackForm,
       saveTransitionDraft,
       submitTransitionForm,
       reportExports,
@@ -983,6 +1048,7 @@ export function AppDataProvider({
     cancelPortalAccess,
     sendTransitionForm,
     sendExitFeedbackForms,
+    resendExitFeedbackForm,
     saveTransitionDraft,
     submitTransitionForm,
     reportExports,

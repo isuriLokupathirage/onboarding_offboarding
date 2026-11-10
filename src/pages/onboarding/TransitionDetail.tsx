@@ -25,6 +25,7 @@ import { SentForms } from '../../components/onboarding/SentForms';
 import { Dialog } from '../../components/ui/Dialog';
 import { portalUrl } from '../../utils/portal';
 import { SubmissionPanel } from '../../components/onboarding/SubmissionPanel';
+import { ExitFeedbackResponsePanel } from '../../components/onboarding/ExitFeedbackResponsePanel';
 import { SendTransitionFormDialog } from '../../components/onboarding/SendTransitionFormDialog';
 import { SendExitFeedbackFormDialog } from '../../components/onboarding/SendExitFeedbackFormDialog';
 import { Tooltip } from '../../components/ui/Tooltip';
@@ -33,6 +34,7 @@ import { dueLabel } from '../../components/tasks/OboTaskCard';
 import { NoSignInBadge } from '../../components/common/NoSignInBadge';
 import { useAppData } from '../../contexts/AppDataContext';
 import { useEmployeeData } from '../../contexts/EmployeeDataContext';
+import { useFeedbackForms } from '../../contexts/FeedbackFormsContext';
 import { offboardingMilestones, peopleById } from '../../data/people';
 import type {
   Department,
@@ -43,6 +45,7 @@ import type {
 import { formatDate, formatDateTime } from '../../utils/format';
 import {
   canReceiveExitFeedback,
+  isExitFeedbackEmail,
   canReceiveForm,
   daysLabel,
   exitFeedbackSendBlock,
@@ -79,15 +82,18 @@ function TransitionView({ transition }: {transition: Transition;}) {
     updateTaskStatus,
     cancelTransition,
     revokeEmail,
+    resendExitFeedbackForm,
     cancelPortalAccess,
     forms,
     templates
   } = useAppData();
   const { employees, logEmployeeChange } = useEmployeeData();
+  const { feedbackForms, recordFeedbackFormsSent } = useFeedbackForms();
   const screenInit = useScreenInit() as {
     view?: View;
     openTask?: string;
     submission?: boolean;
+    response?: boolean;
     sendForm?: boolean;
     cancel?: boolean;
     editExit?: boolean;
@@ -96,6 +102,13 @@ function TransitionView({ transition }: {transition: Transition;}) {
   const [submissionEmailId, setSubmissionEmailId] = useState<string | null>(
     screenInit.submission ? transition.submissions[0]?.emailId ?? null : null
   );
+  // Offboarding: the submitted exit feedback form whose response is open.
+  const [responseEmailId, setResponseEmailId] = useState<string | null>(
+    screenInit.response ? transition.submissions.find((item) =>
+    transition.emails.some((email) => email.id === item.emailId && isExitFeedbackEmail(email))
+    )?.emailId ?? null : null
+  );
+  const closeResponse = useCallback(() => setResponseEmailId(null), []);
   const [view, setView] = useState<View>(
     screenInit.view && VIEWS.includes(screenInit.view) ? screenInit.view : 'tasks'
   );
@@ -376,7 +389,22 @@ function TransitionView({ transition }: {transition: Transition;}) {
                   `The form was revoked and removed from the ${isLeaver ? "employee's" : "candidate's"} portal.`
                 );
               }}
-              onViewSubmission={setSubmissionEmailId} />
+              onViewSubmission={setSubmissionEmailId}
+              resendRecipient={exitFeedbackRecipient}
+              resendBlocked={
+              hasOboPermission('Manage Offboarding Transitions') ?
+              exitFeedbackBlocked :
+              'Requires the Manage Offboarding Transitions permission'
+              }
+              onResend={(emailId) => {
+                const sent = resendExitFeedbackForm(transition.id, emailId, exitFeedbackRecipient);
+                if (!sent) return;
+                if (sent.feedbackFormId) recordFeedbackFormsSent([sent.feedbackFormId]);
+                setNotice(
+                  `${sent.formName ?? 'The form'} was sent again to ${exitFeedbackRecipient}, with a new link that expires on ${formatDate(sent.linkExpiresAt ?? '')}.`
+                );
+              }}
+              onViewResponse={isLeaver ? setResponseEmailId : undefined} />
             }
 
             {view === 'audit' &&
@@ -615,6 +643,17 @@ function TransitionView({ transition }: {transition: Transition;}) {
         form={forms.find((form) => form.id === shownSubmission?.formId)}
         submission={shownSubmission}
         onClose={closeSubmission} />
+
+
+      <ExitFeedbackResponsePanel
+        open={Boolean(responseEmailId)}
+        employeeName={fullName}
+        email={transition.emails.find((email) => email.id === responseEmailId)}
+        form={feedbackForms.find(
+          (form) => form.id === transition.emails.find((email) => email.id === responseEmailId)?.feedbackFormId
+        )}
+        submission={transition.submissions.find((item) => item.emailId === responseEmailId)}
+        onClose={closeResponse} />
 
 
       {transition.exit &&

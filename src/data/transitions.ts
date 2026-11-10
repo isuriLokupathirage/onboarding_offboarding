@@ -251,7 +251,8 @@ const baseTransitions: TransitionSeed[] = [
     t24: { status: 'In Progress' },
     t26: { status: 'Completed' }
   }),
-  // An exit feedback form still open, so it cannot be sent again from Send Form.
+  // One exit feedback form in each status: open (so it cannot be sent again from Send Form),
+  // revoked, submitted and expired.
   emails: [
   {
     id: 'em-tr3-1',
@@ -262,6 +263,54 @@ const baseTransitions: TransitionSeed[] = [
     feedbackFormId: 'fbf1',
     formName: 'Standard Exit Interview',
     formCode: 'EXF-001'
+  },
+  {
+    id: 'em-tr3-2',
+    subject: exitFeedbackEmailSubject(addDays('2026-09-08T14:00:00', FORM_LINK_EXPIRY_DAYS)),
+    recipient: 'malith.senanayake@accxis.lk',
+    sentAt: '2026-09-08T14:00:00',
+    content: 'form',
+    feedbackFormId: 'fbf11',
+    formName: 'Finance Team Exit Survey',
+    formCode: 'EXF-011',
+    linkRevoked: true,
+    sentBy: 'Dilani Jayawardena'
+  },
+  {
+    id: 'em-tr3-3',
+    subject: exitFeedbackEmailSubject(addDays('2026-09-01T09:30:00', FORM_LINK_EXPIRY_DAYS)),
+    recipient: 'malith.senanayake@accxis.lk',
+    sentAt: '2026-09-01T09:30:00',
+    content: 'form',
+    feedbackFormId: 'fbf8',
+    formName: 'Manager Exit Survey',
+    formCode: 'EXF-008'
+  },
+  {
+    id: 'em-tr3-4',
+    subject: exitFeedbackEmailSubject(addDays('2026-08-30T11:15:00', FORM_LINK_EXPIRY_DAYS)),
+    recipient: 'malith.senanayake@accxis.lk',
+    sentAt: '2026-08-30T11:15:00',
+    content: 'form',
+    feedbackFormId: 'fbf10',
+    formName: 'Remote Employee Exit Survey',
+    formCode: 'EXF-010'
+  }],
+
+  emailEvents: [
+  { id: 'ev-tr3-1', emailId: 'em-tr3-2', action: 'Link revoked', actor: 'Dilani Jayawardena', at: '2026-09-10T16:40:00' }],
+
+  submissions: [
+  {
+    emailId: 'em-tr3-3',
+    submittedAt: '2026-09-03T19:12:00',
+    responses: {
+      'fbf8-q1': '4',
+      'fbf8-q2': 'A role leading a larger finance team, which was not open here for at least two years.',
+      'fbf8-q3': 'Yes',
+      'fbf8-q4': '3'
+    },
+    documents: []
   }],
 
   formStatus: 'Not Sent'
@@ -753,12 +802,16 @@ function seedAudit(transition: TransitionSeed): AuditEntry[] {
     );
   }
   (transition.submissions ?? []).forEach((submission, index) => {
+    const email = transition.emails.find((item) => item.id === submission.emailId);
+    const answers = Object.values(submission.responses).filter((value) => value.trim()).length;
     entries.push({
       id: `${transition.id}-sub${index}`,
-      action: 'Form submitted',
+      action: email?.feedbackFormId ? 'Exit feedback form submitted' : 'Form submitted',
       actor: `${transition.candidate.firstName} ${transition.candidate.lastName}`,
       at: submission.submittedAt,
-      detail: seedForms.find((form) => form.id === submission.formId)?.name
+      detail: email?.feedbackFormId ?
+      `${email.formName} · ${answers} answer${answers === 1 ? '' : 's'}` :
+      seedForms.find((form) => form.id === submission.formId)?.name
     });
   });
   if (transition.cancellation) {

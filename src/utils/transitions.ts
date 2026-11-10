@@ -214,6 +214,34 @@ export function openFeedbackFormEmail(transition: Transition, feedbackFormId: st
   );
 }
 
+/** How the Sent Forms tab reports an exit feedback form. */
+export type ExitFeedbackStatus = 'Sent' | 'Submitted' | 'Revoked' | 'Expired';
+
+/** A form left unanswered when the offboarding ended reads as Expired: it can no longer be submitted. */
+export function exitFeedbackStatus(transition: Transition, email: EmailRecord): ExitFeedbackStatus {
+  const status = emailStatus(transition, email);
+  if (status === 'Sent' || status === 'Submitted' || status === 'Revoked') return status;
+  return 'Expired';
+}
+
+/**
+ * Why a revoked or expired exit feedback form cannot be resent right now, or undefined when it can.
+ * Resending issues a new link with a new expiry, so the offboarding must still be in progress and
+ * the same form must not already be open from another send.
+ */
+export function exitFeedbackResendBlock(transition: Transition, email: EmailRecord): string | undefined {
+  if (!email.feedbackFormId) return 'Only exit feedback forms can be resent';
+  const status = exitFeedbackStatus(transition, email);
+  if (status !== 'Revoked' && status !== 'Expired') return 'Only a revoked or expired form can be resent';
+  if (!canReceiveExitFeedback(transition)) {
+    return statusGroup(transition) === 'Active' ?
+    'Portal access was cancelled, so forms can no longer be sent' :
+    `The offboarding is ${statusGroup(transition).toLowerCase()}, so forms can no longer be sent`;
+  }
+  if (openFeedbackFormEmail(transition, email.feedbackFormId)) return 'This form is already open from a later send';
+  return undefined;
+}
+
 /**
  * Why Send Form is disabled on an offboarding for someone who manages offboarding, or undefined when
  * it is not: they lack Send Exit Feedback Forms, or no employee record gives an official email.

@@ -222,6 +222,8 @@ export interface EmailRecord {
   formCode?: string;
   /** Who sent the form. */
   sentBy?: string;
+  /** Exit feedback only: the later send that reissued this revoked or expired form. */
+  resentAs?: string;
   /** Form emails carry the transition's portal link; this is when the form itself closes. */
   linkExpiresAt?: string;
   linkRevoked?: boolean;

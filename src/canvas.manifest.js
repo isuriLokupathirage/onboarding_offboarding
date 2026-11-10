@@ -22,6 +22,7 @@ export const manifest = {
     scr_xf1snd: { name: "Offboarding Transition – Send Exit Feedback Form", route: "/onboarding/transitions/tr3", state: { "view": "emails", "sendForm": true }, position: { "x": 47760, "y": 220 } },
     scr_xf2snt: { name: "Offboarding Transition – Sent Exit Feedback Forms", route: "/onboarding/transitions/tr3", state: { "view": "emails" }, position: { "x": 49160, "y": 220 } },
     scr_xf3aud: { name: "Offboarding Transition – Exit Feedback Audit Trail", route: "/onboarding/transitions/tr3", state: { "view": "audit" }, position: { "x": 50560, "y": 220 } },
+    scr_xf6rsp: { name: "Offboarding Transition – Exit Feedback Response", route: "/onboarding/transitions/tr3", state: { "view": "emails", "response": true }, position: { "x": 51960, "y": 220 } },
     scr_cx1dlg: { name: "Transition – Cancel Transition", route: "/onboarding/transitions/tr2", state: { "cancel": true }, position: { "x": 22560, "y": 220 } },
     scr_cx2don: { name: "Transition – Cancelled", route: "/onboarding/transitions/tr15", position: { "x": 23960, "y": 220 } },
     scr_nt1cnd: { name: "New Transition – Candidate Selected", route: "/onboarding/transitions/new", state: { "step": 0, "kind": "Onboarding", "candidateId": "rc1", "templateId": "tpl1" }, position: { "x": 25360, "y": 220 } },

@@ -91,9 +91,9 @@ form('fbf9', 9, 'Probation Exit Feedback', 'For employees leaving during probati
 form('fbf10', 10, 'Remote Employee Exit Survey', 'Adds questions on remote working.', 'Active', '2026-07-08T09:10:00', [
 ...standardExit.slice(0, 2),
 ['How connected did you feel to your team?', 'Rating Scale', true],
-['Did you have the equipment you needed at home?', 'Yes / No', true]]
-),
-form('fbf11', 11, 'Finance Team Exit Survey', 'For leavers from Finance.', 'Active', '2026-08-11T13:00:00', standardExit.slice(0, 4)),
+['Did you have the equipment you needed at home?', 'Yes / No', true]],
+[1, 0]),
+form('fbf11', 11, 'Finance Team Exit Survey', 'For leavers from Finance.', 'Active', '2026-08-11T13:00:00', standardExit.slice(0, 4), [1, 0]),
 form('fbf12', 12, 'Short Exit Pulse', 'Three quick questions when there is no time for a full interview.', 'Active', '2026-09-01T09:00:00', [
 ['How would you rate your experience overall?', 'Rating Scale', true],
 ['Would you recommend us as a place to work?', 'Yes / No', true],
