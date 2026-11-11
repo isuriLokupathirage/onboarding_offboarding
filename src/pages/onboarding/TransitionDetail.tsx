@@ -648,6 +648,7 @@ function TransitionView({ transition }: {transition: Transition;}) {
         open={Boolean(shownSubmission)}
         candidateName={fullName}
         form={forms.find((form) => form.id === shownSubmission?.formId)}
+        email={transition.emails.find((email) => email.id === shownSubmission?.emailId)}
         submission={shownSubmission}
         onClose={closeSubmission} />
 

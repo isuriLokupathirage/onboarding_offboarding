@@ -5,12 +5,15 @@ export function Drawer({
   open,
   label,
   onClose,
-  children
+  children,
+  size = 'md'
 }: {
   open: boolean;
   label: string;
   onClose: () => void;
   children: React.ReactNode;
+  /** `lg` gives room for a long read-only record, such as a submitted form. */
+  size?: 'md' | 'lg';
 }) {
   useEffect(() => {
     if (!open) return undefined;
@@ -41,7 +44,7 @@ export function Drawer({
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 24, opacity: 0 }}
           transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-          className="relative flex h-full w-full max-w-md flex-col bg-white shadow-pop">
+          className={`relative flex h-full w-full ${size === 'lg' ? 'max-w-2xl' : 'max-w-md'} flex-col bg-white shadow-pop`}>
 
             {children}
           </motion.aside>
