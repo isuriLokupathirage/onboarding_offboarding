@@ -26,13 +26,18 @@ import { Progress } from '../../components/ui/Progress';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Tooltip } from '../../components/ui/Tooltip';
 import { SendTransitionFormDialog } from '../../components/onboarding/SendTransitionFormDialog';
+import { sendFormNotice } from '../../utils/sendForm';
+import { SendExitFeedbackFormDialog } from '../../components/onboarding/SendExitFeedbackFormDialog';
 import { useAppData } from '../../contexts/AppDataContext';
+import { useEmployeeData } from '../../contexts/EmployeeDataContext';
 import { peopleById } from '../../data/people';
 import type { Transition, TransitionKind } from '../../types';
 import { formatDate } from '../../utils/format';
 import {
+  canReceiveExitFeedback,
   canReceiveForm,
   daysLabel,
+  exitFeedbackSendBlock,
   hasTaskOwnedBy,
   isOverdue,
   PROTOTYPE_TODAY,
@@ -64,6 +69,8 @@ interface ListScreenState {
   query?: string;
   attention?: AttentionFilter[];
   starting?: UpcomingPeriod;
+  /** Canvas: open Send Form for these transitions, as the bulk action does. */
+  sendTo?: string[];
 }
 
 interface FilterChip {
@@ -107,8 +114,11 @@ export function Transitions() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(init.type ?? 'all');
   const [query, setQuery] = useState(init.query ?? '');
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [sendingTo, setSendingTo] = useState<string[] | null>(null);
+  const [selected, setSelected] = useState<string[]>(init.sendTo ?? []);
+  const [sendingTo, setSendingTo] = useState<string[] | null>(init.sendTo ?? null);
+  // Offboarding rows send exit feedback forms, one leaver at a time.
+  const [exitFeedbackFor, setExitFeedbackFor] = useState<string | null>(null);
+  const { employees } = useEmployeeData();
   const [notice, setNotice] = useState<string | null>(null);
 
   const kinds = useMemo(() => visibleKinds(oboPermissions), [oboPermissions]);
@@ -148,6 +158,31 @@ export function Transitions() {
   const canStartTransition = canSendForms || hasOboPermission('Manage Offboarding Transitions');
   const isSelectable = (transition: Transition) => canSendForms && canReceiveForm(transition);
   const closeSendForm = useCallback(() => setSendingTo(null), []);
+  const closeExitFeedback = useCallback(() => setExitFeedbackFor(null), []);
+  const canManageOffboarding = hasOboPermission('Manage Offboarding Transitions');
+  const canSendExitFeedback = hasOboPermission('Send Exit Feedback Forms');
+  const officialEmailOf = (transition: Transition) =>
+  employees.find((employee) => employee.id === transition.exit?.employeeId)?.officialEmail;
+  /** The row's Send Form action: who it sends to, and why it is disabled when it is. */
+  const rowSendForm = (transition: Transition): {label: string;blocked?: string;onSend: () => void;} | null => {
+    const fullName = `${transition.candidate.firstName} ${transition.candidate.lastName}`;
+    if (canReceiveForm(transition)) {
+      return {
+        label: `Send a form to ${fullName}`,
+        blocked: canSendForms ? undefined : PERMISSION_NOTE,
+        onSend: () => setSendingTo([transition.id])
+      };
+    }
+    if (canReceiveExitFeedback(transition) && canManageOffboarding) {
+      return {
+        label: `Send an exit feedback form to ${fullName}`,
+        blocked: exitFeedbackSendBlock(canSendExitFeedback, officialEmailOf(transition)),
+        onSend: () => setExitFeedbackFor(transition.id)
+      };
+    }
+    return null;
+  };
+  const exitFeedbackTransition = transitions.find((transition) => transition.id === exitFeedbackFor);
 
   const scoped = useMemo(
     () =>
@@ -482,9 +517,7 @@ export function Transitions() {
               selectable={isSelectable(transition)}
               checked={selected.includes(transition.id)}
               onToggle={() => toggleSelected(transition.id)}
-              showSendForm={canReceiveForm(transition)}
-              canSendForms={canSendForms}
-              onSendForm={() => setSendingTo([transition.id])}
+              sendForm={rowSendForm(transition)}
               onOpen={() => navigate(`/onboarding/transitions/${transition.id}`)} />
 
             )}
@@ -507,15 +540,24 @@ export function Transitions() {
         open={recipients.length > 0}
         recipients={recipients}
         onClose={closeSendForm}
-        onSent={(formName, count) => {
-          setNotice(
-            count === 1 ?
-            `${formName} was sent to ${recipients[0]?.candidate.personalEmail}.` :
-            `${formName} was sent to ${count} candidates at their personal email addresses.`
-          );
+        onSent={(sends, formNames) => {
+          setNotice(sendFormNotice(sends, formNames, recipients));
           setSelected([]);
         }} />
 
+      {exitFeedbackTransition &&
+      <SendExitFeedbackFormDialog
+        open
+        transition={exitFeedbackTransition}
+        recipient={officialEmailOf(exitFeedbackTransition) ?? ''}
+        onClose={closeExitFeedback}
+        onSent={(formNames) =>
+        setNotice(
+          `${formNames.length === 1 ? formNames[0] : `${formNames.length} exit feedback forms`} ${
+          formNames.length === 1 ? 'was' : 'were'} sent to ${officialEmailOf(exitFeedbackTransition)}.`
+        )
+        } />
+      }
     </div>);
 
 }
@@ -525,18 +567,15 @@ function TransitionRow({
   selectable,
   checked,
   onToggle,
-  showSendForm,
-  canSendForms,
-  onSendForm,
+  sendForm,
   onOpen
 }: {
   transition: Transition;
   selectable: boolean;
   checked: boolean;
   onToggle: () => void;
-  showSendForm: boolean;
-  canSendForms: boolean;
-  onSendForm: () => void;
+  /** Onboarding sends an employee form; offboarding sends exit feedback forms. Null hides the action. */
+  sendForm: {label: string;blocked?: string;onSend: () => void;} | null;
   onOpen: () => void;
 }) {
   const { done, total, percent } = transitionProgress(transition);
@@ -627,13 +666,13 @@ function TransitionRow({
       </span>
 
       <span className="flex justify-end gap-1" onClick={(event) => event.stopPropagation()}>
-        {showSendForm &&
-        <Tooltip label={canSendForms ? `Send a form to ${fullName}` : PERMISSION_NOTE}>
+        {sendForm &&
+        <Tooltip label={sendForm.blocked ?? sendForm.label}>
             <button
             type="button"
-            disabled={!canSendForms}
-            onClick={onSendForm}
-            aria-label={`Send a form to ${fullName}`}
+            disabled={Boolean(sendForm.blocked)}
+            onClick={sendForm.onSend}
+            aria-label={sendForm.label}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-subtle transition-colors duration-150 ease-out hover:bg-brand-50 hover:text-brand-600 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent">
 
               <MailIcon className="h-4 w-4" />

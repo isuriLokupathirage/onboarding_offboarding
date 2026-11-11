@@ -183,6 +183,24 @@ const baseAssignments: AssignmentSeed[] = [
     at: '2026-09-05T15:12:00'
   }]
 
+},
+// A leaver (Malith Senanayake, offboarding tr3): his portal lists this beside his exit feedback form.
+{
+  id: 'asg6',
+  employeeId: 'emp9',
+  formId: 'frm4',
+  formName: 'Document Verification Form',
+  status: 'Submitted',
+  sentAt: '2026-08-25T11:00:00',
+  expiresAt: '2026-09-24T11:00:00',
+  submittedAt: '2026-08-27T16:20:00',
+  draftSaved: false,
+  responses: {},
+  changes: [],
+  activity: [
+  { id: 'ac-emp9-1', action: 'Sent', detail: 'Document Verification Form', actor: 'Nimal Perera', at: '2026-08-25T11:00:00' },
+  { id: 'ac-emp9-2', action: 'Submitted', actor: 'Malith Senanayake', at: '2026-08-27T16:20:00' }]
+
 }];
 
 

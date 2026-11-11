@@ -14,7 +14,12 @@ import { seedTasks } from './tasks';
 import { seedTemplates } from './templates';
 import { seedForms } from './forms';
 import { addDays, formatDate } from '../utils/format';
-import { FORM_LINK_EXPIRY_DAYS, toTransitionTask, transitionTargetDate } from '../utils/transitions';
+import {
+  FORM_LINK_EXPIRY_DAYS,
+  exitFeedbackEmailSubject,
+  toTransitionTask,
+  transitionTargetDate } from
+'../utils/transitions';
 
 type TransitionSeed = Omit<
   Transition,
@@ -89,8 +94,7 @@ const baseTransitions: TransitionSeed[] = [
     recipient: 'anushka.rajapaksha@gmail.com',
     sentAt: '2026-09-08T09:14:00',
     content: 'form',
-    formId: 'frm1',
-    replacedBy: 'em1'
+    formId: 'frm1'
   },
   {
     id: 'em1',
@@ -130,6 +134,83 @@ const baseTransitions: TransitionSeed[] = [
 
   formStatus: 'In Progress',
   submissions: [
+  {
+    // The first form, filled in completely: every section, two repeating rows, and the
+    // Married insurance group, so View Submission shows a whole form.
+    emailId: 'em0',
+    formId: 'frm1',
+    submittedAt: '2026-09-12T19:24:00',
+    parts: { details: '2026-09-11T21:40:00', documents: '2026-09-12T19:24:00' },
+    responses: {
+      firstName: 'Anushka',
+      lastName: 'Rajapaksha',
+      nic: '199710304562',
+      dob: '1997-04-12',
+      gender: 'Female',
+      nationality: 'Sri Lankan',
+      marital: 'Married',
+      tin: '104-558-2231',
+      permAddress: '41/3 Nawala Road, Rajagiriya',
+      tempAddress: '',
+      homeNumber: '+94 11 286 4410',
+      mobile: '+94 77 412 8890',
+      email: 'anushka.rajapaksha@gmail.com',
+      'eduSchool#0': 'University of Colombo School of Computing',
+      'eduDegree#0': 'BSc (Hons) in Computer Science',
+      'eduField#0': 'Computer Science',
+      'eduStart#0': '2016-02-01',
+      'eduEnd#0': '2020-06-30',
+      'eduSchool#1': 'Visakha Vidyalaya, Colombo',
+      'eduDegree#1': 'GCE Advanced Level',
+      'eduField#1': 'Physical Science',
+      'eduStart#1': '2013-01-15',
+      'eduEnd#1': '2015-12-10',
+      'expTitle#0': 'Software Engineer',
+      'expCompany#0': 'WSO2',
+      'expStart#0': '2022-08-01',
+      'expEnd#0': '2026-08-29',
+      'expResp#0':
+      'Built and maintained API gateway features in Java and Go. Led the migration of integration tests to a containerised pipeline.',
+      'expTitle#1': 'Associate Software Engineer',
+      'expCompany#1': 'Virtusa',
+      'expStart#1': '2020-08-03',
+      'expEnd#1': '2022-07-29',
+      'expResp#1': 'Developed Angular front ends for a banking client and fixed production defects.',
+      'skill#0': 'Java',
+      'skill#1': 'TypeScript',
+      'skill#2': 'React',
+      'skill#3': 'AWS',
+      'ecName#0': 'Kasun Rajapaksha',
+      'ecNumber#0': '+94 71 774 2093',
+      'ecRelationship#0': 'Spouse',
+      'ecName#1': 'Malini Fernando',
+      'ecNumber#1': '+94 77 301 5528',
+      'ecRelationship#1': 'Parent',
+      accName: 'A. Rajapaksha',
+      accType: 'Savings — LKR',
+      bankName: 'Commercial Bank of Ceylon',
+      branchName: 'Rajagiriya',
+      accNumber: '8012457731',
+      branchNumber: '146',
+      tshirt: 'Medium (M)',
+      meal: 'Other',
+      meal__other: 'Pescatarian',
+      liquor: 'No',
+      spouseName: 'Kasun Rajapaksha',
+      spouseDob: '1995-11-02',
+      'childName#0': 'Senuli Rajapaksha',
+      'childDob#0': '2023-03-18'
+    },
+    documents: [
+    { name: 'National Identity Card', fileName: 'NIC-front.jpg' },
+    { name: 'National Identity Card', fileName: 'NIC-back.jpg' },
+    { name: 'Highest Educational Qualification', fileName: 'BSc-degree-certificate.pdf' },
+    { name: 'Highest Educational Qualification', fileName: 'BSc-transcript.pdf' },
+    { name: 'Previous Employment Letter', fileName: 'WSO2-service-letter.pdf' },
+    { name: 'Police Clearance Report', fileName: 'police-clearance-2026.pdf' },
+    { name: 'Passport Size Photograph', fileName: 'photo-anushka.jpg' }]
+
+  },
   {
     emailId: 'em3',
     formId: 'frm4',
@@ -246,7 +327,68 @@ const baseTransitions: TransitionSeed[] = [
     t24: { status: 'In Progress' },
     t26: { status: 'Completed' }
   }),
-  emails: [],
+  // One exit feedback form in each status: open (so it cannot be sent again from Send Form),
+  // revoked, submitted and expired.
+  emails: [
+  {
+    id: 'em-tr3-1',
+    subject: exitFeedbackEmailSubject(addDays('2026-09-14T10:20:00', FORM_LINK_EXPIRY_DAYS)),
+    recipient: 'malith.senanayake@accxis.lk',
+    sentAt: '2026-09-14T10:20:00',
+    content: 'form',
+    feedbackFormId: 'fbf1',
+    formName: 'Standard Exit Interview',
+    formCode: 'EXF-001'
+  },
+  {
+    id: 'em-tr3-2',
+    subject: exitFeedbackEmailSubject(addDays('2026-09-08T14:00:00', FORM_LINK_EXPIRY_DAYS)),
+    recipient: 'malith.senanayake@accxis.lk',
+    sentAt: '2026-09-08T14:00:00',
+    content: 'form',
+    feedbackFormId: 'fbf11',
+    formName: 'Finance Team Exit Survey',
+    formCode: 'EXF-011',
+    linkRevoked: true,
+    sentBy: 'Dilani Jayawardena'
+  },
+  {
+    id: 'em-tr3-3',
+    subject: exitFeedbackEmailSubject(addDays('2026-09-01T09:30:00', FORM_LINK_EXPIRY_DAYS)),
+    recipient: 'malith.senanayake@accxis.lk',
+    sentAt: '2026-09-01T09:30:00',
+    content: 'form',
+    feedbackFormId: 'fbf8',
+    formName: 'Manager Exit Survey',
+    formCode: 'EXF-008'
+  },
+  {
+    id: 'em-tr3-4',
+    subject: exitFeedbackEmailSubject(addDays('2026-08-30T11:15:00', FORM_LINK_EXPIRY_DAYS)),
+    recipient: 'malith.senanayake@accxis.lk',
+    sentAt: '2026-08-30T11:15:00',
+    content: 'form',
+    feedbackFormId: 'fbf10',
+    formName: 'Remote Employee Exit Survey',
+    formCode: 'EXF-010'
+  }],
+
+  emailEvents: [
+  { id: 'ev-tr3-1', emailId: 'em-tr3-2', action: 'Link revoked', actor: 'Dilani Jayawardena', at: '2026-09-10T16:40:00' }],
+
+  submissions: [
+  {
+    emailId: 'em-tr3-3',
+    submittedAt: '2026-09-03T19:12:00',
+    responses: {
+      'fbf8-q1': '4',
+      'fbf8-q2': 'A role leading a larger finance team, which was not open here for at least two years.',
+      'fbf8-q3': 'Yes',
+      'fbf8-q4': '3'
+    },
+    documents: []
+  }],
+
   formStatus: 'Not Sent'
 },
 {
@@ -689,13 +831,16 @@ function seedAudit(transition: TransitionSeed): AuditEntry[] {
   const sender = peopleById[transition.ownerIds[0]]?.name ?? 'System';
   transition.emails.forEach((email) => {
     if (email.content !== 'form') return;
-    const form = seedForms.find((item) => item.id === (email.formId ?? transition.candidate.employeeFormId));
+    const form = email.feedbackFormId ?
+    undefined :
+    seedForms.find((item) => item.id === (email.formId ?? transition.candidate.employeeFormId));
+    const label = email.formName ? `${email.formCode} ${email.formName}` : form ? `${form.code} ${form.name}` : email.subject;
     entries.push({
       id: `${transition.id}-${email.id}-sent`,
-      action: 'Form sent',
-      actor: sender,
+      action: email.feedbackFormId ? 'Exit feedback form sent' : 'Form sent',
+      actor: email.sentBy ?? sender,
       at: email.sentAt,
-      detail: `${form ? `${form.code} ${form.name}` : email.subject} · ${email.recipient} · expires ${formatDate(
+      detail: `${label} · ${email.recipient} · expires ${formatDate(
         addDays(email.sentAt, FORM_LINK_EXPIRY_DAYS)
       )}`
     });
@@ -708,7 +853,8 @@ function seedAudit(transition: TransitionSeed): AuditEntry[] {
       action: 'Form revoked',
       actor: event.actor,
       at: event.at,
-      detail: `${form?.name ?? email?.subject ?? 'Form'} · removed from the candidate's portal`
+      detail: `${email?.formName ?? form?.name ?? email?.subject ?? 'Form'} · removed from the ${
+      transition.kind === 'Onboarding' ? "candidate's" : "employee's"} portal`
     });
   });
   if (transition.portalCancellation) {
@@ -732,12 +878,16 @@ function seedAudit(transition: TransitionSeed): AuditEntry[] {
     );
   }
   (transition.submissions ?? []).forEach((submission, index) => {
+    const email = transition.emails.find((item) => item.id === submission.emailId);
+    const answers = Object.values(submission.responses).filter((value) => value.trim()).length;
     entries.push({
       id: `${transition.id}-sub${index}`,
-      action: 'Form submitted',
+      action: email?.feedbackFormId ? 'Exit feedback form submitted' : 'Form submitted',
       actor: `${transition.candidate.firstName} ${transition.candidate.lastName}`,
       at: submission.submittedAt,
-      detail: seedForms.find((form) => form.id === submission.formId)?.name
+      detail: email?.feedbackFormId ?
+      `${email.formName} · ${answers} answer${answers === 1 ? '' : 's'}` :
+      seedForms.find((form) => form.id === submission.formId)?.name
     });
   });
   if (transition.cancellation) {
@@ -763,8 +913,10 @@ export const seedTransitions: Transition[] = [...baseTransitions, ...compactTran
   email.content === 'form' ?
   {
     ...email,
-    formId: email.formId ?? transition.candidate.employeeFormId,
-    linkExpiresAt: addDays(email.sentAt, FORM_LINK_EXPIRY_DAYS)
+    // An exit feedback form names its form through feedbackFormId instead.
+    formId: email.feedbackFormId ? undefined : email.formId ?? transition.candidate.employeeFormId,
+    linkExpiresAt: addDays(email.sentAt, FORM_LINK_EXPIRY_DAYS),
+    sentBy: email.sentBy ?? peopleById[transition.ownerIds[0]]?.name ?? 'System'
   } :
   email
   ),

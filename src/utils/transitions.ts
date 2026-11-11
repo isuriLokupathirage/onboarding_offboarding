@@ -174,27 +174,106 @@ export function sentFormClosedAt(transition: Transition, email: EmailRecord): st
   }
 }
 
-/** The subject of the email that sends a form. */
-export function formEmailSubject(expiresOn: string): string {
-  return `Please complete your employee form by ${formatDate(expiresOn)}`;
+/** The subject of the email that sends one or more employee forms. */
+export function formEmailSubject(expiresOn: string, formCount = 1): string {
+  return `Please complete your employee form${formCount === 1 ? '' : 's'} by ${formatDate(expiresOn)}`;
 }
 
 export function managePermissionFor(kind: TransitionKind): OboPermission {
   return kind === 'Onboarding' ? 'Manage Onboarding Transitions' : 'Manage Offboarding Transitions';
 }
 
+/**
+ * An onboarding in progress can be sent employee forms. Completed and cancelled transitions cannot.
+ * A cancelled or lapsed portal does not block the send: sending issues a new portal.
+ */
 export function canReceiveForm(transition: Transition): boolean {
+  return statusGroup(transition) === 'Active' && transition.kind === 'Onboarding';
+}
+
+/** True when sending a form must issue the candidate a new portal and link, because theirs has closed. */
+export function needsNewPortal(transition: Transition): boolean {
+  return transition.portalAccess !== 'Active';
+}
+
+/** An offboarding in progress whose portal has not been cancelled can be sent exit feedback forms. */
+export function canReceiveExitFeedback(transition: Transition): boolean {
   return (
     statusGroup(transition) === 'Active' &&
-    transition.kind === 'Onboarding' &&
+    transition.kind === 'Offboarding' &&
     transition.portalAccess === 'Active');
 
+}
+
+export function isExitFeedbackEmail(email: EmailRecord): boolean {
+  return Boolean(email.feedbackFormId);
+}
+
+/**
+ * The open send of an exit feedback form, if there is one. Unlike an employee form, an exit
+ * feedback form cannot be sent again until that send is submitted, revoked or expires.
+ */
+export function openFeedbackFormEmail(transition: Transition, feedbackFormId: string): EmailRecord | undefined {
+  return transition.emails.find(
+    (email) => email.feedbackFormId === feedbackFormId && isOpenFormEmail(transition, email)
+  );
+}
+
+/** How the Sent Forms tab reports an exit feedback form. */
+export type ExitFeedbackStatus = 'Sent' | 'Submitted' | 'Revoked' | 'Expired';
+
+/** A form left unanswered when the offboarding ended reads as Expired: it can no longer be submitted. */
+export function exitFeedbackStatus(transition: Transition, email: EmailRecord): ExitFeedbackStatus {
+  const status = emailStatus(transition, email);
+  if (status === 'Sent' || status === 'Submitted' || status === 'Revoked') return status;
+  return 'Expired';
+}
+
+/**
+ * Why a revoked or expired exit feedback form cannot be resent right now, or undefined when it can.
+ * Resending issues a new link with a new expiry, so the offboarding must still be in progress and
+ * the same form must not already be open from another send.
+ */
+export function exitFeedbackResendBlock(transition: Transition, email: EmailRecord): string | undefined {
+  if (!email.feedbackFormId) return 'Only exit feedback forms can be resent';
+  const status = exitFeedbackStatus(transition, email);
+  if (status !== 'Revoked' && status !== 'Expired') return 'Only a revoked or expired form can be resent';
+  if (!canReceiveExitFeedback(transition)) {
+    return statusGroup(transition) === 'Active' ?
+    'Portal access was cancelled, so forms can no longer be sent' :
+    `The offboarding is ${statusGroup(transition).toLowerCase()}, so forms can no longer be sent`;
+  }
+  if (openFeedbackFormEmail(transition, email.feedbackFormId)) return 'This form is already open from a later send';
+  return undefined;
+}
+
+/**
+ * Why Send Form is disabled on an offboarding for someone who manages offboarding, or undefined when
+ * it is not: they lack Send Exit Feedback Forms, or no employee record gives an official email.
+ */
+export function exitFeedbackSendBlock(canSendExitFeedback: boolean, officialEmail: string | undefined): string | undefined {
+  if (!canSendExitFeedback) return 'Requires the Send Exit Feedback Forms permission';
+  if (!officialEmail) return 'No employee record is linked, so there is no official email to send to';
+  return undefined;
+}
+
+/** The subject of the email that sends exit feedback forms. */
+export function exitFeedbackEmailSubject(expiresOn: string): string {
+  return `We'd value your feedback before you leave. Please respond by ${formatDate(expiresOn)}`;
+}
+
+/** A sent form's name: as recorded when it was sent, else looked up, else the email subject. */
+export function sentFormName(email: EmailRecord, employeeForms: {id: string;name: string;}[]): string {
+  return email.formName ?? employeeForms.find((form) => form.id === email.formId)?.name ?? email.subject;
 }
 
 export type PortalStatus = 'Active' | 'Closed' | 'Cancelled' | 'Not Issued';
 
 /** The portal is issued with the first form sent to the candidate. */
 export function portalIssue(transition: Transition): {issuedAt: string;sentTo: string;} | null {
+  if (transition.portalReissuedAt) {
+    return { issuedAt: transition.portalReissuedAt, sentTo: transition.candidate.personalEmail };
+  }
   const first = sentFormEmails(transition).
   slice().
   sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime())[0];

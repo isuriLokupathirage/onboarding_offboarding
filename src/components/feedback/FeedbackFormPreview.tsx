@@ -159,7 +159,8 @@ export function FeedbackFormPreview({
 
 }
 
-function AnswerInput({
+/** One question's answer control. Shared with the portal, where the recipient answers for real. */
+export function AnswerInput({
   question,
   value,
   onChange

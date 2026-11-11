@@ -21,7 +21,12 @@ export type OboPermission =
 /** obo.feedback_form.manage: create, edit, duplicate, deactivate and delete exit feedback forms. */
 'Manage Exit Feedback Forms' |
 /** obo.report.view: open Onboarding & Offboarding → Reports. */
-'View Reports';
+'View Reports' |
+/**
+ * template.exit_feedback_form.send: send exit feedback forms from an offboarding transition.
+ * Sending also needs Manage Offboarding Transitions.
+ */
+'Send Exit Feedback Forms';
 
 export type Priority = 'Low' | 'Medium' | 'High';
 
@@ -208,7 +213,17 @@ export interface EmailRecord {
   recipient: string;
   sentAt: string;
   content: 'form' | 'reminder';
+  /** The employee form sent. Absent on an exit feedback form, which sets feedbackFormId instead. */
   formId?: string;
+  /** Offboarding only: the exit feedback form sent. */
+  feedbackFormId?: string;
+  /** The form's name and code when it was sent, so the record reads the same if the form is later renamed. */
+  formName?: string;
+  formCode?: string;
+  /** Who sent the form. */
+  sentBy?: string;
+  /** Exit feedback only: the later send that reissued this revoked or expired form. */
+  resentAs?: string;
   /** Form emails carry the transition's portal link; this is when the form itself closes. */
   linkExpiresAt?: string;
   linkRevoked?: boolean;
@@ -329,6 +344,11 @@ export interface Transition {
   cancellation?: TransitionCancellation;
   /** Set when HR cancels the candidate's portal access. portalAccess is then 'Revoked'. */
   portalCancellation?: {at: string;by: string;};
+  /**
+   * Set when a form was sent to a candidate whose portal had been cancelled or had lapsed. The send
+   * issued a new portal with a new link, and the portal counts as issued from this moment.
+   */
+  portalReissuedAt?: string;
   /** Offboarding only: the exit type, reason, dates and documents from Step 2. */
   exit?: ExitDetails;
   /** Offboarding only: the leaver's employment details as they were when the offboarding started. */
