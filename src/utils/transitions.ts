@@ -174,21 +174,26 @@ export function sentFormClosedAt(transition: Transition, email: EmailRecord): st
   }
 }
 
-/** The subject of the email that sends a form. */
-export function formEmailSubject(expiresOn: string): string {
-  return `Please complete your employee form by ${formatDate(expiresOn)}`;
+/** The subject of the email that sends one or more employee forms. */
+export function formEmailSubject(expiresOn: string, formCount = 1): string {
+  return `Please complete your employee form${formCount === 1 ? '' : 's'} by ${formatDate(expiresOn)}`;
 }
 
 export function managePermissionFor(kind: TransitionKind): OboPermission {
   return kind === 'Onboarding' ? 'Manage Onboarding Transitions' : 'Manage Offboarding Transitions';
 }
 
+/**
+ * An onboarding in progress can be sent employee forms. Completed and cancelled transitions cannot.
+ * A cancelled or lapsed portal does not block the send: sending issues a new portal.
+ */
 export function canReceiveForm(transition: Transition): boolean {
-  return (
-    statusGroup(transition) === 'Active' &&
-    transition.kind === 'Onboarding' &&
-    transition.portalAccess === 'Active');
+  return statusGroup(transition) === 'Active' && transition.kind === 'Onboarding';
+}
 
+/** True when sending a form must issue the candidate a new portal and link, because theirs has closed. */
+export function needsNewPortal(transition: Transition): boolean {
+  return transition.portalAccess !== 'Active';
 }
 
 /** An offboarding in progress whose portal has not been cancelled can be sent exit feedback forms. */
@@ -266,6 +271,9 @@ export type PortalStatus = 'Active' | 'Closed' | 'Cancelled' | 'Not Issued';
 
 /** The portal is issued with the first form sent to the candidate. */
 export function portalIssue(transition: Transition): {issuedAt: string;sentTo: string;} | null {
+  if (transition.portalReissuedAt) {
+    return { issuedAt: transition.portalReissuedAt, sentTo: transition.candidate.personalEmail };
+  }
   const first = sentFormEmails(transition).
   slice().
   sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime())[0];

@@ -344,6 +344,11 @@ export interface Transition {
   cancellation?: TransitionCancellation;
   /** Set when HR cancels the candidate's portal access. portalAccess is then 'Revoked'. */
   portalCancellation?: {at: string;by: string;};
+  /**
+   * Set when a form was sent to a candidate whose portal had been cancelled or had lapsed. The send
+   * issued a new portal with a new link, and the portal counts as issued from this moment.
+   */
+  portalReissuedAt?: string;
   /** Offboarding only: the exit type, reason, dates and documents from Step 2. */
   exit?: ExitDetails;
   /** Offboarding only: the leaver's employment details as they were when the offboarding started. */

@@ -26,6 +26,7 @@ import { Progress } from '../../components/ui/Progress';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Tooltip } from '../../components/ui/Tooltip';
 import { SendTransitionFormDialog } from '../../components/onboarding/SendTransitionFormDialog';
+import { sendFormNotice } from '../../utils/sendForm';
 import { SendExitFeedbackFormDialog } from '../../components/onboarding/SendExitFeedbackFormDialog';
 import { useAppData } from '../../contexts/AppDataContext';
 import { useEmployeeData } from '../../contexts/EmployeeDataContext';
@@ -68,6 +69,8 @@ interface ListScreenState {
   query?: string;
   attention?: AttentionFilter[];
   starting?: UpcomingPeriod;
+  /** Canvas: open Send Form for these transitions, as the bulk action does. */
+  sendTo?: string[];
 }
 
 interface FilterChip {
@@ -111,8 +114,8 @@ export function Transitions() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(init.type ?? 'all');
   const [query, setQuery] = useState(init.query ?? '');
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [sendingTo, setSendingTo] = useState<string[] | null>(null);
+  const [selected, setSelected] = useState<string[]>(init.sendTo ?? []);
+  const [sendingTo, setSendingTo] = useState<string[] | null>(init.sendTo ?? null);
   // Offboarding rows send exit feedback forms, one leaver at a time.
   const [exitFeedbackFor, setExitFeedbackFor] = useState<string | null>(null);
   const { employees } = useEmployeeData();
@@ -537,12 +540,8 @@ export function Transitions() {
         open={recipients.length > 0}
         recipients={recipients}
         onClose={closeSendForm}
-        onSent={(formName, count) => {
-          setNotice(
-            count === 1 ?
-            `${formName} was sent to ${recipients[0]?.candidate.personalEmail}.` :
-            `${formName} was sent to ${count} candidates at their personal email addresses.`
-          );
+        onSent={(sends, formNames) => {
+          setNotice(sendFormNotice(sends, formNames, recipients));
           setSelected([]);
         }} />
 

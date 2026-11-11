@@ -27,6 +27,7 @@ import { portalUrl } from '../../utils/portal';
 import { SubmissionPanel } from '../../components/onboarding/SubmissionPanel';
 import { ExitFeedbackResponsePanel } from '../../components/onboarding/ExitFeedbackResponsePanel';
 import { SendTransitionFormDialog } from '../../components/onboarding/SendTransitionFormDialog';
+import { sendFormNotice } from '../../utils/sendForm';
 import { SendExitFeedbackFormDialog } from '../../components/onboarding/SendExitFeedbackFormDialog';
 import { Tooltip } from '../../components/ui/Tooltip';
 import { TaskStatusBadge } from '../../components/tasks/TaskStatusBadge';
@@ -540,6 +541,12 @@ function TransitionView({ transition }: {transition: Transition;}) {
                 'The portal is issued with the first exit feedback form sent to the employee.'}
                 </p>
               }
+              {transition.portalReissuedAt &&
+              <p className="mt-3 rounded-lg bg-sky-50 px-3 py-2 text-[12px] text-sky-900 ring-1 ring-inset ring-sky-200">
+                  New portal issued on {formatDateTime(transition.portalReissuedAt)}, when a form was sent after the
+                  earlier portal closed. The earlier link no longer works.
+                </p>
+              }
               {transition.portalCancellation &&
               <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-[12px] text-muted ring-1 ring-inset ring-slate-200">
                   Cancelled by {transition.portalCancellation.by} on{' '}
@@ -593,9 +600,9 @@ function TransitionView({ transition }: {transition: Transition;}) {
         open={sendingForm}
         recipients={[transition]}
         onClose={closeSendForm}
-        onSent={(formName) => {
+        onSent={(sends, formNames) => {
           setView('emails');
-          setNotice(`${formName} was sent to ${transition.candidate.personalEmail}.`);
+          setNotice(sendFormNotice(sends, formNames, [transition]));
         }} />
       }
 
